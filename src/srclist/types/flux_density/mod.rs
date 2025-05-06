@@ -57,10 +57,10 @@ impl FluxDensity {
     /// Jones matrices [XX XY YX YY], where X is East-West and Y is North-South.
     pub(crate) fn to_inst_stokes(self) -> Jones<f64> {
         Jones::from([
-            c64::new(self.i - self.q, 0.0),
-            c64::new(self.u, -self.v),
-            c64::new(self.u, self.v),
             c64::new(self.i + self.q, 0.0),
+            c64::new(self.u, self.v),
+            c64::new(self.u, -self.v),
+            c64::new(self.i - self.q, 0.0),
         ])
     }
 }
