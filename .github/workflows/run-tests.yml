@@ -9,6 +9,7 @@ on:
     pull_request:
     branches:
     - '**'
+  workflow_dispatch:
 
 # The CI jobs can use a lot of disk space; we take tips from this site to run
 # the jobs faster and use less space.
