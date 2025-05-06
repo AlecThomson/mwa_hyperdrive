@@ -227,10 +227,10 @@ fn test_to_jones() {
     assert_abs_diff_eq!(
         result,
         Jones::from([
-            c64::new(fd.i - fd.q, 0.0),
-            c64::new(fd.u, -fd.v),
-            c64::new(fd.u, fd.v),
             c64::new(fd.i + fd.q, 0.0),
+            c64::new(fd.u, fd.v),
+            c64::new(fd.u, -fd.v),
+            c64::new(fd.i - fd.q, 0.0),
         ])
     );
 }
