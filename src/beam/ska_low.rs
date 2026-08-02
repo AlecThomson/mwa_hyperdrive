@@ -113,11 +113,6 @@ impl SkaLowBeam {
                             *format,
                             offsets.view(),
                             axes,
-                            // Station rotation belongs to the station, and
-                            // hyperbeam has `coordinate_axes` to derive it from;
-                            // a global scalar can't be right for an array of
-                            // differently-rotated stations.
-                            0.0,
                             *normalise,
                         )?,
                     };

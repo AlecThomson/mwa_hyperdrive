@@ -1589,7 +1589,7 @@ dependencies = [
 [[package]]
 name = "mwa_hyperbeam"
 version = "0.11.0"
-source = "git+https://github.com/AlecThomson/mwa_hyperbeam?branch=ska#a45b59849e6ae31baa8e937f1f3394d112728b41"
+source = "git+https://github.com/AlecThomson/mwa_hyperbeam?branch=ska#e0b55388a67307bcc874f1c9324216d41922482f"
 dependencies = [
  "cbindgen",
  "cc",
