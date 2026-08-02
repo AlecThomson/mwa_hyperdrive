@@ -14,11 +14,13 @@
 
 mod error;
 mod fee;
+mod ska_low;
 #[cfg(test)]
 mod tests;
 
 pub(crate) use error::BeamError;
 pub(crate) use fee::FEEBeam;
+pub(crate) use ska_low::{SkaLowBeam, SkaLowSource};
 
 use std::{path::Path, str::FromStr};
 
@@ -50,6 +52,10 @@ pub enum BeamType {
     #[strum(serialize = "fee")]
     #[default]
     FEE,
+
+    /// SKA-Low station beam.
+    #[strum(serialize = "ska_low")]
+    SkaLow,
 
     /// a.k.a. [`NoBeam`]. Only returns identity matrices.
     #[strum(serialize = "none")]
@@ -401,6 +407,7 @@ pub fn create_beam_object(
     beam_type: Option<&str>,
     num_tiles: usize,
     dipole_delays: Delays,
+    phased_array: Option<&crate::context::PhasedArray>,
 ) -> Result<Box<dyn Beam>, BeamError> {
     let beam_type = match (
         beam_type,
@@ -429,6 +436,22 @@ pub fn create_beam_object(
                 num_tiles,
                 dipole_delays,
                 None,
+            )?))
+        }
+
+        BeamType::SkaLow => {
+            debug!("Setting up a SKA-Low beam object");
+
+            let phased_array = phased_array.ok_or(BeamError::NoPhasedArray)?;
+            // The full set of gridded-EEP knobs is only reachable through the
+            // CLI; this path uses SKA_LOW_BEAM_DIR and the FEKO coefficients.
+            Ok(Box::new(SkaLowBeam::new(
+                None,
+                num_tiles,
+                phased_array,
+                &SkaLowSource::Swe {
+                    use_ticra_convention: false,
+                },
             )?))
         }
     }

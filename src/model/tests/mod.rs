@@ -279,6 +279,7 @@ impl ObsParams {
             Some(if no_beam { "none" } else { "fee" }),
             xyzs.len(),
             Delays::Partial(vec![0; 16]),
+            None,
         )
         .unwrap();
         let flagged_tiles = HashSet::new();

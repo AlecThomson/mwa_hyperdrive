@@ -98,22 +98,22 @@ lazy_static::lazy_static! {
 /// `PHASED_ARRAY` subtable. One entry per station, in the same order as the
 /// `ANTENNA` table.
 #[derive(Debug, Clone)]
-pub(crate) struct PhasedArray {
+pub struct PhasedArray {
     /// Element positions relative to the station centre, one `(3, n_elements)`
     /// array per station. Offsets are in metres.
-    pub(crate) element_offsets: Vec<Array2<f64>>,
+    pub element_offsets: Vec<Array2<f64>>,
 
     /// Per-element flags, one `(2, n_elements)` array per station; the first
     /// row is X, the second Y. A flagged element is dead and is excluded from
     /// the station beam. `None` means the `ELEMENT_FLAG` column was absent, in
     /// which case all elements are assumed live.
-    pub(crate) element_flags: Option<Vec<Array2<bool>>>,
+    pub element_flags: Option<Vec<Array2<bool>>>,
 
     /// Each station's coordinate axes, one row per axis `(p, q, r)` expressed
     /// in (East, North, Up). `None` means the `COORDINATE_AXES` column was
     /// absent, in which case the offsets are already in the local East/North/Up
     /// frame and need no rotation.
-    pub(crate) coordinate_axes: Option<Vec<[[f64; 3]; 3]>>,
+    pub coordinate_axes: Option<Vec<[[f64; 3]; 3]>>,
 }
 
 /// MWA observation metadata.

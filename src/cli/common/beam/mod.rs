@@ -14,7 +14,11 @@ use serde::{Deserialize, Serialize};
 
 use super::{InfoPrinter, Warn};
 use crate::{
-    beam::{Beam, BeamError, BeamType, Delays, FEEBeam, NoBeam, BEAM_TYPES_COMMA_SEPARATED},
+    beam::{
+        Beam, BeamError, BeamType, Delays, FEEBeam, NoBeam, SkaLowBeam, SkaLowSource,
+        BEAM_TYPES_COMMA_SEPARATED,
+    },
+    context::PhasedArray,
     io::read::VisInputType,
 };
 
@@ -53,6 +57,43 @@ pub(crate) struct BeamArgs {
     /// provided by the MWA_BEAM_FILE environment variable.
     #[arg(long, help_heading = "BEAM", help = BEAM_FILE_HELP.as_str())]
     pub(crate) beam_file: Option<PathBuf>,
+
+    /// The directory of SKA-Low beam files. Only useful if the beam type is
+    /// 'ska_low'. If not specified, this must be provided by the
+    /// SKA_LOW_BEAM_DIR environment variable.
+    #[arg(long, help_heading = "BEAM")]
+    pub(crate) ska_low_beam_dir: Option<PathBuf>,
+
+    /// The SKA-Low spherical-wave coefficient files were generated in the TICRA
+    /// (GRASP) convention rather than the FEKO one. This is a property of how
+    /// the files were made, not a choice: it conjugates the coefficients,
+    /// scales them by sqrt(8 pi) and mirrors m. Setting it wrongly gives a
+    /// plausible but incorrect beam.
+    #[arg(long, help_heading = "BEAM")]
+    #[serde(default)]
+    pub(crate) ska_low_ticra_convention: bool,
+
+    /// Use gridded SKA-Low embedded element patterns rather than spherical-wave
+    /// coefficients. Supported formats: npy, npz. Requires
+    /// --ska-low-grid-filebase.
+    #[arg(long, help_heading = "BEAM")]
+    pub(crate) ska_low_grid_format: Option<String>,
+
+    /// The part of the gridded SKA-Low EEP file names before the frequency,
+    /// e.g. 'HARP_SKALA41_randvogel_1m_256_elem_50ohm_'.
+    #[arg(long, help_heading = "BEAM")]
+    pub(crate) ska_low_grid_filebase: Option<String>,
+
+    /// Rotate the gridded SKA-Low EEP azimuth axis with the station, in
+    /// degrees. Default: 0.
+    #[arg(long, help_heading = "BEAM")]
+    pub(crate) ska_low_grid_rotation_deg: Option<f64>,
+
+    /// Divide each gridded SKA-Low EEP by its power integral over the whole
+    /// grid.
+    #[arg(long, help_heading = "BEAM")]
+    #[serde(default)]
+    pub(crate) ska_low_grid_normalise: bool,
 }
 
 impl BeamArgs {
@@ -63,6 +104,15 @@ impl BeamArgs {
             delays: self.delays.or(other.delays),
             unity_dipole_gains: self.unity_dipole_gains || other.unity_dipole_gains,
             beam_file: self.beam_file.or(other.beam_file),
+            ska_low_beam_dir: self.ska_low_beam_dir.or(other.ska_low_beam_dir),
+            ska_low_ticra_convention: self.ska_low_ticra_convention
+                || other.ska_low_ticra_convention,
+            ska_low_grid_format: self.ska_low_grid_format.or(other.ska_low_grid_format),
+            ska_low_grid_filebase: self.ska_low_grid_filebase.or(other.ska_low_grid_filebase),
+            ska_low_grid_rotation_deg: self
+                .ska_low_grid_rotation_deg
+                .or(other.ska_low_grid_rotation_deg),
+            ska_low_grid_normalise: self.ska_low_grid_normalise || other.ska_low_grid_normalise,
         }
     }
 
@@ -72,6 +122,7 @@ impl BeamArgs {
         data_dipole_delays: Option<Delays>,
         dipole_gains: Option<Array2<f64>>,
         input_data_type: Option<VisInputType>,
+        phased_array: Option<&PhasedArray>,
     ) -> Result<Box<dyn Beam>, BeamError> {
         let Self {
             beam_type,
@@ -79,6 +130,12 @@ impl BeamArgs {
             delays: user_dipole_delays,
             unity_dipole_gains,
             beam_file,
+            ska_low_beam_dir,
+            ska_low_ticra_convention,
+            ska_low_grid_format,
+            ska_low_grid_filebase,
+            ska_low_grid_rotation_deg,
+            ska_low_grid_normalise,
         } = self;
 
         let mut printer = InfoPrinter::new("Beam info".into());
@@ -241,6 +298,69 @@ impl BeamArgs {
                     FEEBeam::new_from_env(total_num_tiles, dipole_delays, dipole_gains)?
                 };
                 Box::new(beam)
+            }
+
+            BeamType::SkaLow => {
+                debug!("Setting up a SKA-Low beam object");
+                printer.push_line("Type: SKA-Low".into());
+
+                let phased_array = phased_array.ok_or(BeamError::NoPhasedArray)?;
+
+                let source = match ska_low_grid_format {
+                    None => {
+                        printer.push_line("Using FEKO spherical-wave coefficients".into());
+                        if ska_low_ticra_convention {
+                            printer.push_line("Using the TICRA convention".into());
+                        }
+                        SkaLowSource::Swe {
+                            use_ticra_convention: ska_low_ticra_convention,
+                        }
+                    }
+                    Some(f) => {
+                        let format = match f.to_lowercase().as_str() {
+                            "npy" => mwa_hyperbeam::ska_low::GridFormat::Npy,
+                            "npz" => mwa_hyperbeam::ska_low::GridFormat::Npz,
+                            _ => return Err(BeamError::UnrecognisedGridFormat(f)),
+                        };
+                        // The filebase encodes the station, layout and
+                        // impedance, so there's no sane default.
+                        let filebase = ska_low_grid_filebase.ok_or(BeamError::NoGridFilebase)?;
+                        printer.push_line(
+                            format!("Using gridded EEPs ({f}), filebase '{filebase}'").into(),
+                        );
+                        SkaLowSource::Grid {
+                            filebase,
+                            format,
+                            rotation_deg: ska_low_grid_rotation_deg.unwrap_or(0.0),
+                            normalise: ska_low_grid_normalise,
+                        }
+                    }
+                };
+
+                let num_flagged: usize = phased_array
+                    .element_flags
+                    .as_ref()
+                    .map(|flags| {
+                        flags
+                            .iter()
+                            .map(|f| {
+                                (0..f.len_of(Axis(1)))
+                                    .filter(|&e| f[[0, e]] || f[[1, e]])
+                                    .count()
+                            })
+                            .sum()
+                    })
+                    .unwrap_or(0);
+                printer.push_line(
+                    format!("{num_flagged} dead elements across {total_num_tiles} stations").into(),
+                );
+
+                Box::new(SkaLowBeam::new(
+                    ska_low_beam_dir.as_deref(),
+                    total_num_tiles,
+                    phased_array,
+                    &source,
+                )?)
             }
         };
 

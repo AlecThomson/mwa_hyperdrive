@@ -55,6 +55,33 @@ pub enum BeamError {
     #[error("hyperbeam init error: {0}")]
     HyperbeamInit(#[from] mwa_hyperbeam::fee::InitFEEBeamError),
 
+    #[error("hyperbeam SKA-Low error: {0}")]
+    HyperbeamSkaLow(#[from] mwa_hyperbeam::ska_low::SkaLowBeamError),
+
+    #[error("hyperbeam SKA-Low init error: {0}")]
+    HyperbeamSkaLowInit(#[from] mwa_hyperbeam::ska_low::InitSkaLowBeamError),
+
+    #[error("Tried to set up a SKA-Low beam, but the input data has no PHASED_ARRAY table; only measurement sets can supply station element positions")]
+    NoPhasedArray,
+
+    #[error("No SKA-Low beam directory was given; use --ska-low-beam-dir or set SKA_LOW_BEAM_DIR")]
+    NoSkaLowBeamDir,
+
+    #[error("The PHASED_ARRAY table describes {num_stations} stations, but there are {num_tiles} tiles; refusing to continue")]
+    InconsistentStations {
+        num_stations: usize,
+        num_tiles: usize,
+    },
+
+    #[error("Unrecognised SKA-Low gridded-EEP format '{0}'; supported formats are: npy, npz")]
+    UnrecognisedGridFormat(String),
+
+    #[error("--ska-low-grid-filebase is required alongside --ska-low-grid-format")]
+    NoGridFilebase,
+
+    #[error("The SKA-Low beam has no GPU support; run without GPU acceleration")]
+    SkaLowNoGpu,
+
     #[cfg(any(feature = "cuda", feature = "hip"))]
     #[error(transparent)]
     Gpu(#[from] crate::gpu::GpuError),

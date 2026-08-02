@@ -21,7 +21,7 @@ fn all_sources_vetoed_causes_error() {
         no_beam: true,
         ..Default::default()
     }
-    .parse(128, None, None, None)
+    .parse(128, None, None, None, None)
     .expect("no problems setting up a NoBeam");
 
     let source_list = Some(
@@ -97,7 +97,7 @@ fn skymodel_veto_parse_num() {
         no_beam: true,
         ..Default::default()
     }
-    .parse(128, None, None, None)
+    .parse(128, None, None, None, None)
     .expect("no problems setting up a NoBeam");
 
     let source_list = Some(
@@ -131,7 +131,7 @@ fn skymodel_veto_parse_named() {
         no_beam: true,
         ..Default::default()
     }
-    .parse(128, None, None, None)
+    .parse(128, None, None, None, None)
     .expect("no problems setting up a NoBeam");
 
     let source_list = Some(
@@ -169,7 +169,7 @@ fn skymodel_veto_parse_named_invert() {
         no_beam: true,
         ..Default::default()
     }
-    .parse(128, None, None, None)
+    .parse(128, None, None, None, None)
     .expect("no problems setting up a NoBeam");
 
     let source_list = Some(
@@ -207,7 +207,7 @@ fn skymodel_veto_parse_named_invert_missing_source() {
         no_beam: true,
         ..Default::default()
     }
-    .parse(128, None, None, None)
+    .parse(128, None, None, None, None)
     .expect("no problems setting up a NoBeam");
 
     let source_list = Some(
@@ -243,7 +243,7 @@ fn skymodel_veto_parse_named_and_num_sources() {
         no_beam: true,
         ..Default::default()
     }
-    .parse(128, None, None, None)
+    .parse(128, None, None, None, None)
     .expect("no problems setting up a NoBeam");
 
     let source_list = Some(
@@ -282,7 +282,7 @@ fn skymodel_veto_parse_named_and_num_sources_invert() {
         no_beam: true,
         ..Default::default()
     }
-    .parse(128, None, None, None)
+    .parse(128, None, None, None, None)
     .expect("no problems setting up a NoBeam");
 
     let source_list = Some(
@@ -320,7 +320,7 @@ fn skymodel_veto_parse_named_and_num_sources_invert_all_sources() {
         no_beam: true,
         ..Default::default()
     }
-    .parse(128, None, None, None)
+    .parse(128, None, None, None, None)
     .expect("no problems setting up a NoBeam");
 
     let source_list = Some(
@@ -377,7 +377,7 @@ fn no_beam_accepts_any_pol_convention() {
         no_beam: true,
         ..Default::default()
     }
-    .parse(128, None, None, None)
+    .parse(128, None, None, None, None)
     .expect("no problems setting up a NoBeam");
 
     for convention in [PolConvention::Mwa, PolConvention::Iau] {
@@ -416,7 +416,7 @@ fn fee_beam_rejects_iau_pol_convention() {
         delays: Some(vec![0; 16]),
         ..Default::default()
     }
-    .parse(128, Some(Delays::Partial(vec![0; 16])), None, None)
+    .parse(128, Some(Delays::Partial(vec![0; 16])), None, None, None)
     .expect("no problems setting up a FEEBeam");
 
     let result = SkyModelWithVetoArgs {

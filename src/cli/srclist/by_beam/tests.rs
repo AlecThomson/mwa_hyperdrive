@@ -46,6 +46,12 @@ fn test_srclist_by_beam() {
             delays: None,
             unity_dipole_gains: false,
             beam_file: None,
+            ska_low_beam_dir: None,
+            ska_low_ticra_convention: false,
+            ska_low_grid_format: None,
+            ska_low_grid_filebase: None,
+            ska_low_grid_rotation_deg: None,
+            ska_low_grid_normalise: false,
         },
     }
     .run()

@@ -117,6 +117,9 @@ fn calc_cpu(args: &BeamArgs) -> Result<(), HyperdriveError> {
         Some(beam_type.as_str()),
         1,
         Delays::Partial(delays.clone().unwrap_or(vec![0; 16])),
+        // The standalone `beam` subcommand has no input data, so no station
+        // layout; SKA-Low is unavailable here.
+        None,
     )?;
     let mut out = BufWriter::new(File::create(output)?);
 
@@ -159,6 +162,9 @@ fn calc_gpu(args: &BeamArgs) -> Result<(), HyperdriveError> {
         Some(beam_type.as_str()),
         1,
         Delays::Partial(delays.clone().unwrap_or(vec![0; 16])),
+        // The standalone `beam` subcommand has no input data, so no station
+        // layout; SKA-Low is unavailable here.
+        None,
     )?;
     let gpu_beam = beam.prepare_gpu_beam(&[(freq_mhz * 1e6) as u32])?;
     let mut out = BufWriter::new(File::create(output)?);

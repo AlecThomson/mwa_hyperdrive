@@ -471,7 +471,15 @@ impl From<BeamError> for HyperdriveError {
             | BeamError::PolConventionMismatch { .. }
             | BeamError::BadTileIndex { .. }
             | BeamError::Hyperbeam(_)
-            | BeamError::HyperbeamInit(_) => Self::Beam(s),
+            | BeamError::HyperbeamInit(_)
+            | BeamError::HyperbeamSkaLow(_)
+            | BeamError::HyperbeamSkaLowInit(_)
+            | BeamError::NoPhasedArray
+            | BeamError::NoSkaLowBeamDir
+            | BeamError::InconsistentStations { .. }
+            | BeamError::UnrecognisedGridFormat(_)
+            | BeamError::NoGridFilebase
+            | BeamError::SkaLowNoGpu => Self::Beam(s),
             #[cfg(any(feature = "cuda", feature = "hip"))]
             BeamError::Gpu(_) => Self::Beam(s),
         }
