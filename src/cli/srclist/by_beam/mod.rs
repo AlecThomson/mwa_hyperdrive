@@ -19,13 +19,13 @@ use log::{debug, info, trace};
 use marlu::{LatLngHeight, RADec};
 
 use crate::{
-    context::PolConvention,
     beam::Delays,
     cli::common::{
         display_warnings, BeamArgs, Warn, ARRAY_POSITION_HELP, SOURCE_LIST_INPUT_TYPE_HELP,
         SOURCE_LIST_OUTPUT_TYPE_HELP, VETO_THRESHOLD_HELP,
     },
     constants::{DEFAULT_ELEVATION_LIMIT, DEFAULT_VETO_THRESHOLD},
+    context::PolConvention,
     metafits::get_dipole_delays,
     srclist::{
         read::read_source_list_file, veto_sources, write_source_list, ReadSourceListError,

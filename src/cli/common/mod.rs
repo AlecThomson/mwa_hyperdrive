@@ -634,8 +634,9 @@ impl ModellingArgs {
 
         let pol_convention = match pol_convention {
             None => PolConvention::default(),
-            Some(s) => PolConvention::from_str(&s)
-                .map_err(|_| BeamError::UnrecognisedPolConvention(s))?,
+            Some(s) => {
+                PolConvention::from_str(&s).map_err(|_| BeamError::UnrecognisedPolConvention(s))?
+            }
         };
 
         #[cfg(any(feature = "cuda", feature = "hip"))]

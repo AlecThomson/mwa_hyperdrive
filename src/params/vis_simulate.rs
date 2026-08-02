@@ -109,10 +109,11 @@ impl VisSimulateParams {
             beam,
             array_position,
             dut1,
-            modelling_params: ModellingParams {
-                apply_precession,
-                pol_convention,
-            },
+            modelling_params:
+                ModellingParams {
+                    apply_precession,
+                    pol_convention,
+                },
         } = self;
 
         // Channel for writing simulated visibilities.

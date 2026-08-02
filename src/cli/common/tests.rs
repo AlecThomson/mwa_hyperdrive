@@ -370,6 +370,39 @@ fn skymodel_veto_parse_named_and_num_sources_invert_all_sources() {
     ));
 }
 
+/// The identity beam has no feed labelling of its own, so any convention goes.
+#[test]
+fn no_beam_accepts_any_pol_convention() {
+    let beam = BeamArgs {
+        no_beam: true,
+        ..Default::default()
+    }
+    .parse(128, None, None, None)
+    .expect("no problems setting up a NoBeam");
+
+    for convention in [PolConvention::Mwa, PolConvention::Iau] {
+        let result = SkyModelWithVetoArgs {
+            source_list: Some(
+                "test_files/1090008640/srclist_pumav3_EoR0aegean_EoR1pietro+ForA_1090008640_peel100.txt"
+                    .to_string(),
+            ),
+            ..Default::default()
+        }
+        .parse(
+            RADec::from_degrees(0.0, -30.0),
+            0.0,
+            MWA_LAT_RAD,
+            &[150e6],
+            &*beam,
+            convention,
+        );
+        assert!(
+            result.is_ok(),
+            "{convention} was rejected by the identity beam"
+        );
+    }
+}
+
 /// The MWA FEE beam is East-West only, so it can't be used with IAU ordering.
 #[test]
 #[serial_test::serial]
@@ -403,10 +436,9 @@ fn fee_beam_rejects_iau_pol_convention() {
         ReadSourceListError::Beam(BeamError::PolConventionMismatch { .. })
     ));
 
-    // The MWA convention is fine with the FEE beam, and the identity beam is
-    // happy with either convention.
+    // ... but the MWA convention is fine with the FEE beam.
     assert!(SkyModelWithVetoArgs {
-        source_list: source_list.clone(),
+        source_list,
         ..Default::default()
     }
     .parse(
@@ -418,26 +450,4 @@ fn fee_beam_rejects_iau_pol_convention() {
         PolConvention::Mwa,
     )
     .is_ok());
-
-    let no_beam = BeamArgs {
-        no_beam: true,
-        ..Default::default()
-    }
-    .parse(128, None, None, None)
-    .expect("no problems setting up a NoBeam");
-    for convention in [PolConvention::Mwa, PolConvention::Iau] {
-        assert!(SkyModelWithVetoArgs {
-            source_list: source_list.clone(),
-            ..Default::default()
-        }
-        .parse(
-            RADec::from_degrees(0.0, -30.0),
-            0.0,
-            MWA_LAT_RAD,
-            &[150e6],
-            &*no_beam,
-            convention,
-        )
-        .is_ok());
-    }
 }

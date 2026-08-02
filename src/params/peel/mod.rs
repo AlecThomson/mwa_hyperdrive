@@ -253,10 +253,11 @@ impl PeelParams {
             iono_outputs,
             beam,
             source_list,
-            modelling_params: ModellingParams {
-                apply_precession,
-                pol_convention,
-            },
+            modelling_params:
+                ModellingParams {
+                    apply_precession,
+                    pol_convention,
+                },
             iono_timeblocks,
             iono_time_average_factor,
             low_res_spw,

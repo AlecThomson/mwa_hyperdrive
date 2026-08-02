@@ -244,7 +244,8 @@ mod tests {
             u: 0.0,
             v: 0.0,
         };
-        let bafd_pc = get_beam_attenuated_flux_density(&fd, jones_pointing_centre, PolConvention::default());
+        let bafd_pc =
+            get_beam_attenuated_flux_density(&fd, jones_pointing_centre, PolConvention::default());
         assert_abs_diff_eq!(bafd_pc, 2.0);
 
         let bafd_null = get_beam_attenuated_flux_density(&fd, jones_null, PolConvention::default());
@@ -268,7 +269,8 @@ mod tests {
             u: 0.0,
             v: 0.0,
         };
-        let bafd_pc = get_beam_attenuated_flux_density(&fd, jones_pointing_centre, PolConvention::default());
+        let bafd_pc =
+            get_beam_attenuated_flux_density(&fd, jones_pointing_centre, PolConvention::default());
         assert_abs_diff_eq!(bafd_pc, 1.9857884953095866);
 
         let bafd_null = get_beam_attenuated_flux_density(&fd, jones_null, PolConvention::default());

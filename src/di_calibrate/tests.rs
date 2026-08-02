@@ -17,8 +17,8 @@ use marlu::Jones;
 use ndarray::prelude::*;
 use vec1::{vec1, Vec1};
 
-use crate::context::PolConvention;
 use super::{calibrate, calibrate_timeblocks, DiCalParams, IncompleteSolutions};
+use crate::context::PolConvention;
 use crate::{
     averaging::{channels_to_chanblocks, timesteps_to_timeblocks, Chanblock, Spw, Timeblock},
     beam::NoBeam,

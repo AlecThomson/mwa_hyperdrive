@@ -22,8 +22,8 @@ use ndarray::{prelude::*, Zip};
 use num_traits::Zero;
 use vec1::{vec1, Vec1};
 
-use crate::context::PolConvention;
 use super::*;
+use crate::context::PolConvention;
 use crate::{
     averaging::Timeblock,
     beam::{Delays, FEEBeam},

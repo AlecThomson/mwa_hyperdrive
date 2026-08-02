@@ -24,8 +24,8 @@ use ndarray::prelude::*;
 use num_complex::Complex;
 use vec1::vec1;
 
-use crate::context::PolConvention;
 use super::*;
+use crate::context::PolConvention;
 #[cfg(any(feature = "cuda", feature = "hip"))]
 use crate::gpu::DevicePointer;
 #[cfg(any(feature = "cuda", feature = "hip"))]

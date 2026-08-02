@@ -18,8 +18,8 @@ use scopeguard::defer_on_unwind;
 
 use super::{InputVisParams, ModellingParams, OutputVisParams};
 use crate::{
-    context::PolConvention,
     beam::Beam,
+    context::PolConvention,
     io::{
         read::VisReadError,
         write::{write_vis, VisTimestep},
@@ -45,10 +45,11 @@ impl VisSubtractParams {
             output_vis_params,
             beam,
             source_list,
-            modelling_params: ModellingParams {
-                apply_precession,
-                pol_convention,
-            },
+            modelling_params:
+                ModellingParams {
+                    apply_precession,
+                    pol_convention,
+                },
         } = self;
 
         // Are we going to write out simulated auto-correlations? Use this

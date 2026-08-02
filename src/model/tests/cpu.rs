@@ -7,8 +7,8 @@
 use marlu::RADec;
 use ndarray::prelude::*;
 
-use crate::context::PolConvention;
 use super::*;
+use crate::context::PolConvention;
 use crate::srclist::{Source, SourceList};
 
 macro_rules! test_modelling {
