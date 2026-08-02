@@ -84,11 +84,6 @@ pub(crate) struct BeamArgs {
     #[arg(long, help_heading = "BEAM")]
     pub(crate) ska_low_grid_filebase: Option<String>,
 
-    /// Rotate the gridded SKA-Low EEP azimuth axis with the station, in
-    /// degrees. Default: 0.
-    #[arg(long, help_heading = "BEAM")]
-    pub(crate) ska_low_grid_rotation_deg: Option<f64>,
-
     /// Divide each gridded SKA-Low EEP by its power integral over the whole
     /// grid.
     #[arg(long, help_heading = "BEAM")]
@@ -109,9 +104,6 @@ impl BeamArgs {
                 || other.ska_low_ticra_convention,
             ska_low_grid_format: self.ska_low_grid_format.or(other.ska_low_grid_format),
             ska_low_grid_filebase: self.ska_low_grid_filebase.or(other.ska_low_grid_filebase),
-            ska_low_grid_rotation_deg: self
-                .ska_low_grid_rotation_deg
-                .or(other.ska_low_grid_rotation_deg),
             ska_low_grid_normalise: self.ska_low_grid_normalise || other.ska_low_grid_normalise,
         }
     }
@@ -134,7 +126,6 @@ impl BeamArgs {
             ska_low_ticra_convention,
             ska_low_grid_format,
             ska_low_grid_filebase,
-            ska_low_grid_rotation_deg,
             ska_low_grid_normalise,
         } = self;
 
@@ -331,7 +322,6 @@ impl BeamArgs {
                         SkaLowSource::Grid {
                             filebase,
                             format,
-                            rotation_deg: ska_low_grid_rotation_deg.unwrap_or(0.0),
                             normalise: ska_low_grid_normalise,
                         }
                     }

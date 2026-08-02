@@ -624,7 +624,6 @@ fn sparse_timeblocks_with_averaging() {
             ska_low_ticra_convention: false,
             ska_low_grid_format: None,
             ska_low_grid_filebase: None,
-            ska_low_grid_rotation_deg: None,
             ska_low_grid_normalise: false,
         },
         modelling_args: ModellingArgs {

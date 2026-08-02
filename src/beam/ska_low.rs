@@ -30,7 +30,6 @@ pub(crate) enum SkaLowSource {
     Grid {
         filebase: String,
         format: mwa_hyperbeam::ska_low::GridFormat,
-        rotation_deg: f64,
         normalise: bool,
     },
 }
@@ -107,7 +106,6 @@ impl SkaLowBeam {
                         SkaLowSource::Grid {
                             filebase,
                             format,
-                            rotation_deg,
                             normalise,
                         } => mwa_hyperbeam::ska_low::SkaLowBeam::new_from_grid(
                             &dir,
@@ -115,7 +113,11 @@ impl SkaLowBeam {
                             *format,
                             offsets.view(),
                             axes,
-                            *rotation_deg,
+                            // Station rotation belongs to the station, and
+                            // hyperbeam has `coordinate_axes` to derive it from;
+                            // a global scalar can't be right for an array of
+                            // differently-rotated stations.
+                            0.0,
                             *normalise,
                         )?,
                     };

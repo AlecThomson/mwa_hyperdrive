@@ -50,7 +50,6 @@ fn test_srclist_by_beam() {
             ska_low_ticra_convention: false,
             ska_low_grid_format: None,
             ska_low_grid_filebase: None,
-            ska_low_grid_rotation_deg: None,
             ska_low_grid_normalise: false,
         },
     }
