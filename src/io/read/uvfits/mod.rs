@@ -666,6 +666,7 @@ impl UvfitsReader {
             autocorrelations_present: metadata.autocorrelations_present,
             dipole_delays,
             dipole_gains,
+            phased_array: None,
             time_res,
             mwa_coarse_chan_nums,
             num_fine_chans_per_coarse_chan,

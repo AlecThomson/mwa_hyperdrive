@@ -47,6 +47,14 @@ pub enum MsReadError {
     #[error("The antenna table of the measurement set contains no rows!")]
     AntennaTableEmpty,
 
+    #[error("The PHASED_ARRAY table contains no rows!")]
+    PhasedArrayEmpty,
+
+    #[error(
+        "PHASED_ARRAY row {row}: expected ELEMENT_OFFSET with shape (3, n_elements), got {got:?}"
+    )]
+    PhasedArrayOffsetShape { row: usize, got: Vec<usize> },
+
     #[error("The SPECTRAL_WINDOW table contained no channel frequencies")]
     NoChannelFreqs,
 

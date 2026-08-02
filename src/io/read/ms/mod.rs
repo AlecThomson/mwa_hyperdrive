@@ -34,7 +34,7 @@ use crate::{
     beam::Delays,
     cli::Warn,
     constants::DEFAULT_MS_DATA_COL_NAME,
-    context::{ObsContext, Polarisations},
+    context::{ObsContext, PhasedArray, Polarisations},
     metafits,
 };
 
@@ -51,6 +51,41 @@ pub(super) fn read_table(ms: &Path, table: Option<&str>) -> Result<Table, TableE
         Table::open(ms.join(table), TableOpenMode::Read)
     } else {
         Table::open(ms, TableOpenMode::Read)
+    }
+}
+
+/// Read per-station element offsets out of an already-opened `PHASED_ARRAY`
+/// table. One row per station, matching the `ANTENNA` table's ordering.
+fn read_phased_array(table: &mut Table) -> Result<PhasedArray, MsReadError> {
+    let mut raw = Vec::with_capacity(table.n_rows() as usize);
+    table.for_each_row(|row| {
+        let offsets: Array2<f64> = row.get_cell("ELEMENT_OFFSET")?;
+        raw.push(offsets);
+        Ok(())
+    })?;
+
+    if raw.is_empty() {
+        return Err(MsReadError::PhasedArrayEmpty);
+    }
+    let element_offsets = raw
+        .into_iter()
+        .enumerate()
+        .map(|(i, o)| normalise_element_offsets(o, i))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(PhasedArray { element_offsets })
+}
+
+/// Casacore may hand back `(n_elements, 3)` for a column declared as 3 x
+/// n_elements, so accept either orientation and normalise to `(3, n_elements)`.
+fn normalise_element_offsets(offsets: Array2<f64>, row: usize) -> Result<Array2<f64>, MsReadError> {
+    match offsets.dim() {
+        // A 3-element station is ambiguous, but (3, 3) is already correct.
+        (3, _) => Ok(offsets),
+        (_, 3) => Ok(offsets.t().to_owned()),
+        _ => Err(MsReadError::PhasedArrayOffsetShape {
+            row,
+            got: offsets.shape().to_vec(),
+        }),
     }
 }
 
@@ -298,6 +333,28 @@ impl MsReader {
                 Ok(())
             })?;
             xyzs
+        };
+
+        // The PHASED_ARRAY subtable is optional and absent from MWA data; only
+        // the SKA-Low beam needs it.
+        let phased_array = match read_table(&ms, Some("PHASED_ARRAY")) {
+            Ok(mut t) => match read_phased_array(&mut t) {
+                Ok(pa) => {
+                    debug!(
+                        "Read PHASED_ARRAY for {} stations",
+                        pa.element_offsets.len()
+                    );
+                    Some(pa)
+                }
+                Err(e) => {
+                    [format!("Ignoring the PHASED_ARRAY table: {e}").into()].warn();
+                    None
+                }
+            },
+            Err(_) => {
+                trace!("No PHASED_ARRAY table in this measurement set");
+                None
+            }
         };
 
         let mut obs_table = read_table(&ms, Some("OBSERVATION"))?;
@@ -946,6 +1003,7 @@ impl MsReader {
             autocorrelations_present,
             dipole_delays,
             dipole_gains,
+            phased_array,
             time_res,
             mwa_coarse_chan_nums,
             num_fine_chans_per_coarse_chan,

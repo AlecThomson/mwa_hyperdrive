@@ -94,6 +94,18 @@ lazy_static::lazy_static! {
         PolConvention::iter().map(|s| s.to_string().to_lowercase()).join(", ");
 }
 
+/// The element layout of a phased-array station, from a measurement set's
+/// `PHASED_ARRAY` subtable. One entry per station, in the same order as the
+/// `ANTENNA` table.
+#[derive(Debug, Clone)]
+pub(crate) struct PhasedArray {
+    /// Element positions relative to the station centre, one `(3, n_elements)`
+    /// array per station. Offsets are in metres.
+    pub(crate) element_offsets: Vec<Array2<f64>>,
+    // ponytail: no element weights/flags yet. Add once hyperbeam's ska_low
+    // pins down whether it wants them real or complex, and per-pol or not.
+}
+
 /// MWA observation metadata.
 ///
 /// This can be thought of the state and contents of the input data. It may not
@@ -197,6 +209,10 @@ pub(crate) struct ObsContext {
     /// 1.0, except where a dipole is dead (0.0). If this is `None`, then it is
     /// assumed that all tiles are live.
     pub(crate) dipole_gains: Option<Array2<f64>>,
+
+    /// Per-station element layout, from a measurement set's `PHASED_ARRAY`
+    /// subtable. Required by the SKA-Low beam; `None` for MWA data.
+    pub(crate) phased_array: Option<PhasedArray>,
 
     /// The time resolution of the supplied data. This is not necessarily the
     /// native time resolution of the original observation's data, as it may

@@ -479,6 +479,7 @@ impl RawDataReader {
             autocorrelations_present: true,
             dipole_delays: Some(dipole_delays),
             dipole_gains: Some(dipole_gains),
+            phased_array: None,
             time_res: Some(time_res),
             mwa_coarse_chan_nums: Some(mwa_coarse_chan_nums),
             num_fine_chans_per_coarse_chan: Some(num_corr_fine_chans_per_coarse),

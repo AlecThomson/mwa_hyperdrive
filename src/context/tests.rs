@@ -28,6 +28,7 @@ fn get_minimal_obs_context() -> ObsContext {
         autocorrelations_present: false,
         dipole_delays: Some(Delays::Partial(vec![0; 16])),
         dipole_gains: None,
+        phased_array: None,
         time_res: None,
         mwa_coarse_chan_nums: None,
         num_fine_chans_per_coarse_chan: None,
