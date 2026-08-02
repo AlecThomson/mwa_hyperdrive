@@ -57,34 +57,78 @@ pub(super) fn read_table(ms: &Path, table: Option<&str>) -> Result<Table, TableE
 /// Read per-station element offsets out of an already-opened `PHASED_ARRAY`
 /// table. One row per station, matching the `ANTENNA` table's ordering.
 fn read_phased_array(table: &mut Table) -> Result<PhasedArray, MsReadError> {
-    let mut raw = Vec::with_capacity(table.n_rows() as usize);
+    // EveryBeam treats ELEMENT_FLAG as optional; without it every element is
+    // live.
+    let has_flags = table.column_names()?.iter().any(|c| c == "ELEMENT_FLAG");
+    if !has_flags {
+        debug!("No ELEMENT_FLAG column in PHASED_ARRAY; assuming all elements are live");
+    }
+
+    let mut raw_offsets = Vec::with_capacity(table.n_rows() as usize);
+    let mut raw_flags = Vec::with_capacity(table.n_rows() as usize);
     table.for_each_row(|row| {
-        let offsets: Array2<f64> = row.get_cell("ELEMENT_OFFSET")?;
-        raw.push(offsets);
+        raw_offsets.push(row.get_cell::<Array2<f64>>("ELEMENT_OFFSET")?);
+        if has_flags {
+            raw_flags.push(row.get_cell::<Array2<bool>>("ELEMENT_FLAG")?);
+        }
         Ok(())
     })?;
 
-    if raw.is_empty() {
+    if raw_offsets.is_empty() {
         return Err(MsReadError::PhasedArrayEmpty);
     }
-    let element_offsets = raw
+    let element_offsets = raw_offsets
         .into_iter()
         .enumerate()
-        .map(|(i, o)| normalise_element_offsets(o, i))
+        .map(|(i, o)| normalise_phased_array_cell(o, 3, "ELEMENT_OFFSET", i))
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(PhasedArray { element_offsets })
+
+    let element_flags = if has_flags {
+        let flags = raw_flags
+            .into_iter()
+            .enumerate()
+            .map(|(i, f)| normalise_phased_array_cell(f, 2, "ELEMENT_FLAG", i))
+            .collect::<Result<Vec<_>, MsReadError>>()?;
+        // A flag array that doesn't line up with the offsets would silently
+        // kill the wrong elements.
+        for (i, (o, f)) in element_offsets.iter().zip(flags.iter()).enumerate() {
+            if o.len_of(Axis(1)) != f.len_of(Axis(1)) {
+                return Err(MsReadError::PhasedArrayElementCountMismatch {
+                    row: i,
+                    offsets: o.len_of(Axis(1)),
+                    flags: f.len_of(Axis(1)),
+                });
+            }
+        }
+        Some(flags)
+    } else {
+        None
+    };
+
+    Ok(PhasedArray {
+        element_offsets,
+        element_flags,
+    })
 }
 
-/// Casacore may hand back `(n_elements, 3)` for a column declared as 3 x
-/// n_elements, so accept either orientation and normalise to `(3, n_elements)`.
-fn normalise_element_offsets(offsets: Array2<f64>, row: usize) -> Result<Array2<f64>, MsReadError> {
-    match offsets.dim() {
-        // A 3-element station is ambiguous, but (3, 3) is already correct.
-        (3, _) => Ok(offsets),
-        (_, 3) => Ok(offsets.t().to_owned()),
-        _ => Err(MsReadError::PhasedArrayOffsetShape {
+/// Casacore may hand back `(n_elements, n)` for a column declared as n x
+/// n_elements, so accept either orientation and normalise to `(n, n_elements)`.
+fn normalise_phased_array_cell<T: Clone>(
+    cell: Array2<T>,
+    expected_rows: usize,
+    column: &'static str,
+    row: usize,
+) -> Result<Array2<T>, MsReadError> {
+    match cell.dim() {
+        // A station with `expected_rows` elements is ambiguous, but then the
+        // array is square and already correct.
+        (r, _) if r == expected_rows => Ok(cell),
+        (_, c) if c == expected_rows => Ok(cell.t().to_owned()),
+        _ => Err(MsReadError::PhasedArrayCellShape {
             row,
-            got: offsets.shape().to_vec(),
+            column,
+            expected: expected_rows,
+            got: cell.shape().to_vec(),
         }),
     }
 }

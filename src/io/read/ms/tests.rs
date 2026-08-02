@@ -835,22 +835,29 @@ fn test_sdc3() {
 }
 
 #[test]
-fn test_normalise_element_offsets() {
+fn test_normalise_phased_array_cell() {
     // Already (3, n_elements): left alone.
-    let a = array![
+    let offsets = array![
         [0.0, 1.0, 2.0, 3.0],
         [4.0, 5.0, 6.0, 7.0],
         [8.0, 9.0, 10.0, 11.0]
     ];
-    assert_eq!(normalise_element_offsets(a.clone(), 0).unwrap(), a);
+    let f = |a| normalise_phased_array_cell(a, 3, "ELEMENT_OFFSET", 0);
+    assert_eq!(f(offsets.clone()).unwrap(), offsets);
 
     // Transposed (n_elements, 3): flipped back.
-    assert_eq!(normalise_element_offsets(a.t().to_owned(), 0).unwrap(), a);
+    assert_eq!(f(offsets.t().to_owned()).unwrap(), offsets);
 
     // Neither axis is 3: rejected rather than silently mangled.
-    let bad = Array2::<f64>::zeros((4, 5));
     assert!(matches!(
-        normalise_element_offsets(bad, 7),
-        Err(MsReadError::PhasedArrayOffsetShape { row: 7, .. })
+        normalise_phased_array_cell(Array2::<f64>::zeros((4, 5)), 3, "ELEMENT_OFFSET", 7),
+        Err(MsReadError::PhasedArrayCellShape { row: 7, .. })
     ));
+
+    // Flags use the same path with 2 rows (X, Y).
+    let flags = array![[false, true, false], [false, false, true]];
+    assert_eq!(
+        normalise_phased_array_cell(flags.t().to_owned(), 2, "ELEMENT_FLAG", 0).unwrap(),
+        flags
+    );
 }

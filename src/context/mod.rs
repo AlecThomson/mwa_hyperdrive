@@ -102,8 +102,12 @@ pub(crate) struct PhasedArray {
     /// Element positions relative to the station centre, one `(3, n_elements)`
     /// array per station. Offsets are in metres.
     pub(crate) element_offsets: Vec<Array2<f64>>,
-    // ponytail: no element weights/flags yet. Add once hyperbeam's ska_low
-    // pins down whether it wants them real or complex, and per-pol or not.
+
+    /// Per-element flags, one `(2, n_elements)` array per station; the first
+    /// row is X, the second Y. A flagged element is dead and is excluded from
+    /// the station beam. `None` means the `ELEMENT_FLAG` column was absent, in
+    /// which case all elements are assumed live.
+    pub(crate) element_flags: Option<Vec<Array2<bool>>>,
 }
 
 /// MWA observation metadata.
