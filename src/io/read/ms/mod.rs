@@ -59,17 +59,28 @@ pub(super) fn read_table(ms: &Path, table: Option<&str>) -> Result<Table, TableE
 fn read_phased_array(table: &mut Table) -> Result<PhasedArray, MsReadError> {
     // EveryBeam treats ELEMENT_FLAG as optional; without it every element is
     // live.
-    let has_flags = table.column_names()?.iter().any(|c| c == "ELEMENT_FLAG");
+    let col_names = table.column_names()?;
+    let has_flags = col_names.iter().any(|c| c == "ELEMENT_FLAG");
     if !has_flags {
         debug!("No ELEMENT_FLAG column in PHASED_ARRAY; assuming all elements are live");
+    }
+    // Without COORDINATE_AXES the offsets are taken to already be in the
+    // station's local (East, North, Up) frame.
+    let has_axes = col_names.iter().any(|c| c == "COORDINATE_AXES");
+    if !has_axes {
+        debug!("No COORDINATE_AXES column in PHASED_ARRAY; assuming ELEMENT_OFFSET is already in the local East/North/Up frame");
     }
 
     let mut raw_offsets = Vec::with_capacity(table.n_rows() as usize);
     let mut raw_flags = Vec::with_capacity(table.n_rows() as usize);
+    let mut raw_axes = Vec::with_capacity(table.n_rows() as usize);
     table.for_each_row(|row| {
         raw_offsets.push(row.get_cell::<Array2<f64>>("ELEMENT_OFFSET")?);
         if has_flags {
             raw_flags.push(row.get_cell::<Array2<bool>>("ELEMENT_FLAG")?);
+        }
+        if has_axes {
+            raw_axes.push(row.get_cell::<Array2<f64>>("COORDINATE_AXES")?);
         }
         Ok(())
     })?;
@@ -105,9 +116,37 @@ fn read_phased_array(table: &mut Table) -> Result<PhasedArray, MsReadError> {
         None
     };
 
+    // 3x3, so unlike the other columns there's no orientation to detect: take
+    // it as hyperbeam wants it, each row an axis (p, q, r) in East/North/Up.
+    let coordinate_axes = if has_axes {
+        raw_axes
+            .into_iter()
+            .enumerate()
+            .map(|(i, a)| {
+                if a.dim() != (3, 3) {
+                    return Err(MsReadError::PhasedArrayCellShape {
+                        row: i,
+                        column: "COORDINATE_AXES",
+                        expected: 3,
+                        got: a.shape().to_vec(),
+                    });
+                }
+                Ok([
+                    [a[[0, 0]], a[[0, 1]], a[[0, 2]]],
+                    [a[[1, 0]], a[[1, 1]], a[[1, 2]]],
+                    [a[[2, 0]], a[[2, 1]], a[[2, 2]]],
+                ])
+            })
+            .collect::<Result<Vec<_>, MsReadError>>()
+            .map(Some)?
+    } else {
+        None
+    };
+
     Ok(PhasedArray {
         element_offsets,
         element_flags,
+        coordinate_axes,
     })
 }
 

@@ -108,6 +108,12 @@ pub(crate) struct PhasedArray {
     /// the station beam. `None` means the `ELEMENT_FLAG` column was absent, in
     /// which case all elements are assumed live.
     pub(crate) element_flags: Option<Vec<Array2<bool>>>,
+
+    /// Each station's coordinate axes, one row per axis `(p, q, r)` expressed
+    /// in (East, North, Up). `None` means the `COORDINATE_AXES` column was
+    /// absent, in which case the offsets are already in the local East/North/Up
+    /// frame and need no rotation.
+    pub(crate) coordinate_axes: Option<Vec<[[f64; 3]; 3]>>,
 }
 
 /// MWA observation metadata.
