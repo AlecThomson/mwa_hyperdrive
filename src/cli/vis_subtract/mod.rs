@@ -171,8 +171,9 @@ impl VisSubtractArgs {
             Some(obs_context.input_data_type),
         )?;
         let modelling_params @ ModellingParams {
-            apply_precession, ..
-        } = modelling_args.parse();
+            apply_precession,
+            pol_convention,
+        } = modelling_args.parse()?;
 
         let LatLngHeight {
             longitude_rad,
@@ -202,6 +203,7 @@ impl VisSubtractArgs {
             latitude,
             &obs_context.get_veto_freqs(),
             &*beam,
+            pol_convention,
         )?;
 
         let output_vis_params = OutputVisArgs {

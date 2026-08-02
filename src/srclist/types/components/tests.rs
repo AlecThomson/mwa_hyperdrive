@@ -8,6 +8,7 @@ use approx::assert_abs_diff_eq;
 use marlu::{Jones, RADec};
 use vec1::vec1;
 
+use crate::context::PolConvention;
 use crate::srclist::{
     ComponentList, ComponentType, FluxDensity, FluxDensityType, SourceList, SourceListType,
 };
@@ -63,6 +64,7 @@ fn test_split_components() {
         srclist.values().rev().flat_map(|src| src.components.iter()),
         &freqs,
         phase_centre,
+        PolConvention::default(),
     );
     let points = split_components.points;
     let gaussians = split_components.gaussians;
@@ -99,7 +101,7 @@ fn test_split_components() {
         },
     ])
     .estimate_at_freq(freqs[0]);
-    let inst_fd: Jones<f64> = fd.to_inst_stokes();
+    let inst_fd: Jones<f64> = fd.to_inst_stokes(PolConvention::default());
 
     assert_abs_diff_eq!(gaussians.flux_densities[[0, 1]], inst_fd);
 }

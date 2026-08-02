@@ -467,6 +467,8 @@ impl From<BeamError> for HyperdriveError {
             | BeamError::InconsistentDelays { .. }
             | BeamError::DelayGainsDimensionMismatch { .. } => Self::Delays(s),
             BeamError::Unrecognised(_)
+            | BeamError::UnrecognisedPolConvention(_)
+            | BeamError::PolConventionMismatch { .. }
             | BeamError::BadTileIndex { .. }
             | BeamError::Hyperbeam(_)
             | BeamError::HyperbeamInit(_) => Self::Beam(s),

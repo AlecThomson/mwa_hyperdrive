@@ -19,6 +19,7 @@ use log::{debug, info, trace};
 use marlu::{LatLngHeight, RADec};
 
 use crate::{
+    context::PolConvention,
     beam::Delays,
     cli::common::{
         display_warnings, BeamArgs, Warn, ARRAY_POSITION_HELP, SOURCE_LIST_INPUT_TYPE_HELP,
@@ -359,6 +360,8 @@ fn by_beam(
         source_dist_cutoff.unwrap_or(f64::MAX),
         veto_threshold.unwrap_or(DEFAULT_VETO_THRESHOLD),
         elevation_limit.unwrap_or(DEFAULT_ELEVATION_LIMIT),
+        // srclist-by-beam only ranks by Stokes I, so the convention is irrelevant.
+        PolConvention::default(),
     )?;
     // Were any sources left after vetoing?
     if sl.is_empty() {

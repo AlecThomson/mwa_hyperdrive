@@ -25,7 +25,7 @@ use super::{InputVisParams, ModellingParams, OutputVisParams};
 use crate::{
     averaging::Timeblock,
     beam::Beam,
-    context::Polarisations,
+    context::{PolConvention, Polarisations},
     di_calibrate::calibrate_timeblocks,
     io::{
         read::VisReadError,
@@ -351,6 +351,7 @@ impl DiCalParams {
                         &self.source_list,
                         input_vis_params,
                         self.modelling_params.apply_precession,
+                        self.modelling_params.pol_convention,
                         using_autos,
                         vis_model_slices,
                         tx_model,
@@ -466,6 +467,7 @@ fn model_thread(
     source_list: &SourceList,
     input_vis_params: &InputVisParams,
     apply_precession: bool,
+    pol_convention: PolConvention,
     model_autos: bool,
     vis_model_slices: AxisIterMut<'_, Jones<f32>, Ix2>,
     tx: Sender<VisTimestep>,
@@ -503,6 +505,7 @@ fn model_thread(
         obs_context.array_position.latitude_rad,
         input_vis_params.dut1,
         apply_precession,
+        pol_convention,
     )?;
     let num_tiles = unflagged_tile_xyzs.len();
     let auto_vis_shape = (freqs.len(), num_tiles);

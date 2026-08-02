@@ -16,6 +16,7 @@ use rayon::{iter::Either, prelude::*};
 
 use crate::{
     beam::Beam,
+    context::PolConvention,
     srclist::{FluxDensity, ReadSourceListError, SourceList},
 };
 
@@ -51,6 +52,7 @@ pub(crate) fn veto_sources(
     source_dist_cutoff_deg: f64,
     veto_threshold: f64,
     min_elevation_deg: f64,
+    pol_convention: PolConvention,
 ) -> Result<(), ReadSourceListError> {
     let dist_cutoff = source_dist_cutoff_deg.to_radians();
 
@@ -109,7 +111,7 @@ pub(crate) fn veto_sources(
                         };
 
                     let comp_fd = comp.estimate_at_freq(cc_freq);
-                    fd += get_beam_attenuated_flux_density(&comp_fd, j);
+                    fd += get_beam_attenuated_flux_density(&comp_fd, j, pol_convention);
                 }
 
                 if fd < veto_threshold {
@@ -193,9 +195,13 @@ pub(crate) fn veto_sources(
 /// multiply by a beam-response Jones matrix. Return the sum of the response XX
 /// and YY flux densities as the "beam attenuated flux density".
 // This function is isolated for testing.
-fn get_beam_attenuated_flux_density(fd: &FluxDensity, j: Jones<f64>) -> f64 {
+fn get_beam_attenuated_flux_density(
+    fd: &FluxDensity,
+    j: Jones<f64>,
+    pol_convention: PolConvention,
+) -> f64 {
     // Get the instrumental flux densities as a Jones matrix.
-    let i = fd.to_inst_stokes();
+    let i = fd.to_inst_stokes(pol_convention);
     // Calculate: J . I . J^H
     // where J is the beam-response Jones matrix and I are the instrumental flux
     // densities.
@@ -238,10 +244,10 @@ mod tests {
             u: 0.0,
             v: 0.0,
         };
-        let bafd_pc = get_beam_attenuated_flux_density(&fd, jones_pointing_centre);
+        let bafd_pc = get_beam_attenuated_flux_density(&fd, jones_pointing_centre, PolConvention::default());
         assert_abs_diff_eq!(bafd_pc, 2.0);
 
-        let bafd_null = get_beam_attenuated_flux_density(&fd, jones_null);
+        let bafd_null = get_beam_attenuated_flux_density(&fd, jones_null, PolConvention::default());
         assert_abs_diff_eq!(bafd_null, 2.0);
     }
 
@@ -262,10 +268,10 @@ mod tests {
             u: 0.0,
             v: 0.0,
         };
-        let bafd_pc = get_beam_attenuated_flux_density(&fd, jones_pointing_centre);
+        let bafd_pc = get_beam_attenuated_flux_density(&fd, jones_pointing_centre, PolConvention::default());
         assert_abs_diff_eq!(bafd_pc, 1.9857884953095866);
 
-        let bafd_null = get_beam_attenuated_flux_density(&fd, jones_null);
+        let bafd_null = get_beam_attenuated_flux_density(&fd, jones_null, PolConvention::default());
         assert_abs_diff_eq!(bafd_null, 0.002789795062384414);
     }
 
@@ -364,6 +370,7 @@ mod tests {
             180.0,
             0.1,
             DEFAULT_ELEVATION_LIMIT,
+            PolConvention::default(),
         );
         assert!(result.is_ok());
         result.unwrap();
@@ -410,6 +417,7 @@ mod tests {
             180.0,
             0.1,
             DEFAULT_ELEVATION_LIMIT,
+            PolConvention::default(),
         );
         assert!(result.is_ok(), "{:?}", result.unwrap_err());
         result.unwrap();
@@ -438,6 +446,7 @@ mod tests {
             180.0,
             0.1,
             DEFAULT_ELEVATION_LIMIT,
+            PolConvention::default(),
         );
         assert!(result.is_ok(), "{:?}", result.unwrap_err());
         result.unwrap();
@@ -505,6 +514,7 @@ mod tests {
             f64::MAX,
             0.0,
             DEFAULT_ELEVATION_LIMIT,
+            PolConvention::default(),
         )
         .unwrap();
         assert!(
@@ -531,6 +541,7 @@ mod tests {
             f64::MAX,
             0.0,
             45.0,
+            PolConvention::default(),
         )
         .unwrap();
         assert!(
@@ -556,6 +567,7 @@ mod tests {
             f64::MAX,
             0.0,
             91.0,
+            PolConvention::default(),
         );
         assert!(result.is_ok(), "veto_sources itself should not error");
         assert!(

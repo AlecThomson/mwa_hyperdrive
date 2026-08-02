@@ -24,6 +24,7 @@ use ndarray::prelude::*;
 use num_complex::Complex;
 use vec1::vec1;
 
+use crate::context::PolConvention;
 use super::*;
 #[cfg(any(feature = "cuda", feature = "hip"))]
 use crate::gpu::DevicePointer;
@@ -310,6 +311,7 @@ impl ObsParams {
             self.array_latitude_rad,
             Duration::default(),
             true,
+            PolConvention::default(),
         )
     }
 
@@ -331,6 +333,7 @@ impl ObsParams {
             self.array_latitude_rad,
             Duration::default(),
             true,
+            PolConvention::default(),
         )
         .unwrap();
         let gpu_uvws = self

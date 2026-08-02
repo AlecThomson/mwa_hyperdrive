@@ -71,7 +71,7 @@ pub(crate) enum ReadSourceListError {
     #[error("Tried to use {requested} sources, but only {available} sources were available after vetoing")]
     VetoTooFewSources { requested: usize, available: usize },
 
-    #[error("Beam error when trying to veto the source list: {0}")]
+    #[error("Beam error: {0}")]
     Beam(#[from] BeamError),
 
     #[error(transparent)]

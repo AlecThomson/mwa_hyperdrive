@@ -12,7 +12,10 @@ use marlu::{c64, Jones};
 use serde::{Deserialize, Serialize, Serializer};
 use vec1::Vec1;
 
-use crate::constants::{DEFAULT_SPEC_INDEX, SPEC_INDEX_CAP};
+use crate::{
+    constants::{DEFAULT_SPEC_INDEX, SPEC_INDEX_CAP},
+    context::PolConvention,
+};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 /// At a frequency, four flux densities for each Stokes parameter.
@@ -52,16 +55,28 @@ impl FluxDensity {
     ///
     /// The IAU convention and TMS define X as North-South and Y as East-West.
     /// However, hyperdrive (and many MWA definitions, softwares) use X as EW
-    /// and Y as NS. For this reason, this conversion looks like the opposite of
-    /// what is expected (equation 4.55). In other words, hyperdrive orders its
-    /// Jones matrices [XX XY YX YY], where X is East-West and Y is North-South.
-    pub(crate) fn to_inst_stokes(self) -> Jones<f64> {
-        Jones::from([
-            c64::new(self.i - self.q, 0.0),
-            c64::new(self.u, -self.v),
-            c64::new(self.u, self.v),
-            c64::new(self.i + self.q, 0.0),
-        ])
+    /// and Y as NS. For this reason, the [`PolConvention::Mwa`] conversion looks
+    /// like the opposite of what is expected (equation 4.55). In other words,
+    /// with [`PolConvention::Mwa`] hyperdrive orders its Jones matrices
+    /// [XX XY YX YY], where X is East-West and Y is North-South.
+    ///
+    /// Note that only the feed labelling differs between the two variants; the
+    /// sky-frame Stokes convention is IAU either way.
+    pub(crate) fn to_inst_stokes(self, convention: PolConvention) -> Jones<f64> {
+        match convention {
+            PolConvention::Mwa => Jones::from([
+                c64::new(self.i - self.q, 0.0),
+                c64::new(self.u, -self.v),
+                c64::new(self.u, self.v),
+                c64::new(self.i + self.q, 0.0),
+            ]),
+            PolConvention::Iau => Jones::from([
+                c64::new(self.i + self.q, 0.0),
+                c64::new(self.u, self.v),
+                c64::new(self.u, -self.v),
+                c64::new(self.i - self.q, 0.0),
+            ]),
+        }
     }
 }
 

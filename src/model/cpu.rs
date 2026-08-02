@@ -26,7 +26,7 @@ use super::{shapelets, ModelError};
 use crate::{
     beam::{Beam, BeamError, BeamType},
     constants::*,
-    context::Polarisations,
+    context::{PolConvention, Polarisations},
     model::mask_pols,
     srclist::{ComponentList, GaussianParams, PerComponentParams, Source, SourceList},
     TileBaselineFlags,
@@ -66,6 +66,8 @@ pub struct SkyModellerCpu<'a> {
     unique_freqs: Vec<f64>,
 
     pub(super) pols: Polarisations,
+
+    pub(super) pol_convention: PolConvention,
 }
 
 impl<'a> SkyModellerCpu<'a> {
@@ -82,6 +84,7 @@ impl<'a> SkyModellerCpu<'a> {
         array_latitude_rad: f64,
         dut1: Duration,
         apply_precession: bool,
+        pol_convention: PolConvention,
     ) -> SkyModellerCpu<'a> {
         let components = ComponentList::new(
             source_list
@@ -90,6 +93,7 @@ impl<'a> SkyModellerCpu<'a> {
                 .flat_map(|src| src.components.iter()),
             unflagged_fine_chan_freqs,
             phase_centre,
+            pol_convention,
         );
         let tile_baseline_flags = crate::math::TileBaselineFlags::new(
             unflagged_tile_xyzs.len() + flagged_tiles.len(),
@@ -176,6 +180,7 @@ impl<'a> SkyModellerCpu<'a> {
             unique_freqs,
             freq_map,
             pols,
+            pol_convention,
         }
     }
 
@@ -821,6 +826,7 @@ impl<'a> super::SkyModeller<'a> for SkyModellerCpu<'a> {
             source.components.iter(),
             self.unflagged_fine_chan_freqs,
             phase_centre,
+            self.pol_convention,
         );
         Ok(())
     }

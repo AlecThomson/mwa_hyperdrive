@@ -22,6 +22,7 @@ use ndarray::{prelude::*, Zip};
 use num_traits::Zero;
 use vec1::{vec1, Vec1};
 
+use crate::context::PolConvention;
 use super::*;
 use crate::{
     averaging::Timeblock,
@@ -619,6 +620,7 @@ fn test_vis_rotation() {
             array_pos.latitude_rad,
             obs_context.dut1.unwrap_or_default(),
             apply_precession,
+            PolConvention::default(),
         );
 
         vis_tfb.fill(Jones::zero());
@@ -1042,6 +1044,7 @@ fn test_apply_iono_tfb() {
             array_pos.latitude_rad,
             obs_context.dut1.unwrap_or_default(),
             apply_precession,
+            PolConvention::default(),
         );
 
         vis_tfb.fill(Jones::zero());
@@ -1209,6 +1212,7 @@ fn test_iono_fit() {
             array_pos.latitude_rad,
             obs_context.dut1.unwrap_or_default(),
             apply_precession,
+            PolConvention::default(),
         );
 
         vis_tfb.fill(Jones::zero());
@@ -1353,6 +1357,7 @@ fn test_unpeel_model() {
             array_pos.latitude_rad,
             obs_context.dut1.unwrap_or_default(),
             apply_precession,
+            PolConvention::default(),
         );
 
         vis_model_obs_tfb.fill(Jones::zero());
@@ -1663,6 +1668,7 @@ fn test_peel_single_source(peel_type: PeelType) {
             array_pos.latitude_rad,
             obs_context.dut1.unwrap_or_default(),
             apply_precession,
+            PolConvention::default(),
         )
         .unwrap();
 
@@ -1753,6 +1759,7 @@ fn test_peel_single_source(peel_type: PeelType) {
                         array_pos.latitude_rad,
                         obs_context.dut1.unwrap_or_default(),
                         apply_precession,
+                        PolConvention::default(),
                     )
                     .unwrap();
 
@@ -1997,6 +2004,7 @@ fn test_peel_multi_source(peel_type: PeelType) {
             array_pos.latitude_rad,
             obs_context.dut1.unwrap_or_default(),
             apply_precession,
+            PolConvention::default(),
         )
         .unwrap();
 
@@ -2094,6 +2102,7 @@ fn test_peel_multi_source(peel_type: PeelType) {
                     array_pos.latitude_rad,
                     obs_context.dut1.unwrap_or_default(),
                     apply_precession,
+                    PolConvention::default(),
                 )
                 .unwrap();
 
@@ -2663,6 +2672,7 @@ mod gpu_tests {
                 array_pos.latitude_rad,
                 obs_context.dut1.unwrap_or_default(),
                 apply_precession,
+                PolConvention::default(),
             )
             .unwrap();
 
@@ -3100,6 +3110,7 @@ fn test_peel_weight_preservation() {
             &chanblocks,
             &low_res_lambdas_m,
             apply_precession,
+            PolConvention::default(),
             Some(&output_vis_params), // pass output_vis_params
             rx_ref,
             tx_write,

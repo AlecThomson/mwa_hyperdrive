@@ -18,7 +18,7 @@ use ndarray::prelude::*;
 use super::{mask_pols, shapelets, ModelError, SkyModeller};
 use crate::{
     beam::{Beam, BeamGpu},
-    context::Polarisations,
+    context::{PolConvention, Polarisations},
     gpu::{self, gpu_kernel_call, DevicePointer, GpuError, GpuFloat, GpuJones},
     srclist::{
         get_instrumental_flux_densities, ComponentType, FluxDensityType, ShapeletCoeff, Source,
@@ -54,6 +54,8 @@ pub struct SkyModellerGpu<'a> {
     num_freqs: i32,
 
     pols: Polarisations,
+
+    pol_convention: PolConvention,
 
     /// A simple map from an absolute tile index into an unflagged tile index.
     /// This is important because CUDA/HIP will use tile indices from 0 to the
@@ -159,6 +161,7 @@ impl<'a> SkyModellerGpu<'a> {
         array_latitude_rad: f64,
         dut1: Duration,
         apply_precession: bool,
+        pol_convention: PolConvention,
     ) -> Result<SkyModellerGpu<'a>, ModelError> {
         let mut point_power_law_radecs: Vec<RADec> = vec![];
         let mut point_power_law_lmns: Vec<gpu::LmnRime> = vec![];
@@ -252,7 +255,7 @@ impl<'a> SkyModellerGpu<'a> {
                     // defined one, so the the GPU code doesn't need to keep
                     // track of all reference freqs.
                     let fd_at_150mhz = comp.estimate_at_freq(gpu::POWER_LAW_FD_REF_FREQ as _);
-                    let inst_fd: Jones<f64> = fd_at_150mhz.to_inst_stokes();
+                    let inst_fd: Jones<f64> = fd_at_150mhz.to_inst_stokes(pol_convention);
                     let gpu_inst_fd = jones_to_gpu_jones(inst_fd);
 
                     match &comp.comp_type {
@@ -299,7 +302,7 @@ impl<'a> SkyModellerGpu<'a> {
 
                 FluxDensityType::CurvedPowerLaw { si, fd, q } => {
                     let fd_at_150mhz = comp.estimate_at_freq(gpu::POWER_LAW_FD_REF_FREQ as _);
-                    let inst_fd: Jones<f64> = fd_at_150mhz.to_inst_stokes();
+                    let inst_fd: Jones<f64> = fd_at_150mhz.to_inst_stokes(pol_convention);
                     let gpu_inst_fd = jones_to_gpu_jones(inst_fd);
 
                     // A new SI is needed when changing the reference freq.
@@ -444,6 +447,8 @@ impl<'a> SkyModellerGpu<'a> {
             num_freqs: num_freqs.try_into().expect("not bigger than i32::MAX"),
 
             pols,
+
+            pol_convention,
 
             tile_index_to_unflagged_tile_index_map: d_tile_index_to_unflagged_tile_index_map,
 
@@ -616,7 +621,7 @@ impl<'a> SkyModellerGpu<'a> {
                     // defined one, so the the GPU code doesn't need to keep
                     // track of all reference freqs.
                     let fd_at_150mhz = comp.estimate_at_freq(gpu::POWER_LAW_FD_REF_FREQ as _);
-                    let inst_fd: Jones<f64> = fd_at_150mhz.to_inst_stokes();
+                    let inst_fd: Jones<f64> = fd_at_150mhz.to_inst_stokes(self.pol_convention);
                     let gpu_inst_fd = jones_to_gpu_jones(inst_fd);
 
                     match &comp.comp_type {
@@ -663,7 +668,7 @@ impl<'a> SkyModellerGpu<'a> {
 
                 FluxDensityType::CurvedPowerLaw { si, fd, q } => {
                     let fd_at_150mhz = comp.estimate_at_freq(gpu::POWER_LAW_FD_REF_FREQ as _);
-                    let inst_fd: Jones<f64> = fd_at_150mhz.to_inst_stokes();
+                    let inst_fd: Jones<f64> = fd_at_150mhz.to_inst_stokes(self.pol_convention);
                     let gpu_inst_fd = jones_to_gpu_jones(inst_fd);
 
                     // A new SI is needed when changing the reference freq.
@@ -765,11 +770,14 @@ impl<'a> SkyModellerGpu<'a> {
         }
 
         let point_list_fds =
-            get_instrumental_flux_densities(&point_list_fds, self.freqs).mapv(jones_to_gpu_jones);
-        let gaussian_list_fds = get_instrumental_flux_densities(&gaussian_list_fds, self.freqs)
-            .mapv(jones_to_gpu_jones);
-        let shapelet_list_fds = get_instrumental_flux_densities(&shapelet_list_fds, self.freqs)
-            .mapv(jones_to_gpu_jones);
+            get_instrumental_flux_densities(&point_list_fds, self.freqs, self.pol_convention)
+                .mapv(jones_to_gpu_jones);
+        let gaussian_list_fds =
+            get_instrumental_flux_densities(&gaussian_list_fds, self.freqs, self.pol_convention)
+                .mapv(jones_to_gpu_jones);
+        let shapelet_list_fds =
+            get_instrumental_flux_densities(&shapelet_list_fds, self.freqs, self.pol_convention)
+                .mapv(jones_to_gpu_jones);
 
         let (shapelet_power_law_coeffs, shapelet_power_law_coeff_lens) =
             get_flattened_coeffs(shapelet_power_law_coeffs);

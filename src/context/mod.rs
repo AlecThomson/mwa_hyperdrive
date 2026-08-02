@@ -13,9 +13,11 @@ use std::{
 };
 
 use hifitime::{Duration, Epoch};
+use itertools::Itertools;
 use log::{debug, error, info, trace, warn};
 use marlu::{LatLngHeight, RADec, XyzGeodetic};
 use ndarray::Array2;
+use strum::IntoEnumIterator;
 use vec1::Vec1;
 
 use crate::{beam::Delays, io::read::VisInputType};
@@ -58,6 +60,38 @@ impl Polarisations {
             Polarisations::XX_YY_XY => 3,
         }
     }
+}
+
+/// Which physical dipole each instrumental polarisation label refers to.
+///
+/// This is only about feed labelling; hyperdrive's sky-frame Stokes convention
+/// is already IAU (Q > 0 means North-South linear polarisation) regardless of
+/// which variant is in use.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Default,
+    strum_macros::Display,
+    strum_macros::EnumIter,
+    strum_macros::EnumString,
+)]
+pub enum PolConvention {
+    /// X is East-West, Y is North-South (MWA, mwalib, hyperbeam).
+    #[strum(serialize = "mwa")]
+    #[default]
+    Mwa,
+
+    /// X is North-South, Y is East-West (IAU, TMS; SKA).
+    #[strum(serialize = "iau")]
+    Iau,
+}
+
+lazy_static::lazy_static! {
+    pub(crate) static ref POL_CONVENTIONS_COMMA_SEPARATED: String =
+        PolConvention::iter().map(|s| s.to_string().to_lowercase()).join(", ");
 }
 
 /// MWA observation metadata.

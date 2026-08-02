@@ -18,6 +18,7 @@ use scopeguard::defer_on_unwind;
 
 use super::{InputVisParams, ModellingParams, OutputVisParams};
 use crate::{
+    context::PolConvention,
     beam::Beam,
     io::{
         read::VisReadError,
@@ -44,7 +45,10 @@ impl VisSubtractParams {
             output_vis_params,
             beam,
             source_list,
-            modelling_params: ModellingParams { apply_precession },
+            modelling_params: ModellingParams {
+                apply_precession,
+                pol_convention,
+            },
         } = self;
 
         // Are we going to write out simulated auto-correlations? Use this
@@ -185,6 +189,7 @@ impl VisSubtractParams {
                         source_list,
                         input_vis_params,
                         *apply_precession,
+                        *pol_convention,
                         cross_vis_shape,
                         auto_vis_shape,
                         rx_model,
@@ -271,6 +276,7 @@ fn model_thread(
     source_list: &SourceList,
     input_vis_params: &InputVisParams,
     apply_precession: bool,
+    pol_convention: PolConvention,
     cross_vis_shape: (usize, usize),
     auto_vis_shape: (usize, usize),
     rx: Receiver<VisTimestep>,
@@ -309,6 +315,7 @@ fn model_thread(
         obs_context.array_position.latitude_rad,
         input_vis_params.dut1,
         apply_precession,
+        pol_convention,
     )?;
 
     // Recycle arrays for model visibilities.

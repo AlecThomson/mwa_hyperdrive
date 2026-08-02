@@ -39,7 +39,7 @@ use vec1::Vec1;
 use crate::{
     averaging::{Spw, Timeblock},
     beam::Beam,
-    context::ObsContext,
+    context::{ObsContext, PolConvention},
     io::{
         read::VisReadError,
         write::{write_vis, VisTimestep},
@@ -253,7 +253,10 @@ impl PeelParams {
             iono_outputs,
             beam,
             source_list,
-            modelling_params: ModellingParams { apply_precession },
+            modelling_params: ModellingParams {
+                apply_precession,
+                pol_convention,
+            },
             iono_timeblocks,
             iono_time_average_factor,
             low_res_spw,
@@ -426,6 +429,7 @@ impl PeelParams {
                         input_vis_params.dut1,
                         &all_fine_chan_freqs_hz,
                         *apply_precession,
+                        *pol_convention,
                         rx_data,
                         tx_residual,
                         &error,
@@ -478,6 +482,7 @@ impl PeelParams {
                         &spw.chanblocks,
                         &low_res_lambdas_m,
                         *apply_precession,
+                        *pol_convention,
                         output_vis_params.as_ref(),
                         rx_full_residual,
                         tx_write,
@@ -1625,6 +1630,7 @@ fn subtract_thread(
     dut1: Duration,
     all_fine_chan_freqs_hz: &[f64],
     apply_precession: bool,
+    pol_convention: PolConvention,
     rx_data: Receiver<(Array2<Jones<f32>>, Array2<f32>, Epoch)>,
     tx_residual: Sender<(Array2<Jones<f32>>, Array2<f32>, Epoch)>,
     error: &AtomicCell<bool>,
@@ -1645,6 +1651,7 @@ fn subtract_thread(
             array_position.latitude_rad,
             dut1,
             apply_precession,
+            pol_convention,
         ))
     } else {
         None
@@ -1665,6 +1672,7 @@ fn subtract_thread(
             array_position.latitude_rad,
             dut1,
             apply_precession,
+            pol_convention,
         )?;
         Some(modeller)
     } else {
@@ -1829,6 +1837,7 @@ fn peel_thread(
     chanblocks: &[Chanblock],
     low_res_lambdas_m: &[f64],
     apply_precession: bool,
+    pol_convention: PolConvention,
     output_vis_params: Option<&OutputVisParams>,
     rx_full_residual: Receiver<FullResidual>,
     tx_write: Sender<VisTimestep>,
@@ -1879,6 +1888,7 @@ fn peel_thread(
                     array_position.latitude_rad,
                     dut1,
                     apply_precession,
+                    pol_convention,
                 );
 
                 peel_cpu(
@@ -1913,6 +1923,7 @@ fn peel_thread(
                     array_position.latitude_rad,
                     dut1,
                     apply_precession,
+                    pol_convention,
                 )?;
                 peel_gpu(
                     vis_residual_tfb.view_mut(),

@@ -57,7 +57,7 @@ pub use beam::{create_beam_object, Delays};
 #[doc(hidden)]
 pub use cli::Hyperdrive;
 pub use cli::HyperdriveError;
-pub use context::Polarisations;
+pub use context::{PolConvention, Polarisations};
 pub use di_calibrate::calibrate_timeblocks;
 pub use io::read::{CrossData, MsReader, RawDataCorrections, RawDataReader, UvfitsReader};
 pub use math::TileBaselineFlags;

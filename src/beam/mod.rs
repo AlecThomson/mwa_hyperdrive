@@ -28,6 +28,7 @@ use marlu::{AzEl, Jones};
 use ndarray::prelude::*;
 use strum::IntoEnumIterator;
 
+use crate::context::PolConvention;
 #[cfg(any(feature = "cuda", feature = "hip"))]
 use crate::gpu::{DevicePointer, GpuFloat};
 
@@ -63,6 +64,10 @@ lazy_static::lazy_static! {
 pub trait Beam: Sync + Send {
     /// Get the type of beam.
     fn get_beam_type(&self) -> BeamType;
+
+    /// The polarisation convention of the Jones matrices this beam returns, or
+    /// `None` if the beam is convention-agnostic (e.g. an identity beam).
+    fn get_pol_convention(&self) -> Option<PolConvention>;
 
     /// Get the number of tiles associated with this beam. This is determined by
     /// how many delays have been provided.
@@ -259,6 +264,11 @@ pub(crate) struct NoBeam {
 impl Beam for NoBeam {
     fn get_beam_type(&self) -> BeamType {
         BeamType::None
+    }
+
+    fn get_pol_convention(&self) -> Option<PolConvention> {
+        // Identity matrices commute with any feed labelling.
+        None
     }
 
     fn get_num_tiles(&self) -> usize {

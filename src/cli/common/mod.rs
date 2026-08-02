@@ -36,10 +36,11 @@ use crate::{
         parse_freq_average_factor, parse_time_average_factor, timesteps_to_timeblocks,
         AverageFactorError,
     },
-    beam::Beam,
+    beam::{Beam, BeamError},
     constants::{
         DEFAULT_ELEVATION_LIMIT, DEFAULT_VETO_THRESHOLD, MWA_HEIGHT_M, MWA_LAT_DEG, MWA_LONG_DEG,
     },
+    context::{PolConvention, POL_CONVENTIONS_COMMA_SEPARATED},
     io::{
         get_single_match_from_glob,
         write::{can_write_to_file, VisOutputType, VIS_OUTPUT_EXTENSIONS},
@@ -389,6 +390,7 @@ impl SkyModelWithVetoArgs {
         array_latitude_rad: f64,
         veto_freqs_hz: &[f64],
         beam: &dyn Beam,
+        pol_convention: PolConvention,
     ) -> Result<SourceList, ReadSourceListError> {
         let Self {
             source_list,
@@ -401,7 +403,21 @@ impl SkyModelWithVetoArgs {
             invert,
         } = self;
 
+        // The beam's Jones matrices fix which physical dipole 'X' is, so the
+        // sky model can't be converted to a convention the beam disagrees with.
+        if let Some(beam_convention) = beam.get_pol_convention() {
+            if beam_convention != pol_convention {
+                return Err(BeamError::PolConventionMismatch {
+                    beam_type: beam.get_beam_type(),
+                    beam: beam_convention,
+                    requested: pol_convention,
+                }
+                .into());
+            }
+        }
+
         let mut printer = InfoPrinter::new("Sky model info".into());
+        printer.push_line(format!("Using the {pol_convention} polarisation convention").into());
 
         // Handle the source list argument.
         let sl_pb: PathBuf = match source_list {
@@ -517,6 +533,7 @@ impl SkyModelWithVetoArgs {
                 source_dist_cutoff.unwrap_or(f64::MAX),
                 veto_threshold.unwrap_or(DEFAULT_VETO_THRESHOLD),
                 elevation_limit.unwrap_or(DEFAULT_ELEVATION_LIMIT),
+                pol_convention,
             )?;
             if sl.is_empty() {
                 return Err(ReadSourceListError::NoSourcesAfterVeto);
@@ -569,13 +586,25 @@ impl SkyModelWithVetoArgs {
     }
 }
 
-#[derive(Parser, Debug, Clone, Copy, Default, Serialize, Deserialize)]
+lazy_static::lazy_static! {
+    static ref POL_CONVENTION_HELP: String = format!(
+        "The polarisation convention of the visibility data being modelled; i.e. which physical dipole 'X' refers to. Supported conventions: {}. Default: {}. Non-'{}' conventions require '--beam-type none'",
+        *POL_CONVENTIONS_COMMA_SEPARATED,
+        PolConvention::default().to_string().to_lowercase(),
+        PolConvention::default().to_string().to_lowercase(),
+    );
+}
+
+#[derive(Parser, Debug, Clone, Default, Serialize, Deserialize)]
 pub(super) struct ModellingArgs {
     /// If specified, don't precess the array to J2000. We assume that sky-model
     /// sources are specified in the J2000 epoch.
     #[arg(long, help_heading = "MODELLING")]
     #[serde(default)]
     pub(super) no_precession: bool,
+
+    #[arg(long, help = POL_CONVENTION_HELP.as_str(), help_heading = "MODELLING")]
+    pub(super) pol_convention: Option<String>,
 
     /// Use the CPU for visibility generation. This is deliberately made
     /// non-default because using a GPU is much faster.
@@ -589,17 +618,25 @@ impl ModellingArgs {
     pub(super) fn merge(self, other: Self) -> Self {
         Self {
             no_precession: self.no_precession || other.no_precession,
+            pol_convention: self.pol_convention.or(other.pol_convention),
             #[cfg(any(feature = "cuda", feature = "hip"))]
             cpu: self.cpu || other.cpu,
         }
     }
 
-    pub(super) fn parse(self) -> ModellingParams {
+    pub(super) fn parse(self) -> Result<ModellingParams, BeamError> {
         let ModellingArgs {
             no_precession,
+            pol_convention,
             #[cfg(any(feature = "cuda", feature = "hip"))]
             cpu,
         } = self;
+
+        let pol_convention = match pol_convention {
+            None => PolConvention::default(),
+            Some(s) => PolConvention::from_str(&s)
+                .map_err(|_| BeamError::UnrecognisedPolConvention(s))?,
+        };
 
         #[cfg(any(feature = "cuda", feature = "hip"))]
         if cpu {
@@ -661,8 +698,9 @@ impl ModellingArgs {
         printer.push_block(block);
         printer.display();
 
-        ModellingParams {
+        Ok(ModellingParams {
             apply_precession: !no_precession,
-        }
+            pol_convention,
+        })
     }
 }

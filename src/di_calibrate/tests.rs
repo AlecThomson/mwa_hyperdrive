@@ -17,6 +17,7 @@ use marlu::Jones;
 use ndarray::prelude::*;
 use vec1::{vec1, Vec1};
 
+use crate::context::PolConvention;
 use super::{calibrate, calibrate_timeblocks, DiCalParams, IncompleteSolutions};
 use crate::{
     averaging::{channels_to_chanblocks, timesteps_to_timeblocks, Chanblock, Spw, Timeblock},
@@ -302,6 +303,7 @@ fn get_default_params() -> DiCalParams {
         output_solution_files: vec1![(PathBuf::from("asdf.fits"), CalSolutionType::Fits)],
         output_model_vis_params: None,
         modelling_params: ModellingParams {
+            pol_convention: PolConvention::default(),
             apply_precession: true,
         },
     }

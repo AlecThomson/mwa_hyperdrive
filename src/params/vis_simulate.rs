@@ -28,7 +28,7 @@ use vec1::Vec1;
 use crate::{
     averaging::channels_to_chanblocks,
     beam::Beam,
-    context::Polarisations,
+    context::{PolConvention, Polarisations},
     io::write::{write_vis, VisTimestep, VisWriteError},
     math::TileBaselineFlags,
     model::{self, ModelError},
@@ -109,7 +109,10 @@ impl VisSimulateParams {
             beam,
             array_position,
             dut1,
-            modelling_params: ModellingParams { apply_precession },
+            modelling_params: ModellingParams {
+                apply_precession,
+                pol_convention,
+            },
         } = self;
 
         // Channel for writing simulated visibilities.
@@ -165,6 +168,7 @@ impl VisSimulateParams {
                         *array_position,
                         *dut1,
                         *apply_precession,
+                        *pol_convention,
                         *output_autos,
                         weight_factor,
                         tx_model,
@@ -249,6 +253,7 @@ fn model_thread(
     array_position: LatLngHeight,
     dut1: Duration,
     apply_precession: bool,
+    pol_convention: PolConvention,
     model_autos: bool,
     weight_factor: f64,
     tx: Sender<VisTimestep>,
@@ -266,6 +271,7 @@ fn model_thread(
         array_position.latitude_rad,
         dut1,
         apply_precession,
+        pol_convention,
     )?;
 
     let num_tiles = unflagged_tile_xyzs.len();

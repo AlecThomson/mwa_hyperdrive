@@ -214,8 +214,69 @@ fn estimate_with_negative_fds() {
     assert_abs_diff_eq!(result, expected);
 }
 
+/// Hard-coded numbers, so that a sign flip or an XX/YY swap actually fails.
 #[test]
 fn test_to_jones() {
+    // Purely North-South linear polarisation. hyperdrive's X is East-West, so
+    // the MWA convention puts all the flux in YY, the IAU convention in XX.
+    let q_only = FluxDensity {
+        freq: 170e6,
+        i: 1.0,
+        q: 1.0,
+        u: 0.0,
+        v: 0.0,
+    };
+    assert_abs_diff_eq!(
+        q_only.to_inst_stokes(PolConvention::Mwa),
+        Jones::from([
+            c64::new(0.0, 0.0),
+            c64::new(0.0, 0.0),
+            c64::new(0.0, 0.0),
+            c64::new(2.0, 0.0),
+        ])
+    );
+    assert_abs_diff_eq!(
+        q_only.to_inst_stokes(PolConvention::Iau),
+        Jones::from([
+            c64::new(2.0, 0.0),
+            c64::new(0.0, 0.0),
+            c64::new(0.0, 0.0),
+            c64::new(0.0, 0.0),
+        ])
+    );
+
+    // Circular polarisation; check the sign of the imaginary cross terms.
+    let v_only = FluxDensity {
+        freq: 170e6,
+        i: 1.0,
+        q: 0.0,
+        u: 0.0,
+        v: 1.0,
+    };
+    assert_abs_diff_eq!(
+        v_only.to_inst_stokes(PolConvention::Mwa),
+        Jones::from([
+            c64::new(1.0, 0.0),
+            c64::new(0.0, -1.0),
+            c64::new(0.0, 1.0),
+            c64::new(1.0, 0.0),
+        ])
+    );
+    assert_abs_diff_eq!(
+        v_only.to_inst_stokes(PolConvention::Iau),
+        Jones::from([
+            c64::new(1.0, 0.0),
+            c64::new(0.0, 1.0),
+            c64::new(0.0, -1.0),
+            c64::new(1.0, 0.0),
+        ])
+    );
+}
+
+/// The two conventions differ only in which feed is labelled X, so IAU must be
+/// MWA with the rows *and* columns swapped.
+#[test]
+fn test_conventions_are_a_feed_swap() {
     let fd = FluxDensity {
         freq: 170e6,
         i: 0.058438801501144624,
@@ -223,14 +284,31 @@ fn test_to_jones() {
         u: -0.3899498110659575,
         v: -0.058562589895788,
     };
-    let result = fd.to_inst_stokes();
+    let mwa = fd.to_inst_stokes(PolConvention::Mwa);
     assert_abs_diff_eq!(
-        result,
-        Jones::from([
-            c64::new(fd.i - fd.q, 0.0),
-            c64::new(fd.u, -fd.v),
-            c64::new(fd.u, fd.v),
-            c64::new(fd.i + fd.q, 0.0),
-        ])
+        fd.to_inst_stokes(PolConvention::Iau),
+        Jones::from([mwa[3], mwa[2], mwa[1], mwa[0]])
+    );
+}
+
+/// Swapping X and Y is algebraically identical to negating Q and V. Cross-check
+/// that the two match arms stay consistent with one another.
+#[test]
+fn test_iau_equals_mwa_with_q_and_v_negated() {
+    let fd = FluxDensity {
+        freq: 170e6,
+        i: 0.058438801501144624,
+        q: -0.3929914018344019,
+        u: -0.3899498110659575,
+        v: -0.058562589895788,
+    };
+    let negated = FluxDensity {
+        q: -fd.q,
+        v: -fd.v,
+        ..fd
+    };
+    assert_abs_diff_eq!(
+        fd.to_inst_stokes(PolConvention::Iau),
+        negated.to_inst_stokes(PolConvention::Mwa)
     );
 }

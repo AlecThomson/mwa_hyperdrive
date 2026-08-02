@@ -24,8 +24,8 @@ use mwa_hyperdrive::{
         get_instrumental_flux_densities, ComponentType, FluxDensity, FluxDensityType,
         ShapeletCoeff, Source, SourceComponent, SourceList,
     },
-    Chanblock, CrossData, Delays, MsReader, Polarisations, RawDataCorrections, RawDataReader,
-    TileBaselineFlags, Timeblock, UvfitsReader,
+    Chanblock, CrossData, Delays, MsReader, PolConvention, Polarisations, RawDataCorrections,
+    RawDataReader, TileBaselineFlags, Timeblock, UvfitsReader,
 };
 
 fn model_benchmarks(c: &mut Criterion) {
@@ -81,6 +81,7 @@ fn model_benchmarks(c: &mut Criterion) {
                     MWA_LAT_RAD,
                     dut1,
                     apply_precession,
+                    PolConvention::default(),
                 );
 
                 b.iter(|| {
@@ -142,6 +143,7 @@ fn model_benchmarks(c: &mut Criterion) {
                     MWA_LAT_RAD,
                     dut1,
                     apply_precession,
+                    PolConvention::default(),
                 )
                 .unwrap();
 
@@ -200,6 +202,7 @@ fn model_benchmarks(c: &mut Criterion) {
             MWA_LAT_RAD,
             dut1,
             apply_precession,
+            PolConvention::default(),
         );
 
         b.iter(|| {
@@ -263,6 +266,7 @@ fn model_benchmarks(c: &mut Criterion) {
                     MWA_LAT_RAD,
                     dut1,
                     apply_precession,
+                    PolConvention::default(),
                 )
                 .unwrap();
 
@@ -332,6 +336,7 @@ fn model_benchmarks(c: &mut Criterion) {
                 MWA_LAT_RAD,
                 dut1,
                 apply_precession,
+                PolConvention::default(),
             );
 
             b.iter(|| {
@@ -405,6 +410,7 @@ fn model_benchmarks(c: &mut Criterion) {
                     MWA_LAT_RAD,
                     dut1,
                     apply_precession,
+                    PolConvention::default(),
                 )
                 .unwrap();
 
@@ -515,7 +521,7 @@ fn source_list_benchmarks(c: &mut Criterion) {
         &format!("Estimate flux densities for source list with {num_comps} 'list' components over {num_freqs} frequencies"),
         |b| {
             b.iter(|| {
-                get_instrumental_flux_densities(&comp_fds, &freqs);
+                get_instrumental_flux_densities(&comp_fds, &freqs, PolConvention::default());
             });
         }
     );

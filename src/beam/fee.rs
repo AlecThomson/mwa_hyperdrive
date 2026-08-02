@@ -11,6 +11,7 @@ use marlu::{AzEl, Jones};
 use ndarray::prelude::*;
 
 use super::{partial_to_full, validate_delays, Beam, BeamError, BeamType, Delays};
+use crate::context::PolConvention;
 
 #[cfg(any(feature = "cuda", feature = "hip"))]
 use super::{BeamGpu, DevicePointer, GpuFloat};
@@ -159,6 +160,12 @@ impl FEEBeam {
 impl Beam for FEEBeam {
     fn get_beam_type(&self) -> BeamType {
         BeamType::FEE
+    }
+
+    fn get_pol_convention(&self) -> Option<PolConvention> {
+        // hyperbeam's FEE Jones matrices are [X=EW, Y=NS]. When hyperbeam can
+        // emit IAU-ordered Jones this should return the configured convention.
+        Some(PolConvention::Mwa)
     }
 
     fn get_num_tiles(&self) -> usize {

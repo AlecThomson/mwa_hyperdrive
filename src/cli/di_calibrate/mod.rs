@@ -236,7 +236,10 @@ impl DiCalArgs {
             obs_context.dipole_gains.clone(),
             Some(obs_context.input_data_type),
         )?;
-        let modelling_params @ ModellingParams { apply_precession } = model_args.parse();
+        let modelling_params @ ModellingParams {
+            apply_precession,
+            pol_convention,
+        } = model_args.parse()?;
 
         let DiCalCliArgs {
             timesteps_per_timeblock,
@@ -280,6 +283,7 @@ impl DiCalArgs {
             latitude_rad,
             &obs_context.get_veto_freqs(),
             &*beam,
+            pol_convention,
         )?;
 
         // Set up the calibration timeblocks.

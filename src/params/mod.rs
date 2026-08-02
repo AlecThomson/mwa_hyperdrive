@@ -30,7 +30,7 @@ use std::{num::NonZeroUsize, path::PathBuf};
 
 use vec1::Vec1;
 
-use crate::{averaging::Timeblock, io::write::VisOutputType};
+use crate::{averaging::Timeblock, context::PolConvention, io::write::VisOutputType};
 
 pub(crate) struct OutputVisParams {
     pub(crate) output_files: Vec1<(PathBuf, VisOutputType)>,
@@ -50,4 +50,7 @@ pub(crate) struct OutputVisParams {
 
 pub(crate) struct ModellingParams {
     pub(crate) apply_precession: bool,
+
+    /// Which physical dipole each instrumental polarisation label refers to.
+    pub(crate) pol_convention: PolConvention,
 }

@@ -240,7 +240,10 @@ impl PeelArgs {
             obs_context.dipole_gains.clone(),
             Some(obs_context.input_data_type),
         )?;
-        let modelling_params @ ModellingParams { apply_precession } = model_args.parse();
+        let modelling_params @ ModellingParams {
+            apply_precession,
+            pol_convention,
+        } = model_args.parse()?;
 
         let LatLngHeight {
             longitude_rad,
@@ -269,6 +272,7 @@ impl PeelArgs {
                 lat_rad,
                 &obs_context.get_veto_freqs(),
                 &*beam,
+                pol_convention,
             )?;
             (srclist, lst_rad)
         };

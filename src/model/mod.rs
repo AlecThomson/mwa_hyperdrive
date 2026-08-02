@@ -25,7 +25,7 @@ use ndarray::{Array2, ArrayViewMut2};
 
 use crate::{
     beam::Beam,
-    context::Polarisations,
+    context::{PolConvention, Polarisations},
     srclist::{Source, SourceList},
     MODEL_DEVICE,
 };
@@ -224,6 +224,7 @@ pub fn new_sky_modeller<'a>(
     array_latitude_rad: f64,
     dut1: Duration,
     apply_precession: bool,
+    pol_convention: PolConvention,
 ) -> Result<Box<dyn SkyModeller<'a> + 'a>, ModelError> {
     match MODEL_DEVICE.load() {
         ModelDevice::Cpu => Ok(Box::new(SkyModellerCpu::new(
@@ -238,6 +239,7 @@ pub fn new_sky_modeller<'a>(
             array_latitude_rad,
             dut1,
             apply_precession,
+            pol_convention,
         ))),
 
         #[cfg(any(feature = "cuda", feature = "hip"))]
@@ -254,6 +256,7 @@ pub fn new_sky_modeller<'a>(
                 array_latitude_rad,
                 dut1,
                 apply_precession,
+                pol_convention,
             )?;
             Ok(Box::new(modeller))
         }

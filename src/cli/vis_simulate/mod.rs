@@ -528,7 +528,8 @@ impl VisSimulateArgs {
             Some(get_dipole_gains(&metafits)),
             None,
         )?;
-        let modelling_params = modelling_args.parse();
+        let modelling_params = modelling_args.parse()?;
+        let pol_convention = modelling_params.pol_convention;
 
         let source_list = srclist_args.parse(
             phase_centre,
@@ -536,6 +537,7 @@ impl VisSimulateArgs {
             latitude_rad,
             &coarse_chan_freqs,
             &*beam,
+            pol_convention,
         )?;
 
         // Apply any filters.

@@ -7,7 +7,11 @@
 
 use marlu::{constants::MWA_LAT_RAD, RADec};
 
-use crate::srclist::ReadSourceListError;
+use crate::{
+    beam::{BeamError, Delays},
+    context::PolConvention,
+    srclist::ReadSourceListError,
+};
 
 use super::{BeamArgs, SkyModelWithVetoArgs};
 
@@ -37,6 +41,7 @@ fn all_sources_vetoed_causes_error() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
     assert!(result.is_err());
     assert!(matches!(
@@ -56,6 +61,7 @@ fn all_sources_vetoed_causes_error() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
     assert!(result.is_err());
     assert!(matches!(
@@ -75,6 +81,7 @@ fn all_sources_vetoed_causes_error() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
     assert!(result.is_err());
     assert!(matches!(
@@ -110,6 +117,7 @@ fn skymodel_veto_parse_num() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
     assert!(result.is_ok());
     let sl = result.unwrap();
@@ -145,6 +153,7 @@ fn skymodel_veto_parse_named() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
     assert!(result.is_ok());
     let sl = result.unwrap();
@@ -182,6 +191,7 @@ fn skymodel_veto_parse_named_invert() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
     assert!(result.is_ok());
     let sl = result.unwrap();
@@ -218,6 +228,7 @@ fn skymodel_veto_parse_named_invert_missing_source() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
     assert!(result.is_err());
     assert!(matches!(
@@ -255,6 +266,7 @@ fn skymodel_veto_parse_named_and_num_sources() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
     assert!(result.is_err());
     assert!(matches!(
@@ -293,6 +305,7 @@ fn skymodel_veto_parse_named_and_num_sources_invert() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
     assert!(result.is_ok());
     let sl = result.unwrap();
@@ -327,6 +340,7 @@ fn skymodel_veto_parse_named_and_num_sources_invert_all_sources() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
     assert!(result.is_ok());
     let sl = result.unwrap();
@@ -346,6 +360,7 @@ fn skymodel_veto_parse_named_and_num_sources_invert_all_sources() {
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
+        PolConvention::default(),
     );
 
     assert!(result.is_err());
@@ -353,4 +368,76 @@ fn skymodel_veto_parse_named_and_num_sources_invert_all_sources() {
         result.unwrap_err(),
         ReadSourceListError::AllSourcesFiltered { invert } if invert
     ));
+}
+
+/// The MWA FEE beam is East-West only, so it can't be used with IAU ordering.
+#[test]
+#[serial_test::serial]
+fn fee_beam_rejects_iau_pol_convention() {
+    let source_list = Some(
+        "test_files/1090008640/srclist_pumav3_EoR0aegean_EoR1pietro+ForA_1090008640_peel100.txt"
+            .to_string(),
+    );
+
+    let fee_beam = BeamArgs {
+        delays: Some(vec![0; 16]),
+        ..Default::default()
+    }
+    .parse(128, Some(Delays::Partial(vec![0; 16])), None, None)
+    .expect("no problems setting up a FEEBeam");
+
+    let result = SkyModelWithVetoArgs {
+        source_list: source_list.clone(),
+        ..Default::default()
+    }
+    .parse(
+        RADec::from_degrees(0.0, -30.0),
+        0.0,
+        MWA_LAT_RAD,
+        &[150e6],
+        &*fee_beam,
+        PolConvention::Iau,
+    );
+    assert!(matches!(
+        result.unwrap_err(),
+        ReadSourceListError::Beam(BeamError::PolConventionMismatch { .. })
+    ));
+
+    // The MWA convention is fine with the FEE beam, and the identity beam is
+    // happy with either convention.
+    assert!(SkyModelWithVetoArgs {
+        source_list: source_list.clone(),
+        ..Default::default()
+    }
+    .parse(
+        RADec::from_degrees(0.0, -30.0),
+        0.0,
+        MWA_LAT_RAD,
+        &[150e6],
+        &*fee_beam,
+        PolConvention::Mwa,
+    )
+    .is_ok());
+
+    let no_beam = BeamArgs {
+        no_beam: true,
+        ..Default::default()
+    }
+    .parse(128, None, None, None)
+    .expect("no problems setting up a NoBeam");
+    for convention in [PolConvention::Mwa, PolConvention::Iau] {
+        assert!(SkyModelWithVetoArgs {
+            source_list: source_list.clone(),
+            ..Default::default()
+        }
+        .parse(
+            RADec::from_degrees(0.0, -30.0),
+            0.0,
+            MWA_LAT_RAD,
+            &[150e6],
+            &*no_beam,
+            convention,
+        )
+        .is_ok());
+    }
 }

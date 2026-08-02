@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- [#40](https://github.com/MWATelescope/mwa_hyperdrive/issues/40) optional CLI
+  flag `--pol-convention <mwa|iau>` on `di-calibrate`, `vis-simulate`,
+  `vis-subtract` and `peel`, declaring which physical dipole "X" refers to in
+  the visibility data being modelled. `mwa` (X is East-West) remains the
+  default, so existing behaviour is unchanged; `iau` (X is North-South) supports
+  SKA and other IAU-compliant instruments. The MWA FEE beam is East-West only,
+  so `--pol-convention iau` requires `--beam-type none`.
+
 ## [0.8.0] - 2026-06-09
 
 ### Changed

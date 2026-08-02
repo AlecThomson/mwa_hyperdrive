@@ -6,7 +6,8 @@
 
 use thiserror::Error;
 
-use super::BEAM_TYPES_COMMA_SEPARATED;
+use super::{BeamType, BEAM_TYPES_COMMA_SEPARATED};
+use crate::context::{PolConvention, POL_CONVENTIONS_COMMA_SEPARATED};
 
 #[derive(Error, Debug)]
 pub enum BeamError {
@@ -15,6 +16,19 @@ pub enum BeamError {
         *BEAM_TYPES_COMMA_SEPARATED
     )]
     Unrecognised(String),
+
+    #[error(
+        "Unrecognised polarisation convention '{_0}'; supported conventions are: {}",
+        *POL_CONVENTIONS_COMMA_SEPARATED
+    )]
+    UnrecognisedPolConvention(String),
+
+    #[error("The '{beam_type}' beam produces Jones matrices in the '{beam}' polarisation convention, but '{requested}' was requested. Use '--beam-type none' for non-MWA instruments")]
+    PolConventionMismatch {
+        beam_type: BeamType,
+        beam: PolConvention,
+        requested: PolConvention,
+    },
 
     #[error(
         "Tried to set up a '{0}' beam, which requires MWA dipole delays, but none are available"

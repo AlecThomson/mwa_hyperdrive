@@ -7,6 +7,7 @@
 use marlu::RADec;
 use ndarray::prelude::*;
 
+use crate::context::PolConvention;
 use super::*;
 use crate::srclist::{Source, SourceList};
 
@@ -347,6 +348,7 @@ fn precession_off_paths_and_autos() {
         obs.array_latitude_rad,
         hifitime::Duration::default(),
         false, // apply_precession off
+        PolConvention::default(),
     );
 
     // model_timestep should succeed and return UVWs
@@ -623,6 +625,7 @@ fn get_beam_responses_empty_azels() {
         array_latitude_rad,
         dut1,
         apply_precession,
+        PolConvention::default(),
     );
 
     let mut vis_model_fb = Array2::zeros((1, 1));
