@@ -10,12 +10,13 @@
 
 use std::collections::BTreeMap;
 
+use hifitime::Epoch;
 use log::{debug, log_enabled, trace, Level::Trace};
 use marlu::{Jones, RADec};
 use rayon::{iter::Either, prelude::*};
 
 use crate::{
-    beam::Beam,
+    beam::{Beam, BeamTime},
     constants::*,
     srclist::{FluxDensity, ReadSourceListError, SourceList},
 };
@@ -45,6 +46,7 @@ pub(crate) fn veto_sources(
     source_list: &mut SourceList,
     phase_centre: RADec,
     lst_rad: f64,
+    epoch: Option<Epoch>,
     array_latitude_rad: f64,
     freqs_hz: &[f64],
     beam: &dyn Beam,
@@ -53,6 +55,7 @@ pub(crate) fn veto_sources(
     veto_threshold: f64,
 ) -> Result<(), ReadSourceListError> {
     let dist_cutoff = source_dist_cutoff_deg.to_radians();
+    let beam_time = epoch.map(|epoch| BeamTime { epoch, lst_rad });
 
     // TODO: This step is relatively expensive!
     let (vetoed_sources, not_vetoed_sources): (Vec<Result<String, ReadSourceListError>>, BTreeMap<String, f64>) = source_list
@@ -100,7 +103,8 @@ pub(crate) fn veto_sources(
                             *azel,
                             cc_freq,
                         None,
-                        array_latitude_rad) {
+                        array_latitude_rad,
+                        beam_time) {
                             Ok(j) => j,
                             Err(e) => {
                                 trace!("Beam error for source {}", source_name);
@@ -225,10 +229,10 @@ mod tests {
     fn test_beam_attenuated_flux_density_no_beam() {
         let beam = NoBeam { num_tiles: 1 };
         let jones_pointing_centre = beam
-            .calc_jones(AzEl::from_degrees(0.0, 90.0), 180e6, None, MWA_LAT_RAD)
+            .calc_jones(AzEl::from_degrees(0.0, 90.0), 180e6, None, MWA_LAT_RAD, None)
             .unwrap();
         let jones_null = beam
-            .calc_jones(AzEl::from_degrees(10.0, 10.0), 180e6, None, MWA_LAT_RAD)
+            .calc_jones(AzEl::from_degrees(10.0, 10.0), 180e6, None, MWA_LAT_RAD, None)
             .unwrap();
         let fd = FluxDensity {
             freq: 180e6,
@@ -249,10 +253,10 @@ mod tests {
     fn test_beam_attenuated_flux_density_fee_beam() {
         let beam = FEEBeam::new_from_env(1, Delays::Partial(vec![0; 16]), None).unwrap();
         let jones_pointing_centre = beam
-            .calc_jones(AzEl::from_degrees(0.0, 89.0), 180e6, None, MWA_LAT_RAD)
+            .calc_jones(AzEl::from_degrees(0.0, 89.0), 180e6, None, MWA_LAT_RAD, None)
             .unwrap();
         let jones_null = beam
-            .calc_jones(AzEl::from_degrees(10.0, 10.0), 180e6, None, MWA_LAT_RAD)
+            .calc_jones(AzEl::from_degrees(10.0, 10.0), 180e6, None, MWA_LAT_RAD, None)
             .unwrap();
         let fd = FluxDensity {
             freq: 180e6,
@@ -356,6 +360,7 @@ mod tests {
             &mut source_list,
             phase_centre,
             0.0,
+            None,
             MWA_LAT_RAD,
             &[167.68e6, 197.12e6],
             &beam,
@@ -401,6 +406,7 @@ mod tests {
             &mut source_list,
             phase_centre,
             0.0,
+            None,
             MWA_LAT_RAD,
             &[167.68e6, 197.12e6],
             &beam,
@@ -428,6 +434,7 @@ mod tests {
             &mut source_list,
             phase_centre,
             0.0,
+            None,
             MWA_LAT_RAD,
             &[167.68e6, 197.12e6],
             &beam,

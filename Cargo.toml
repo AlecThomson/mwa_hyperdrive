@@ -42,6 +42,11 @@ gpu-single = ["mwa_hyperbeam/gpu-single"]
 # Enable plotting.
 plotting = ["plotters"]
 
+# Use EveryBeam (https://git.astron.nl/RD/EveryBeam) for beam responses. This
+# requires EveryBeam (>= 0.9) and casacore to be installed; see the
+# `EVERYBEAM_DIR` and `CASACORE_DIR` environment variables in build.rs.
+everybeam = ["cc"]
+
 # Use dlopen to find libfontconfig at runtime.
 fontconfig-dlopen = ["plotters/fontconfig-dlopen"]
 

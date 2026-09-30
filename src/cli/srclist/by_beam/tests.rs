@@ -45,6 +45,7 @@ fn test_srclist_by_beam() {
             delays: None,
             unity_dipole_gains: false,
             beam_file: None,
+            ..Default::default()
         },
     }
     .run()

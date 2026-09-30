@@ -23,6 +23,7 @@ macro_rules! test_modelling {
             &obs.uvws,
             obs.lst,
             obs.array_latitude_rad,
+            None,
         )
         .unwrap();
         let epsilon = if $no_beam { 0.0 } else { 1e-15 };
@@ -36,6 +37,7 @@ macro_rules! test_modelling {
             &obs.uvws,
             obs.lst,
             obs.array_latitude_rad,
+            None,
         )
         .unwrap();
         $power_law_test_fn(visibilities.view(), epsilon);
@@ -48,6 +50,7 @@ macro_rules! test_modelling {
             &obs.uvws,
             obs.lst,
             obs.array_latitude_rad,
+            None,
         )
         .unwrap();
         $curved_power_law_test_fn(visibilities.view(), epsilon);
@@ -185,6 +188,7 @@ macro_rules! test_modelling_shapelets {
                 shapelet_uvws.view(),
                 obs.lst,
                 obs.array_latitude_rad,
+                None,
             )
             .unwrap();
         let epsilon = if $no_beam { 0.0 } else { 1e-15 };
@@ -199,6 +203,7 @@ macro_rules! test_modelling_shapelets {
                 shapelet_uvws.view(),
                 obs.lst,
                 obs.array_latitude_rad,
+                None,
             )
             .unwrap();
         $power_law_test_fn(visibilities.view(), epsilon);
@@ -212,6 +217,7 @@ macro_rules! test_modelling_shapelets {
                 shapelet_uvws.view(),
                 obs.lst,
                 obs.array_latitude_rad,
+                None,
             )
             .unwrap();
         $curved_power_law_test_fn(visibilities.view(), epsilon);
@@ -323,6 +329,7 @@ fn gaussian_multiple_components() {
         &obs.uvws,
         obs.lst,
         obs.array_latitude_rad,
+        None,
     );
     assert!(result.is_ok());
     test_multiple_gaussian_components(visibilities.view(), 0.0);
@@ -354,6 +361,7 @@ fn shapelet_multiple_components() {
         shapelet_uvws.view(),
         obs.lst,
         obs.array_latitude_rad,
+        None,
     );
     assert!(result.is_ok());
 

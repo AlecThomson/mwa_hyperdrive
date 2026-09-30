@@ -187,6 +187,7 @@ impl VisSubtractArgs {
             obs_context.dipole_delays.clone(),
             obs_context.dipole_gains.clone(),
             Some(obs_context.input_data_type),
+            input_vis_params.vis_reader.get_ms_path(),
         )?;
         let modelling_params @ ModellingParams {
             apply_precession, ..
@@ -297,6 +298,7 @@ impl VisSubtractArgs {
                 &mut sl,
                 obs_context.phase_centre,
                 lmst,
+                Some(input_vis_params.timeblocks.first().median),
                 latitude,
                 &obs_context.get_veto_freqs(),
                 &*beam,

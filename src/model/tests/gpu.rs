@@ -312,6 +312,7 @@ macro_rules! test_beam_applies_to_first_component {
                 .model_points(
                     obs.lst,
                     obs.array_latitude_rad,
+                    None,
                     &d_uvws,
                     &mut d_beam_jones,
                     &mut d_vis_fb,
@@ -355,6 +356,7 @@ macro_rules! test_beam_applies_to_first_component {
                 .model_gaussians(
                     obs.lst,
                     obs.array_latitude_rad,
+                    None,
                     &d_uvws,
                     &mut d_beam_jones,
                     &mut d_vis_fb,
@@ -393,6 +395,7 @@ macro_rules! test_beam_applies_to_first_component {
                 .model_shapelets(
                     obs.lst,
                     obs.array_latitude_rad,
+                    None,
                     &d_uvws,
                     &mut d_beam_jones,
                     &mut d_vis_fb,

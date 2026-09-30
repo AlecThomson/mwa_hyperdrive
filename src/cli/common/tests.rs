@@ -17,7 +17,7 @@ fn all_sources_vetoed_causes_error() {
         no_beam: true,
         ..Default::default()
     }
-    .parse(128, None, None, None)
+    .parse(128, None, None, None, None)
     .expect("no problems setting up a NoBeam");
 
     let source_list = Some(
@@ -34,6 +34,7 @@ fn all_sources_vetoed_causes_error() {
     .parse(
         RADec::from_degrees(0.0, -30.0),
         0.0,
+        None,
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
@@ -53,6 +54,7 @@ fn all_sources_vetoed_causes_error() {
     .parse(
         RADec::from_degrees(0.0, -30.0),
         0.0,
+        None,
         MWA_LAT_RAD,
         &[150e6],
         &*beam,
@@ -72,6 +74,7 @@ fn all_sources_vetoed_causes_error() {
     .parse(
         RADec::from_degrees(0.0, -30.0),
         0.0,
+        None,
         MWA_LAT_RAD,
         &[150e6],
         &*beam,

@@ -6,9 +6,8 @@
 
 use std::{
     borrow::Cow,
-    collections::{hash_map::DefaultHasher, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     f64::consts::{FRAC_PI_2, LN_2},
-    hash::{Hash, Hasher},
 };
 
 use hifitime::{Duration, Epoch};
@@ -19,12 +18,12 @@ use marlu::{
     precession::{get_lmst, precess_time},
     AzEl, Jones, LmnRime, RADec, XyzGeodetic, UVW,
 };
-use ndarray::{parallel::prelude::*, prelude::*, ArcArray2};
+use ndarray::{parallel::prelude::*, prelude::*};
 use num_complex::Complex;
 
 use super::{shapelets, ModelError};
 use crate::{
-    beam::{Beam, BeamError, BeamType},
+    beam::{Beam, BeamError, BeamTime, BeamType},
     constants::*,
     context::Polarisations,
     model::mask_pols,
@@ -98,47 +97,8 @@ impl<'a> SkyModellerCpu<'a> {
         // unique frequencies. This means we potentially de-duplicate a bunch
         // of work.
         let total_num_tiles = unflagged_tile_xyzs.len() + flagged_tiles.len();
-        // When there are no beam gains or delays, there's a way to cheaply
-        // generate the tile map, but I'm lazy right now.
-        let gains = beam
-            .get_dipole_gains()
-            .unwrap_or(ArcArray2::ones((total_num_tiles, 16)));
-        let delays = beam
-            .get_dipole_delays()
-            .unwrap_or(ArcArray2::zeros((total_num_tiles, 16)));
-        let mut unique_hashes = vec![];
-        let mut unique_tiles = vec![];
-        let mut tile_index_to_array_index_map = Vec::with_capacity(total_num_tiles);
-
-        let mut i_array_tile = 0;
-        for (i_tile, (gains, delays)) in gains.outer_iter().zip(delays.outer_iter()).enumerate() {
-            if flagged_tiles.contains(&i_tile) {
-                tile_index_to_array_index_map.push(0);
-                continue;
-            }
-
-            let (gains, delays) = fix_amps_ndarray(gains, delays);
-
-            let mut unique_tile_hasher = DefaultHasher::new();
-            delays.hash(&mut unique_tile_hasher);
-            // We can't hash f64 values, but we can hash their bits.
-            for gain in gains {
-                gain.to_bits().hash(&mut unique_tile_hasher);
-            }
-            let unique_tile_hash = unique_tile_hasher.finish();
-            let index = if let Some((_, index)) = unique_hashes
-                .iter()
-                .find(|(unique_hash, _)| *unique_hash == unique_tile_hash)
-            {
-                *index
-            } else {
-                unique_hashes.push((unique_tile_hash, i_array_tile));
-                unique_tiles.push(i_tile);
-                i_array_tile += 1;
-                i_array_tile - 1
-            };
-            tile_index_to_array_index_map.push(index);
-        }
+        let (unique_tiles, tile_index_to_array_index_map) =
+            beam.get_unique_tiles(total_num_tiles, flagged_tiles);
 
         let mut unique_beam_freqs = vec![];
         let mut unique_freqs = vec![];
@@ -186,6 +146,7 @@ impl<'a> SkyModellerCpu<'a> {
         &self,
         azels: &[AzEl],
         array_latitude_rad: f64,
+        beam_time: Option<BeamTime>,
     ) -> Result<Array3<Jones<f64>>, BeamError> {
         if matches!(self.beam.get_beam_type(), BeamType::None) {
             return Ok(Array3::from_elem(
@@ -199,26 +160,14 @@ impl<'a> SkyModellerCpu<'a> {
             self.unique_freqs.len(),
             azels.len(),
         ));
-        // The variables are a bit confusing here. `i_tile` is the outer-most
-        // index into `beam_responses`, and `i_unique_tile` is the index to feed
-        // into the beam calculations.
-        for (i_tile, &i_unique_tile) in self.unique_tiles.iter().enumerate() {
-            for (slice, freq) in beam_responses
-                .slice_mut(s![i_tile, .., ..])
-                .as_slice_mut()
-                .expect("is contiguous")
-                .chunks_exact_mut(azels.len())
-                .zip(self.unique_freqs.iter())
-            {
-                self.beam.calc_jones_array_inner(
-                    azels,
-                    *freq,
-                    Some(i_unique_tile),
-                    array_latitude_rad,
-                    slice,
-                )?;
-            }
-        }
+        self.beam.calc_jones_tiles_freqs(
+            azels,
+            &self.unique_freqs,
+            &self.unique_tiles,
+            array_latitude_rad,
+            beam_time,
+            beam_responses.view_mut(),
+        )?;
 
         Ok(beam_responses)
     }
@@ -246,6 +195,7 @@ impl<'a> SkyModellerCpu<'a> {
         uvws: &[UVW],
         lst_rad: f64,
         array_latitude_rad: f64,
+        timestamp: Option<Epoch>,
     ) -> Result<(), ModelError> {
         if self.components.points.radecs.is_empty() {
             return Ok(());
@@ -289,7 +239,8 @@ impl<'a> SkyModellerCpu<'a> {
             "uvws.len() != self.unflagged_baseline_to_tile_map.len()"
         );
 
-        let beam_responses = self.get_beam_responses(azels, array_latitude_rad)?;
+        let beam_time = timestamp.map(|epoch| BeamTime { epoch, lst_rad });
+        let beam_responses = self.get_beam_responses(azels, array_latitude_rad, beam_time)?;
 
         // Iterate over the unflagged baseline axis.
         vis_model_fb
@@ -364,6 +315,7 @@ impl<'a> SkyModellerCpu<'a> {
         uvws: &[UVW],
         lst_rad: f64,
         array_latitude_rad: f64,
+        timestamp: Option<Epoch>,
     ) -> Result<(), ModelError> {
         if self.components.gaussians.radecs.is_empty() {
             return Ok(());
@@ -408,7 +360,8 @@ impl<'a> SkyModellerCpu<'a> {
             "uvws.len() != self.unflagged_baseline_to_tile_map.len()"
         );
 
-        let beam_responses = self.get_beam_responses(azels, array_latitude_rad)?;
+        let beam_time = timestamp.map(|epoch| BeamTime { epoch, lst_rad });
+        let beam_responses = self.get_beam_responses(azels, array_latitude_rad, beam_time)?;
 
         // Iterate over the unflagged baseline axis.
         vis_model_fb
@@ -508,6 +461,7 @@ impl<'a> SkyModellerCpu<'a> {
         shapelet_uvws: ArrayView2<UVW>,
         lst_rad: f64,
         array_latitude_rad: f64,
+        timestamp: Option<Epoch>,
     ) -> Result<(), ModelError> {
         if self.components.shapelets.radecs.is_empty() {
             return Ok(());
@@ -570,7 +524,8 @@ impl<'a> SkyModellerCpu<'a> {
             c64::new(0.0, -1.0),
         ];
 
-        let beam_responses = self.get_beam_responses(azels, array_latitude_rad)?;
+        let beam_time = timestamp.map(|epoch| BeamTime { epoch, lst_rad });
+        let beam_responses = self.get_beam_responses(azels, array_latitude_rad, beam_time)?;
 
         // Iterate over the unflagged baseline axis.
         vis_model_fb
@@ -763,14 +718,15 @@ impl<'a> super::SkyModeller<'a> for SkyModellerCpu<'a> {
             .get_shapelet_uvws(lst, self.unflagged_tile_xyzs);
         let mut vis_fb = Array2::default((self.unflagged_fine_chan_freqs.len(), uvws.len()));
 
-        self.model_points(vis_fb.view_mut(), &uvws, lst, latitude)?;
-        self.model_gaussians(vis_fb.view_mut(), &uvws, lst, latitude)?;
+        self.model_points(vis_fb.view_mut(), &uvws, lst, latitude, Some(timestamp))?;
+        self.model_gaussians(vis_fb.view_mut(), &uvws, lst, latitude, Some(timestamp))?;
         self.model_shapelets(
             vis_fb.view_mut(),
             &uvws,
             shapelet_uvws.view(),
             lst,
             latitude,
+            Some(timestamp),
         )?;
 
         Ok((vis_fb, uvws))
@@ -787,14 +743,15 @@ impl<'a> super::SkyModeller<'a> for SkyModellerCpu<'a> {
             .shapelets
             .get_shapelet_uvws(lst, self.unflagged_tile_xyzs);
 
-        self.model_points(vis_fb.view_mut(), &uvws, lst, latitude)?;
-        self.model_gaussians(vis_fb.view_mut(), &uvws, lst, latitude)?;
+        self.model_points(vis_fb.view_mut(), &uvws, lst, latitude, Some(timestamp))?;
+        self.model_gaussians(vis_fb.view_mut(), &uvws, lst, latitude, Some(timestamp))?;
         self.model_shapelets(
             vis_fb.view_mut(),
             &uvws,
             shapelet_uvws.view(),
             lst,
             latitude,
+            Some(timestamp),
         )?;
 
         // Mask any unavailable polarisations.
@@ -816,32 +773,4 @@ impl<'a> super::SkyModeller<'a> for SkyModellerCpu<'a> {
         );
         Ok(())
     }
-}
-
-/// Ensure that any delays of 32 have an amplitude (dipole gain) of 0. The
-/// results are bad otherwise! Also ensure that we have 32 dipole gains (amps)
-/// here. Also return a Rust array of delays for convenience.
-///
-/// TODO: This is copy+pasted from `hyperbeam`; make that function public and
-/// use it instead.
-fn fix_amps_ndarray(amps: ArrayView1<f64>, delays: ArrayView1<u32>) -> ([f64; 32], [u32; 16]) {
-    let mut full_amps: [f64; 32] = [1.0; 32];
-    full_amps
-        .iter_mut()
-        .zip(amps.iter().cycle())
-        .zip(delays.iter().cycle())
-        .for_each(|((out_amp, &in_amp), &delay)| {
-            if delay == 32 {
-                *out_amp = 0.0;
-            } else {
-                *out_amp = in_amp;
-            }
-        });
-
-    // So that we don't have to do .as_slice().unwrap() on our ndarrays outside
-    // of this function, return a Rust array of delays here.
-    let mut delays_a: [u32; 16] = [0; 16];
-    delays_a.iter_mut().zip(delays).for_each(|(da, d)| *da = *d);
-
-    (full_amps, delays_a)
 }

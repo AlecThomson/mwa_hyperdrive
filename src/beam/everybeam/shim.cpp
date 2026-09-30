@@ -1,0 +1,123 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+// A small C interface to EveryBeam, so that it can be used from Rust. All C++
+// exceptions are caught here and converted into error messages.
+
+#include "shim.h"
+
+#include <complex>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <string>
+
+#include <EveryBeam/beammode.h>
+#include <EveryBeam/beamnormalisationmode.h>
+#include <EveryBeam/elementresponse.h>
+#include <EveryBeam/load.h>
+#include <EveryBeam/options.h>
+#include <EveryBeam/pointresponse/pointresponse.h>
+#include <EveryBeam/telescope/telescope.h>
+
+struct eb_telescope {
+    std::unique_ptr<everybeam::telescope::Telescope> telescope;
+    everybeam::BeamMode beam_mode;
+};
+
+namespace {
+
+void write_error(const char *msg, char *err, size_t err_len) {
+    if (err == nullptr || err_len == 0)
+        return;
+    std::strncpy(err, msg, err_len - 1);
+    err[err_len - 1] = '\0';
+}
+
+bool is_set(const char *s) { return s != nullptr && s[0] != '\0'; }
+
+} // namespace
+
+extern "C" {
+
+eb_telescope *eb_load(const char *ms_path, const eb_options *options, char *err, size_t err_len) {
+    try {
+        everybeam::Options eb_options;
+        everybeam::BeamMode beam_mode = everybeam::BeamMode::kFull;
+        if (options != nullptr) {
+            if (is_set(options->element_response_model))
+                eb_options.element_response_model =
+                    everybeam::ElementResponseModelFromString(options->element_response_model);
+            else
+                eb_options.element_response_model = everybeam::ElementResponseModel::kDefault;
+            if (is_set(options->beam_mode))
+                beam_mode = everybeam::ParseBeamMode(options->beam_mode);
+            if (is_set(options->beam_normalisation_mode))
+                eb_options.beam_normalisation_mode =
+                    everybeam::ParseBeamNormalisationMode(options->beam_normalisation_mode);
+            if (is_set(options->coeff_path))
+                eb_options.coeff_path = options->coeff_path;
+            if (is_set(options->data_column_name))
+                eb_options.data_column_name = options->data_column_name;
+            eb_options.use_channel_frequency = options->use_channel_frequency != 0;
+            eb_options.frequency_interpolation = options->frequency_interpolation != 0;
+        }
+        eb_options.beam_mode = beam_mode;
+
+        auto telescope = everybeam::Load(std::string(ms_path), eb_options);
+        if (!telescope) {
+            write_error("EveryBeam did not return a telescope for this measurement set", err,
+                        err_len);
+            return nullptr;
+        }
+        return new eb_telescope{std::move(telescope), beam_mode};
+    } catch (const std::exception &e) {
+        write_error(e.what(), err, err_len);
+    } catch (...) {
+        write_error("Unknown C++ exception when loading EveryBeam telescope", err, err_len);
+    }
+    return nullptr;
+}
+
+void eb_free(eb_telescope *telescope) { delete telescope; }
+
+size_t eb_num_stations(const eb_telescope *telescope) {
+    return telescope->telescope->GetNrStations();
+}
+
+int eb_point_responses(const eb_telescope *telescope, double time_mjd_s, size_t field_id,
+                       const double *ras, const double *decs, size_t num_directions,
+                       const double *freqs_hz, size_t num_freqs, const size_t *stations,
+                       size_t num_stations, double *out, size_t station_stride,
+                       size_t freq_stride, char *err, size_t err_len) {
+    try {
+        // Each call gets its own point-response object; they are not
+        // thread-safe, but the (const) telescope is.
+        auto point_response = telescope->telescope->GetPointResponse(time_mjd_s);
+        std::complex<float> buffer[4];
+        // Iterate over directions in the outer loop; the point-response object
+        // caches the ITRF conversion of the last-used direction.
+        for (size_t d = 0; d < num_directions; d++) {
+            for (size_t s = 0; s < num_stations; s++) {
+                for (size_t f = 0; f < num_freqs; f++) {
+                    point_response->Response(telescope->beam_mode, buffer, ras[d], decs[d],
+                                             freqs_hz[f], stations[s], field_id);
+                    double *o = out + 8 * (s * station_stride + f * freq_stride + d);
+                    for (size_t i = 0; i < 4; i++) {
+                        o[2 * i] = buffer[i].real();
+                        o[2 * i + 1] = buffer[i].imag();
+                    }
+                }
+            }
+        }
+        return 0;
+    } catch (const std::exception &e) {
+        write_error(e.what(), err, err_len);
+    } catch (...) {
+        write_error("Unknown C++ exception when calculating EveryBeam responses", err, err_len);
+    }
+    return 1;
+}
+
+} // extern "C"
