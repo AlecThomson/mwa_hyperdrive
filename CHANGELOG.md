@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Optional EveryBeam support (`everybeam` cargo feature), enabling beam models
+  for telescopes other than the MWA (e.g. SKA-Low, LOFAR). Use it with
+  `--beam-type everybeam`; the telescope is described by the input measurement
+  set or `--beam-ms`. New `--everybeam-*` options control EveryBeam. See the
+  mdbook for installation instructions.
+
+### Changed
+
+- Beam calculations can now be given the time (`BeamTime`), which is needed by
+  EveryBeam.
+- Tile de-duplication for beam calculations is now decided by the beam code
+  (`Beam::get_unique_tiles`), rather than always using MWA dipole delays and
+  gains.
+
 ## [0.8.1] - 2026-09-10
 
 ### Fixed
