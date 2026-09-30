@@ -37,6 +37,8 @@
 
 mod ffi;
 #[cfg(test)]
+mod reference;
+#[cfg(test)]
 mod tests;
 
 use std::{
@@ -44,7 +46,7 @@ use std::{
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
     ptr::NonNull,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use log::debug;
@@ -96,6 +98,10 @@ pub struct EveryBeamOptions {
     pub frequency_interpolation: bool,
 }
 
+/// casacore's table system is not thread safe, so telescopes are loaded (and
+/// freed) one at a time.
+static CASACORE_LOCK: Mutex<()> = Mutex::new(());
+
 /// An owned handle to a telescope loaded by EveryBeam.
 struct Telescope(NonNull<ffi::eb_telescope>);
 
@@ -106,6 +112,7 @@ unsafe impl Sync for Telescope {}
 
 impl Drop for Telescope {
     fn drop(&mut self) {
+        let _lock = CASACORE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         unsafe { ffi::eb_free(self.0.as_ptr()) }
     }
 }
@@ -183,8 +190,10 @@ impl EveryBeam {
         };
 
         let mut err = [0 as c_char; ERR_LEN];
-        let telescope =
-            unsafe { ffi::eb_load(ms_c.as_ptr(), &eb_options, err.as_mut_ptr(), ERR_LEN) };
+        let telescope = {
+            let _lock = CASACORE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+            unsafe { ffi::eb_load(ms_c.as_ptr(), &eb_options, err.as_mut_ptr(), ERR_LEN) }
+        };
         let telescope = NonNull::new(telescope).ok_or_else(|| {
             BeamError::EveryBeam(format!(
                 "Couldn't load telescope from {}: {}",
