@@ -46,8 +46,8 @@ pub(crate) struct EveryBeamArgs {
     pub(crate) beam_ms: Option<PathBuf>,
 
     /// The EveryBeam element response model, e.g. default, hamaker, lobes,
-    /// oskar_dipole, oskar_spherical_wave, skala40_wave, skalow_feko. The
-    /// default depends on the telescope.
+    /// oskar_dipole, oskar_dipole_cos, skala40_wave, skalow_feko. The default
+    /// depends on the telescope; for SKA-Low/OSKAR, it is oskar_dipole_cos.
     #[clap(long, help_heading = "BEAM (EVERYBEAM)")]
     pub(crate) everybeam_element_model: Option<String>,
 
@@ -55,9 +55,12 @@ pub(crate) struct EveryBeamArgs {
     #[clap(long, help_heading = "BEAM (EVERYBEAM)")]
     pub(crate) everybeam_mode: Option<String>,
 
-    /// The EveryBeam beam normalisation mode: none, full, amplitude,
-    /// preapplied or preapplied_or_full. 'full' normalises the beam to the
-    /// identity at the beam pointing centre. Default: full
+    /// The EveryBeam beam normalisation mode: none, amplitude, full,
+    /// preapplied or preapplied_or_full. 'amplitude' scales the beam to unit
+    /// amplitude at the beam centre, keeping each station's feed basis. 'full'
+    /// normalises the beam to the identity at the beam centre, which is only
+    /// appropriate for data that have had a beam correction applied. Default:
+    /// amplitude
     #[clap(long, help_heading = "BEAM (EVERYBEAM)")]
     pub(crate) everybeam_normalisation: Option<String>,
 
@@ -130,7 +133,7 @@ impl EveryBeamArgs {
                 element_response_model: everybeam_element_model,
                 beam_mode: everybeam_mode,
                 beam_normalisation_mode: Some(
-                    everybeam_normalisation.unwrap_or_else(|| "full".to_string()),
+                    everybeam_normalisation.unwrap_or_else(|| "amplitude".to_string()),
                 ),
                 coeff_path: everybeam_coeff_path,
                 data_column_name: everybeam_data_column,

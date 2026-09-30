@@ -15,25 +15,25 @@
 //!
 //! # Polarisation conventions
 //!
-//! As documented in `FluxDensity::to_inst_stokes`, hyperdrive orders its
-//! polarisations with X as East-West and Y as North-South, i.e. the sky basis
-//! is (East, North).
+//! EveryBeam's Jones matrices have columns in the (North, East) sky basis
+//! (with respect to the J2000 celestial pole). hyperdrive's sky model uses the
+//! MWA convention (X is East-West, Y is North-South; see
+//! `FluxDensity::to_inst_stokes`), i.e. the sky basis is (East, North), so the
+//! columns are swapped.
 //!
-//! Without normalisation (or with "amplitude" normalisation, which is a scalar),
-//! EveryBeam's Jones matrices have rows corresponding to the telescope's feeds
-//! and columns corresponding to the (North, East) sky basis (with respect to
-//! the J2000 celestial pole). Here, the columns are swapped, and the rows are
-//! left alone (so that they continue to match the order of the feeds in the
-//! visibilities). Note that in this case, the basis of the rows can depend on
-//! EveryBeam's element model.
-//!
-//! With "full" (or "preapplied") normalisation, EveryBeam left-multiplies the
-//! response by the inverse of the response at the beam centre, so both the rows
-//! and the columns are in the (North, East) sky basis; the response is the
-//! identity at the beam centre. Here, both the rows and columns are swapped, so
-//! that they are ordered (East, North). For arrays with East-West and
-//! North-South dipoles (e.g. SKA-Low, MWA), the rows then correspond to the
-//! (X, Y) feeds, up to a sign. This is the default.
+//! The rows are left alone, so that they continue to match the basis of the
+//! visibilities:
+//! - With "none" or "amplitude" (scalar) normalisation, the rows are each
+//!   station's own feeds, in the station's (possibly rotated) frame, as
+//!   described by the measurement set (e.g. SKA-Low stations are rigidly
+//!   rotated with respect to each other, and this is described by the
+//!   PHASED_ARRAY table). This is appropriate for data that have not had a beam
+//!   correction applied, and "amplitude" is the default.
+//! - With "full" (or "preapplied") normalisation, EveryBeam left-multiplies the
+//!   response by the inverse of the response at the beam centre, so the rows
+//!   are in the (North, East) sky basis (i.e. the IAU order). This is only
+//!   appropriate for data that have had the beam at the phase centre corrected
+//!   (e.g. by DP3's applybeam).
 
 mod ffi;
 #[cfg(test)]
@@ -143,26 +143,6 @@ fn err_to_string(err: &[c_char]) -> String {
 /// The rows are unchanged.
 fn swap_columns(j: Jones<f64>) -> Jones<f64> {
     Jones::from([j[1], j[0], j[3], j[2]])
-}
-
-/// Convert an EveryBeam Jones matrix with rows and columns in the (North, East)
-/// sky basis to hyperdrive's convention (rows and columns in the (East, North)
-/// sky basis).
-fn swap_rows_and_columns(j: Jones<f64>) -> Jones<f64> {
-    Jones::from([j[3], j[2], j[1], j[0]])
-}
-
-/// Does this EveryBeam normalisation mode normalise the beam by
-/// left-multiplying by an inverse Jones matrix (which changes the basis of the
-/// rows)? `None` means EveryBeam's default, which is no normalisation.
-fn is_matrix_normalisation(mode: Option<&str>) -> bool {
-    match mode {
-        None => false,
-        Some(m) => {
-            let m = m.to_lowercase().replace('_', "");
-            matches!(m.as_str(), "full" | "preapplied" | "preappliedorfull")
-        }
-    }
 }
 
 impl EveryBeam {
@@ -307,11 +287,7 @@ impl EveryBeamInner {
                 }
             })?;
 
-        if is_matrix_normalisation(self.options.beam_normalisation_mode.as_deref()) {
-            results.mapv_inplace(swap_rows_and_columns);
-        } else {
-            results.mapv_inplace(swap_columns);
-        }
+        results.mapv_inplace(swap_columns);
         Ok(())
     }
 

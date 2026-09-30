@@ -7,9 +7,10 @@
 """Generate a tiny synthetic SKA-Low measurement set that EveryBeam can read.
 
 The measurement set has a few stations, each with a small grid of dual-pol
-elements described by a PHASED_ARRAY sub-table (as written by OSKAR). So that
-the stations have different beam responses, the element layout of station 1 is
-rotated, and some X elements of station 2 are flagged. The visibilities are all
+elements described by a PHASED_ARRAY sub-table (as written by OSKAR). Like SKA-Low,
+the stations are rigidly rotated with respect to each other (both the element
+layout and the dipole orientations, via COORDINATE_AXES), and some X elements
+of station 2 are flagged, so that the stations have different beam responses. The visibilities are all
 zero; this is only intended for testing beam code.
 
 Requires python-casacore (pip install python-casacore).
@@ -31,6 +32,9 @@ HEIGHT_M = 377.8
 
 # Station centres (east, north) [m] relative to the array centre.
 STATION_EN = [(0.0, 0.0), (100.0, 30.0), (-60.0, 90.0)]
+# Rigid rotation of each station (anticlockwise from East, viewed from above)
+# [degrees].
+STATION_ROTATIONS_DEG = [0.0, 30.0, 75.0]
 # Elements per side of each (square) station, and their spacing [m].
 ELEMENTS_PER_SIDE = 4
 ELEMENT_SPACING_M = 1.5
@@ -184,11 +188,6 @@ def main(ms_name):
         for i in range(n)
         for j in range(n)
     ]
-    def rotated(offsets, angle_deg):
-        c, s = np.cos(np.radians(angle_deg)), np.sin(np.radians(angle_deg))
-        return [(c * e - s * nn, s * e + c * nn) for (e, nn) in offsets]
-
-    station_offsets_en = [offsets_en, rotated(offsets_en, 30.0), offsets_en]
     station_flags = [np.zeros((n * n, 2), dtype=bool) for _ in range(num_stations)]
     station_flags[2][[0, 5, 10], 0] = True
     pa_desc = pt.maketabdesc(
@@ -207,11 +206,16 @@ def main(ms_name):
     )
     # casacore arrays are column-major, so these are transposed relative to
     # the C++ view; i.e. COORDINATE_AXES(:, 0) is the p (east) axis.
-    axes = np.array([east, north, up])
     for i in range(num_stations):
+        c = np.cos(np.radians(STATION_ROTATIONS_DEG[i]))
+        s = np.sin(np.radians(STATION_ROTATIONS_DEG[i]))
+        p_axis = c * east + s * north
+        q_axis = -s * east + c * north
+        axes = np.array([p_axis, q_axis, up])
         pa.putcell("POSITION", i, station_xyz[i])
         pa.putcell("COORDINATE_AXES", i, axes)
-        offsets = np.array([e * east + nn * north for (e, nn) in station_offsets_en[i]])
+        # Element offsets are in the station's (rotated) frame.
+        offsets = np.array([e * p_axis + nn * q_axis for (e, nn) in offsets_en])
         pa.putcell("ELEMENT_OFFSET", i, offsets)
         pa.putcell("ELEMENT_FLAG", i, station_flags[i])
     pa.close()
