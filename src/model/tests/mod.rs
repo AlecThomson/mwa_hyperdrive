@@ -297,7 +297,7 @@ impl ObsParams {
         }
     }
 
-    fn get_cpu_modeller(&self, srclist: &SourceList) -> SkyModellerCpu {
+    fn get_cpu_modeller(&self, srclist: &SourceList) -> SkyModellerCpu<'_> {
         SkyModellerCpu::new(
             &*self.beam,
             srclist,
@@ -318,7 +318,7 @@ impl ObsParams {
     fn get_gpu_modeller(
         &self,
         srclist: &SourceList,
-    ) -> (SkyModellerGpu, DevicePointer<crate::gpu::UVW>) {
+    ) -> (SkyModellerGpu<'_>, DevicePointer<crate::gpu::UVW>) {
         let m = SkyModellerGpu::new(
             &*self.beam,
             srclist,
@@ -1566,4 +1566,35 @@ fn test_multiple_shapelet_components(
         ]
     ];
     assert_abs_diff_eq!(expected, shapelet_uvws, epsilon = epsilon2);
+}
+
+fn test_model_timestep_autos_with_point(vis: ArrayView2<Jones<f32>>, epsilon: f32) {
+    let expected = array![
+        [
+            Jones::identity() * 1e0,
+            Jones::identity() * 1e0,
+            Jones::identity() * 1e0,
+        ],
+        [
+            Jones::identity() * 3e0,
+            Jones::identity() * 3e0,
+            Jones::identity() * 3e0,
+        ],
+        [
+            Jones::identity() * 2e0,
+            Jones::identity() * 2e0,
+            Jones::identity() * 2e0,
+        ]
+    ];
+    assert_abs_diff_eq!(expected, vis, epsilon = epsilon);
+}
+
+fn test_model_timestep_autos_with_gaussian(vis: ArrayView2<Jones<f32>>, epsilon: f32) {
+    // the gaussian test srclist generates identical autocorrelations to the point test
+    test_model_timestep_autos_with_point(vis, epsilon);
+}
+
+fn test_model_timestep_autos_with_shapelet(vis: ArrayView2<Jones<f32>>, epsilon: f32) {
+    // the shapelet test srclist generates identical autocorrelations to the point test
+    test_model_timestep_autos_with_point(vis, epsilon);
 }

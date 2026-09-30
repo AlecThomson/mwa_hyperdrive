@@ -164,7 +164,11 @@ impl EveryBeam {
             options
                 .coeff_path
                 .as_ref()
-                .map(|p| p.to_str().ok_or_else(|| BeamError::EveryBeam(format!("Invalid path {}", p.display()))))
+                .map(|p| {
+                    p.to_str().ok_or_else(|| {
+                        BeamError::EveryBeam(format!("Invalid path {}", p.display()))
+                    })
+                })
                 .transpose()?,
         )?;
         let data_column_name = opt_cstring(options.data_column_name.as_deref())?;
@@ -226,7 +230,10 @@ impl EveryBeamInner {
         time: BeamTime,
         mut results: ArrayViewMut3<Jones<f64>>,
     ) -> Result<(), BeamError> {
-        assert_eq!(results.dim(), (stations.len(), freqs_hz.len(), radecs.len()));
+        assert_eq!(
+            results.dim(),
+            (stations.len(), freqs_hz.len(), radecs.len())
+        );
         if let Some(&s) = stations.iter().find(|&&s| s >= self.num_stations) {
             return Err(BeamError::BadTileIndex {
                 got: s,
@@ -366,14 +373,7 @@ impl Beam for EveryBeam {
         time: Option<BeamTime>,
     ) -> Result<Vec<Jones<f64>>, BeamError> {
         let mut results = vec![Jones::default(); azels.len()];
-        self.calc_jones_array_inner(
-            azels,
-            freq_hz,
-            tile_index,
-            latitude_rad,
-            time,
-            &mut results,
-        )?;
+        self.calc_jones_array_inner(azels, freq_hz, tile_index, latitude_rad, time, &mut results)?;
         Ok(results)
     }
 
@@ -391,14 +391,8 @@ impl Beam for EveryBeam {
         let station = tile_index.unwrap_or(0);
         let results = ArrayViewMut3::from_shape((1, 1, azels.len()), results)
             .expect("results has the same length as azels");
-        self.inner.calc_jones_azel(
-            azels,
-            &[freq_hz],
-            &[station],
-            latitude_rad,
-            time,
-            results,
-        )
+        self.inner
+            .calc_jones_azel(azels, &[freq_hz], &[station], latitude_rad, time, results)
     }
 
     fn calc_jones_tiles_freqs(

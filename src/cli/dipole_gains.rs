@@ -16,7 +16,7 @@ use super::common::display_warnings;
 /// Print information on the dipole gains listed by a metafits file.
 #[derive(Parser, Debug)]
 pub struct DipoleGainsArgs {
-    #[clap(name = "METAFITS_FILE", parse(from_os_str))]
+    #[arg(value_name = "METAFITS_FILE")]
     metafits: PathBuf,
 }
 
@@ -64,13 +64,13 @@ impl DipoleGainsArgs {
                 });
                 bad_string.push_str(&format!("    {tile_num:>3}: {tile_name:>8}: "));
                 if !bad_x.is_empty() {
-                    bad_string.push_str(&format!("X {:?}", &bad_x));
+                    bad_string.push_str(&format!("X {:?}", bad_x));
                 }
                 if !bad_x.is_empty() && !bad_y.is_empty() {
                     bad_string.push_str(", ");
                 }
                 if !bad_y.is_empty() {
-                    bad_string.push_str(&format!("Y {:?}", &bad_y));
+                    bad_string.push_str(&format!("Y {:?}", bad_y));
                 }
                 info!("{}", bad_string);
                 bad_x.clear();

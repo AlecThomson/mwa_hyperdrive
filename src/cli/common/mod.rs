@@ -38,7 +38,7 @@ use crate::{
     },
     beam::Beam,
     constants::{
-        DEFAULT_CUTOFF_DISTANCE, DEFAULT_VETO_THRESHOLD, MWA_HEIGHT_M, MWA_LAT_DEG, MWA_LONG_DEG,
+        DEFAULT_ELEVATION_LIMIT, DEFAULT_VETO_THRESHOLD, MWA_HEIGHT_M, MWA_LAT_DEG, MWA_LONG_DEG,
     },
     io::{
         get_single_match_from_glob,
@@ -64,9 +64,6 @@ lazy_static::lazy_static! {
 
     pub(super) static ref SOURCE_LIST_TYPE_HELP: String =
         format!("The type of sky-model source list. Valid types are: {}. If not specified, all types are attempted", *SOURCE_LIST_TYPES_COMMA_SEPARATED);
-
-    pub(super) static ref SOURCE_DIST_CUTOFF_HELP: String =
-        format!("Specifies the maximum distance from the phase centre a source can be [degrees]. Default: {DEFAULT_CUTOFF_DISTANCE}");
 
     pub(super) static ref VETO_THRESHOLD_HELP: String =
         format!("Specifies the minimum Stokes XX+YY a source must have before it gets vetoed [Jy]. Default: {DEFAULT_VETO_THRESHOLD}");
@@ -157,6 +154,7 @@ pub(super) struct OutputVisArgs {
     pub(super) outputs: Option<Vec<PathBuf>>,
     pub(super) output_vis_time_average: Option<String>,
     pub(super) output_vis_freq_average: Option<String>,
+    pub(super) output_autos: bool,
 }
 
 impl OutputVisArgs {
@@ -173,6 +171,7 @@ impl OutputVisArgs {
             outputs,
             output_vis_time_average,
             output_vis_freq_average,
+            output_autos,
         } = self;
 
         let (time_average_factor, freq_average_factor) = {
@@ -300,6 +299,11 @@ impl OutputVisArgs {
         if write_smallest_contiguous_band {
             vis_printer.push_line("Writing the smallest possible contiguous band, ignoring any flagged fine channels at the edges of the SPW".into());
         }
+        if output_autos {
+            vis_printer.push_line("Writing out auto-correlations".into());
+        } else {
+            vis_printer.push_line("Not writing out auto-correlations".into());
+        }
         vis_printer.display();
 
         let timeblocks =
@@ -309,6 +313,7 @@ impl OutputVisArgs {
             output_files,
             output_time_average_factor: time_average_factor,
             output_freq_average_factor: freq_average_factor,
+            output_autos,
             output_timeblocks: timeblocks,
             write_smallest_contiguous_band,
         })
@@ -318,24 +323,45 @@ impl OutputVisArgs {
 #[derive(Parser, Debug, Clone, Default, Serialize, Deserialize)]
 pub(super) struct SkyModelWithVetoArgs {
     /// Path to the sky-model source list file.
-    #[clap(short, long, help_heading = "SKY MODEL")]
+    #[arg(short, long, help_heading = "SKY MODEL")]
     pub(super) source_list: Option<String>,
 
-    #[clap(long, help = SOURCE_LIST_TYPE_HELP.as_str(), help_heading = "SKY MODEL")]
+    #[arg(long, help = SOURCE_LIST_TYPE_HELP.as_str(), help_heading = "SKY MODEL")]
     pub(super) source_list_type: Option<String>,
 
     /// The number of sources to use in the source list. The default is to use
     /// them all. Example: If 1000 sources are specified here, then the top 1000
     /// sources are used (based on their flux densities after the beam
     /// attenuation) within the specified source distance cutoff.
-    #[clap(short, long, help_heading = "SKY MODEL")]
+    #[arg(short, long, help_heading = "SKY MODEL")]
     pub(super) num_sources: Option<usize>,
 
-    #[clap(long, help = SOURCE_DIST_CUTOFF_HELP.as_str(), help_heading = "SKY MODEL")]
+    /// Specifies the maximum distance from the phase centre a source can be [degrees].
+    #[arg(long, help_heading = "SKY MODEL")]
     pub(super) source_dist_cutoff: Option<f64>,
 
-    #[clap(long, help = VETO_THRESHOLD_HELP.as_str(), help_heading = "SKY MODEL")]
+    #[arg(long, help = VETO_THRESHOLD_HELP.as_str(), help_heading = "SKY MODEL")]
     pub(super) veto_threshold: Option<f64>,
+
+    /// Minimum elevation for a source to be included in the sky model [degrees].
+    /// Sources with any component below this elevation are discarded. Default: 0.
+    #[arg(long, help_heading = "SKY MODEL")]
+    pub(super) elevation_limit: Option<f64>,
+
+    /// Optional source names to include (or exclude if --invert).
+    /// Skips vetoing if provided, unless --invert is enabled.
+    #[arg(long, num_args(1..), help_heading = "SKY MODEL SOURCES")]
+    pub(super) named_sources: Option<Vec<String>>,
+
+    /// Exclude the named sources from the source list.
+    /// Only used if named-sources is specified.
+    #[arg(
+        short,
+        long,
+        help_heading = "SKY MODEL SOURCES",
+        requires = "named_sources"
+    )]
+    pub(super) invert: Option<bool>,
 }
 
 impl SkyModelWithVetoArgs {
@@ -346,9 +372,16 @@ impl SkyModelWithVetoArgs {
             num_sources: self.num_sources.or(other.num_sources),
             source_dist_cutoff: self.source_dist_cutoff.or(other.source_dist_cutoff),
             veto_threshold: self.veto_threshold.or(other.veto_threshold),
+            elevation_limit: self.elevation_limit.or(other.elevation_limit),
+            named_sources: self.named_sources.or(other.named_sources),
+            invert: self.invert.or(other.invert),
         }
     }
 
+    /// Parse the source list with optional list of named sources to include,
+    /// and optional inversion before vetoing.
+    /// invert is ignored when named_sources is empty.
+    /// veto is skipped if named_sources is not empty and invert is false.
     pub(super) fn parse(
         self,
         phase_centre: RADec,
@@ -364,6 +397,9 @@ impl SkyModelWithVetoArgs {
             num_sources,
             source_dist_cutoff,
             veto_threshold,
+            elevation_limit,
+            named_sources,
+            invert,
         } = self;
 
         let mut printer = InfoPrinter::new("Sky model info".into());
@@ -388,7 +424,7 @@ impl SkyModelWithVetoArgs {
         // kinds.
         let sl_type_not_specified = source_list_type.is_none();
         let sl_type = source_list_type.and_then(|t| SourceListType::from_str(t.as_ref()).ok());
-        let (mut sl, sl_type) = read_source_list_file(sl_pb, sl_type)?;
+        let (sl, sl_type) = read_source_list_file(sl_pb, sl_type)?;
 
         let ComponentCounts {
             num_points,
@@ -414,20 +450,81 @@ impl SkyModelWithVetoArgs {
         if num_sources == Some(0) || sl.is_empty() {
             return Err(ReadSourceListError::NoSources);
         }
-        veto_sources(
-            &mut sl,
-            phase_centre,
-            lst_rad,
-            epoch,
-            array_latitude_rad,
-            veto_freqs_hz,
-            beam,
-            num_sources,
-            source_dist_cutoff.unwrap_or(DEFAULT_CUTOFF_DISTANCE),
-            veto_threshold.unwrap_or(DEFAULT_VETO_THRESHOLD),
-        )?;
+
+        let num_sources_full = sl.len();
+
+        // validate named_sources
+        let named_sources = named_sources.unwrap_or_default();
+        for name in &named_sources {
+            if !sl.contains_key(name) {
+                return Err(ReadSourceListError::MissingNamedSource {
+                    name: name.to_string().into(),
+                });
+            }
+        }
+
+        let invert = invert.unwrap_or(false);
+        // filter with named_sources and invert
+        let (mut sl, veto) = match (named_sources, invert) {
+            (names, _) if names.is_empty() => (sl, true),
+            (names, true) => {
+                // Keep only the sources that are not in the list and then veto.
+                let sl = sl
+                    .into_iter()
+                    .filter(|(name, _)| !names.contains(name))
+                    .collect();
+                (sl, true)
+            }
+            (names, false) => {
+                // Do not veto the named sources.
+                let sl: SourceList = sl
+                    .into_iter()
+                    .filter(|(name, _)| names.contains(name))
+                    .collect();
+                if let Some(num_sources) = num_sources {
+                    if num_sources != sl.len() {
+                        return Err(ReadSourceListError::NamedSourcesAndNumSources {
+                            num_sources,
+                            named_sources: names.len(),
+                        });
+                    }
+                }
+                (sl, false)
+            }
+        };
         if sl.is_empty() {
-            return Err(ReadSourceListError::NoSourcesAfterVeto);
+            return Err(ReadSourceListError::AllSourcesFiltered { invert });
+        }
+        if num_sources_full != sl.len() {
+            printer.push_line(
+                format!(
+                    "Filtered {} named sources, invert={}",
+                    num_sources_full - sl.len(),
+                    invert
+                )
+                .into(),
+            );
+        }
+
+        if veto {
+            veto_sources(
+                &mut sl,
+                phase_centre,
+                lst_rad,
+                epoch,
+                array_latitude_rad,
+                veto_freqs_hz,
+                beam,
+                num_sources,
+                source_dist_cutoff.unwrap_or(f64::MAX),
+                veto_threshold.unwrap_or(DEFAULT_VETO_THRESHOLD),
+                elevation_limit.unwrap_or(DEFAULT_ELEVATION_LIMIT),
+            )?;
+            if sl.is_empty() {
+                return Err(ReadSourceListError::NoSourcesAfterVeto);
+            }
+        } else {
+            printer.push_line("Skipping veto after named source filter".into());
         }
 
         {
@@ -478,14 +575,14 @@ impl SkyModelWithVetoArgs {
 pub(super) struct ModellingArgs {
     /// If specified, don't precess the array to J2000. We assume that sky-model
     /// sources are specified in the J2000 epoch.
-    #[clap(long, help_heading = "MODELLING")]
+    #[arg(long, help_heading = "MODELLING")]
     #[serde(default)]
     pub(super) no_precession: bool,
 
     /// Use the CPU for visibility generation. This is deliberately made
     /// non-default because using a GPU is much faster.
     #[cfg(any(feature = "cuda", feature = "hip"))]
-    #[clap(long, help_heading = "MODELLING")]
+    #[arg(long, help_heading = "MODELLING")]
     #[serde(default)]
     pub(super) cpu: bool,
 }

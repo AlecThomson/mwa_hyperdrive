@@ -21,10 +21,10 @@ use marlu::{LatLngHeight, RADec};
 use crate::{
     beam::Delays,
     cli::common::{
-        display_warnings, BeamArgs, Warn, ARRAY_POSITION_HELP, SOURCE_DIST_CUTOFF_HELP,
-        SOURCE_LIST_INPUT_TYPE_HELP, SOURCE_LIST_OUTPUT_TYPE_HELP, VETO_THRESHOLD_HELP,
+        display_warnings, BeamArgs, Warn, ARRAY_POSITION_HELP, SOURCE_LIST_INPUT_TYPE_HELP,
+        SOURCE_LIST_OUTPUT_TYPE_HELP, VETO_THRESHOLD_HELP,
     },
-    constants::{DEFAULT_CUTOFF_DISTANCE, DEFAULT_VETO_THRESHOLD},
+    constants::{DEFAULT_ELEVATION_LIMIT, DEFAULT_VETO_THRESHOLD},
     metafits::get_dipole_delays,
     srclist::{
         read::read_source_list_file, veto_sources, write_source_list, ReadSourceListError,
@@ -41,43 +41,35 @@ use crate::{
 #[derive(Parser, Debug)]
 pub struct SrclistByBeamArgs {
     /// Path to the source list to be converted.
-    #[clap(
-        name = "INPUT_SOURCE_LIST",
-        parse(from_os_str),
-        help_heading = "INPUT FILES"
-    )]
+    #[arg(value_name = "INPUT_SOURCE_LIST", help_heading = "INPUT FILES")]
     input_source_list: PathBuf,
 
     /// Path to the output source list. If not specified, then then "_N" is
     /// appended to the filename.
-    #[clap(
-        name = "OUTPUT_SOURCE_LIST",
-        parse(from_os_str),
-        help_heading = "OUTPUT FILES"
-    )]
+    #[arg(value_name = "OUTPUT_SOURCE_LIST", help_heading = "OUTPUT FILES")]
     output_source_list: Option<PathBuf>,
 
-    #[clap(short = 'i', long, parse(from_str), help = SOURCE_LIST_INPUT_TYPE_HELP.as_str(), help_heading = "INPUT FILES")]
+    #[arg(short = 'i', long, help = SOURCE_LIST_INPUT_TYPE_HELP.as_str(), help_heading = "INPUT FILES")]
     input_type: Option<String>,
 
-    #[clap(short = 'o', long, parse(from_str), help = SOURCE_LIST_OUTPUT_TYPE_HELP.as_str(), help_heading = "OUTPUT FILES")]
+    #[arg(short = 'o', long, help = SOURCE_LIST_OUTPUT_TYPE_HELP.as_str(), help_heading = "OUTPUT FILES")]
     output_type: Option<String>,
 
     /// Path to the metafits file, which contains the metadata needed to veto
     /// sources.
-    #[clap(short = 'm', long, parse(from_str), help_heading = "METADATA")]
+    #[arg(short = 'm', long, help_heading = "METADATA")]
     metafits: Option<PathBuf>,
 
-    #[clap(
+    #[arg(
         long, help = ARRAY_POSITION_HELP.as_str(), help_heading = "METADATA",
-        number_of_values = 3,
+        num_args(3),
         allow_hyphen_values = true,
-        value_names = &["LONG_DEG", "LAT_DEG", "HEIGHT_M"]
+        value_names = ["LONG_DEG", "LAT_DEG", "HEIGHT_M"]
     )]
     array_position: Option<Vec<f64>>,
 
     /// The LST in radians. Overrides the value in the metafits.
-    #[clap(
+    #[arg(
         long = "lst",
         help_heading = "METADATA",
         allow_hyphen_values = true,
@@ -87,12 +79,12 @@ pub struct SrclistByBeamArgs {
 
     /// The RA and Dec. phase centre of the observation in degrees. Overrides
     /// the value in metafits.
-    #[clap(
+    #[arg(
         long,
         help_heading = "METADATA",
-        number_of_values = 2,
+        num_args(2),
         allow_hyphen_values = true,
-        value_names = &["RA", "DEC"],
+        value_names = ["RA", "DEC"],
         required_unless_present = "metafits"
     )]
     phase_centre: Option<Vec<f64>>,
@@ -100,10 +92,10 @@ pub struct SrclistByBeamArgs {
     /// A representative sample of frequencies in the observation [Hz]; it's
     /// typical to use the centre frequencies of each MWA coarse channel.
     /// Overrides the coarse channels in the metafits.
-    #[clap(
+    #[arg(
         long = "freqs",
         help_heading = "METADATA",
-        multiple_values(true),
+        num_args(1..),
         required_unless_present = "metafits"
     )]
     freqs_hz: Option<Vec<f64>>,
@@ -111,40 +103,46 @@ pub struct SrclistByBeamArgs {
     /// Reduce the input source list to the brightest N sources and write them
     /// to the output source list. If the input source list has less than N
     /// sources, then all sources are used.
-    #[clap(short = 'n', long, help_heading = "SOURCE FILTERING")]
+    #[arg(short = 'n', long, help_heading = "SOURCE FILTERING")]
     number: usize,
 
-    #[clap(long, help = SOURCE_DIST_CUTOFF_HELP.as_str(), help_heading = "SOURCE FILTERING")]
+    /// The maximum distance from the phase centre a source can be [degrees].
+    #[arg(long, help_heading = "SOURCE FILTERING")]
     source_dist_cutoff: Option<f64>,
 
-    #[clap(long, help = VETO_THRESHOLD_HELP.as_str(), help_heading = "SOURCE FILTERING")]
+    #[arg(long, help = VETO_THRESHOLD_HELP.as_str(), help_heading = "SOURCE FILTERING")]
     veto_threshold: Option<f64>,
 
+    /// Minimum elevation for a source to be included in the sky model [degrees].
+    /// Sources with any component below this elevation are discarded. Default: 0.
+    #[arg(long, help_heading = "SOURCE FILTERING")]
+    elevation_limit: Option<f64>,
+
     /// Don't include point components from the input sky model.
-    #[clap(long, help_heading = "SOURCE FILTERING")]
+    #[arg(long, help_heading = "SOURCE FILTERING")]
     filter_points: bool,
 
     /// Don't include Gaussian components from the input sky model.
-    #[clap(long, help_heading = "SOURCE FILTERING")]
+    #[arg(long, help_heading = "SOURCE FILTERING")]
     filter_gaussians: bool,
 
     /// Don't include shapelet components from the input sky model.
-    #[clap(long, help_heading = "SOURCE FILTERING")]
+    #[arg(long, help_heading = "SOURCE FILTERING")]
     filter_shapelets: bool,
 
     /// Collapse all of the sky-model components into a single source; the
     /// apparently brightest source is used as the base source (unless overriden
     /// below). This is suitable for an "RTS patch source list" in DI
     /// calibration.
-    #[clap(long, help_heading = "RTS-ONLY ARGUMENTS")]
+    #[arg(long, help_heading = "RTS-ONLY ARGUMENTS")]
     collapse_into_single_source: bool,
 
     /// If collapsing the source list into a single source, use this source as
     /// the base source; this is very important for RTS DI calibration.
-    #[clap(long, help_heading = "RTS-ONLY ARGUMENTS")]
+    #[arg(long, help_heading = "RTS-ONLY ARGUMENTS")]
     rts_base_source: Option<String>,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     beam_args: BeamArgs,
 }
 
@@ -170,6 +168,7 @@ impl SrclistByBeamArgs {
             self.freqs_hz.as_deref(),
             self.source_dist_cutoff,
             self.veto_threshold,
+            self.elevation_limit,
             self.filter_points,
             self.filter_gaussians,
             self.filter_shapelets,
@@ -203,6 +202,7 @@ fn by_beam(
     freqs_hz: Option<&[f64]>,
     source_dist_cutoff: Option<f64>,
     veto_threshold: Option<f64>,
+    elevation_limit: Option<f64>,
     filter_points: bool,
     filter_gaussians: bool,
     filter_shapelets: bool,
@@ -357,8 +357,9 @@ fn by_beam(
         &metadata.freqs_hz,
         &*beam,
         None,
-        source_dist_cutoff.unwrap_or(DEFAULT_CUTOFF_DISTANCE),
+        source_dist_cutoff.unwrap_or(f64::MAX),
         veto_threshold.unwrap_or(DEFAULT_VETO_THRESHOLD),
+        elevation_limit.unwrap_or(DEFAULT_ELEVATION_LIMIT),
     )?;
     // Were any sources left after vetoing?
     if sl.is_empty() {
@@ -375,9 +376,7 @@ fn by_beam(
         let mut num_collapsed_components = base.1.components.len() - 1;
         collapsed.insert(base.0, base.1);
         let base_src = collapsed.get_index_mut(0).unwrap().1;
-        let mut base_comps = vec![].into_boxed_slice();
-        std::mem::swap(&mut base_src.components, &mut base_comps);
-        let mut base_comps = base_comps.to_vec();
+        let mut base_comps = std::mem::take(&mut base_src.components).to_vec();
         sl.into_iter()
             .take(num_sources)
             .flat_map(|(_, src)| src.components.to_vec())
@@ -385,7 +384,7 @@ fn by_beam(
                 num_collapsed_components += 1;
                 base_comps.push(comp);
             });
-        std::mem::swap(&mut base_src.components, &mut base_comps.into_boxed_slice());
+        base_src.components = base_comps.into_boxed_slice();
         info!(
             "Collapsed {num_sources} into 1 base source with {num_collapsed_components} components"
         );

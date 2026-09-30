@@ -7,6 +7,9 @@
 // TODO: Utilise tile flags.
 // TODO: Allow the user to specify the mwa_version for the metafits file.
 
+#[cfg(test)]
+mod tests;
+
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -63,27 +66,27 @@ lazy_static::lazy_static! {
 #[derive(Parser, Debug, Clone, Default, Serialize, Deserialize)]
 pub(super) struct VisSimulateCliArgs {
     /// Path to the metafits file.
-    #[clap(short, long, parse(from_str), help_heading = "INPUT FILES")]
+    #[clap(short, long, help_heading = "INPUT FILES")]
     pub(super) metafits: Option<PathBuf>,
 
     /// Use this value as the DUT1 [seconds].
     #[clap(long, help_heading = "INPUT DATA")]
     #[serde(default)]
-    dut1: Option<f64>,
+    pub(super) dut1: Option<f64>,
 
     /// Use a DUT1 value of 0 seconds rather than what is in the metafits file.
     #[clap(long, conflicts_with("dut1"), help_heading = "INPUT FILES")]
-    ignore_dut1: bool,
+    pub(super) ignore_dut1: bool,
 
     /// The phase centre right ascension [degrees]. If this is not specified,
     /// then the metafits phase/pointing centre is used.
     #[clap(short, long, help_heading = "OBSERVATION PARAMETERS")]
-    ra: Option<f64>,
+    pub(super) ra: Option<f64>,
 
     /// The phase centre declination [degrees]. If this is not specified, then
     /// the metafits phase/pointing centre is used.
     #[clap(short, long, help_heading = "OBSERVATION PARAMETERS")]
-    dec: Option<f64>,
+    pub(super) dec: Option<f64>,
 
     #[clap(
         short = 'c',
@@ -99,12 +102,12 @@ pub(super) struct VisSimulateCliArgs {
         help = FREQ_RES_HELP.as_str(),
         help_heading = "OBSERVATION PARAMETERS"
     )]
-    freq_res: Option<f64>,
+    pub(super) freq_res: Option<f64>,
 
     /// The centroid frequency of the simulation [MHz]. If this is not
     /// specified, then the FREQCENT specified in the metafits is used.
     #[clap(long, help_heading = "OBSERVATION PARAMETERS")]
-    middle_freq: Option<f64>,
+    pub(super) middle_freq: Option<f64>,
 
     #[clap(
         short = 't',
@@ -120,20 +123,20 @@ pub(super) struct VisSimulateCliArgs {
     /// The time offset from the start [seconds]. The default start time is the
     /// is the obsid.
     #[clap(long, help_heading = "OBSERVATION PARAMETERS")]
-    time_offset: Option<f64>,
+    pub(super) time_offset: Option<f64>,
 
     #[clap(
         long, help = ARRAY_POSITION_HELP.as_str(), help_heading = "OBSERVATION PARAMETERS",
-        number_of_values = 3,
+        num_args(3),
         allow_hyphen_values = true,
-        value_names = &["LONG_DEG", "LAT_DEG", "HEIGHT_M"]
+        value_names = ["LONG_DEG", "LAT_DEG", "HEIGHT_M"]
     )]
-    array_position: Option<Vec<f64>>,
+    pub(super) array_position: Option<Vec<f64>>,
 
     #[clap(
         short = 'o',
         long,
-        multiple_values(true),
+        num_args(1..),
         help = OUTPUTS_HELP.as_str(),
         help_heading = "OUTPUT FILES"
     )]
@@ -147,7 +150,7 @@ pub(super) struct VisSimulateCliArgs {
     /// together before writing the data out. If the variable is instead 4s,
     /// then 8 timesteps are averaged together before writing the data out.
     #[clap(long, help_heading = "OUTPUT FILES")]
-    output_model_time_average: Option<String>,
+    pub(super) output_model_time_average: Option<String>,
 
     /// When writing out model visibilities, average this many fine freq.
     /// channels together. Also supports a target freq. resolution (e.g. 80kHz).
@@ -158,24 +161,29 @@ pub(super) struct VisSimulateCliArgs {
     /// instead 80kHz, then 2 fine freq. channels are averaged together before
     /// writing the data out.
     #[clap(long, help_heading = "OUTPUT FILES")]
-    output_model_freq_average: Option<String>,
+    pub(super) output_model_freq_average: Option<String>,
+
+    /// Include auto-correlations in the output.
+    /// Default: don't include autos
+    #[clap(long, help_heading = "OUTPUT FILES")]
+    pub(super) output_autos: bool,
 
     /// Remove any "point" components from the input sky model.
     #[clap(long, help_heading = "SKY MODEL")]
-    filter_points: bool,
+    pub(super) filter_points: bool,
 
     /// Remove any "gaussian" components from the input sky model.
     #[clap(long, help_heading = "SKY MODEL")]
-    filter_gaussians: bool,
+    pub(super) filter_gaussians: bool,
 
     /// Remove any "shapelet" components from the input sky model.
     #[clap(long, help_heading = "SKY MODEL")]
-    filter_shapelets: bool,
+    pub(super) filter_shapelets: bool,
 }
 
 #[derive(Parser, Debug, Clone, Default, Serialize, Deserialize)]
 pub(super) struct VisSimulateArgs {
-    #[clap(name = "ARGUMENTS_FILE", help = ARG_FILE_HELP.as_str(), parse(from_os_str))]
+    #[clap(value_name = "ARGUMENTS_FILE", help = ARG_FILE_HELP.as_str())]
     pub(super) args_file: Option<PathBuf>,
 
     #[clap(flatten)]
@@ -264,6 +272,7 @@ impl VisSimulateArgs {
                     output_model_files,
                     output_model_time_average,
                     output_model_freq_average,
+                    output_autos,
                     filter_points,
                     filter_gaussians,
                     filter_shapelets,
@@ -555,6 +564,7 @@ impl VisSimulateArgs {
             outputs: output_model_files,
             output_vis_time_average: output_model_time_average,
             output_vis_freq_average: output_model_freq_average,
+            output_autos,
         }
         .parse(
             time_res,
@@ -653,6 +663,7 @@ impl VisSimulateCliArgs {
             output_model_freq_average: self
                 .output_model_freq_average
                 .or(other.output_model_freq_average),
+            output_autos: self.output_autos || other.output_autos,
             filter_points: self.filter_points || other.filter_points,
             filter_gaussians: self.filter_gaussians || other.filter_gaussians,
             filter_shapelets: self.filter_shapelets || other.filter_shapelets,

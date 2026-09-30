@@ -11,7 +11,7 @@ use super::BEAM_TYPES_COMMA_SEPARATED;
 #[derive(Error, Debug)]
 pub enum BeamError {
     #[error(
-        "Unrecognised beam model '{0}'; supported beam models are: {}",
+        "Unrecognised beam model '{_0}'; supported beam models are: {}",
         *BEAM_TYPES_COMMA_SEPARATED
     )]
     Unrecognised(String),
@@ -50,7 +50,9 @@ pub enum BeamError {
     #[error("This beam requires the time of the beam-response calculation, but it wasn't supplied; this is a hyperdrive bug or an unsupported beam for this feature")]
     NeedsTime,
 
-    #[error("The beam's measurement set describes {ms} stations, but the input data has {tiles} tiles")]
+    #[error(
+        "The beam's measurement set describes {ms} stations, but the input data has {tiles} tiles"
+    )]
     StationCountMismatch { ms: usize, tiles: usize },
 
     #[cfg(any(feature = "cuda", feature = "hip"))]

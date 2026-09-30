@@ -58,9 +58,9 @@ lazy_static::lazy_static! {
 
     static ref IONO_FREQ_AVERAGE_FACTOR_HELP: String = format!("The number of fine-frequency channels to average together *during* peeling. Also supports a target frequency resolution (e.g. 1.28MHz). Cannot be 0. Default: {DEFAULT_IONO_FREQ_AVERAGE}. e.g. If the input data is in 40kHz resolution and this variable was 2, then we average 80kHz worth of data into a chanblock during peeling. If the variable is instead 1.28MHz, then each chanblock contains 32 fine channels.");
 
-    static ref OUTPUT_TIME_AVERAGE_FACTOR_HELP: String = format!("The number of timeblocks to average together when writing out visibilities. Also supports a target time resolution (e.g. 8s). If this is 0, then all data are averaged together. Defaults to input resolution. e.g. If this variable is 4, then 8 timesteps are averaged together as a timeblock in the output visibilities.");
+    static ref OUTPUT_TIME_AVERAGE_FACTOR_HELP: String = "The number of timeblocks to average together when writing out visibilities. Also supports a target time resolution (e.g. 8s). If this is 0, then all data are averaged together. Defaults to input resolution. e.g. If this variable is 4, then 8 timesteps are averaged together as a timeblock in the output visibilities.".to_string();
 
-    static ref OUTPUT_FREQ_AVERAGE_FACTOR_HELP: String = format!("The number of fine-frequency channels to average together when writing out visibilities. Also supports a target time resolution (e.g. 80kHz). If this is 0, then all data are averaged together. Defaults to input resolution. This is multiplicative with the freq average factor; e.g. If this variable is 4, and the freq average factor is 2, then 8 fine-frequency channels are averaged together as a chanblock in the output visibilities.");
+    static ref OUTPUT_FREQ_AVERAGE_FACTOR_HELP: String = "The number of fine-frequency channels to average together when writing out visibilities. Also supports a target time resolution (e.g. 80kHz). If this is 0, then all data are averaged together. Defaults to input resolution. This is multiplicative with the freq average factor; e.g. If this variable is 4, and the freq average factor is 2, then 8 fine-frequency channels are averaged together as a chanblock in the output visibilities.".to_string();
 
     static ref UVW_MIN_HELP: String = format!("The minimum UVW length to use. This value must have a unit annotated. Allowed units: {}. Default: {DEFAULT_UVW_MIN}", *WAVELENGTH_FORMATS);
 
@@ -79,7 +79,7 @@ pub(crate) struct PeelCliArgs {
     /// sources in the sky model after vetoing, and restricting to --num-sources
     /// (-n). The number of iono subtract sources cannot be greater than this
     /// default value.
-    #[clap(long = "iono-sub", help_heading = "PEELING")]
+    #[arg(long = "iono-sub", help_heading = "PEELING")]
     pub(super) num_sources_to_iono_subtract: Option<usize>,
 
     // TODO: peel
@@ -87,39 +87,39 @@ pub(crate) struct PeelCliArgs {
     // "ionospherically subtracted" sources, except before subtracting, a "DI
     // calibration" is done between the iono-rotated model and the data. This
     // allows for scintillation and any other phase shift to be corrected.
-    // #[clap(long = "peel", help_heading = "PEELING")]
+    // #[arg(long = "peel", help_heading = "PEELING")]
     // pub(super) num_sources_to_peel: Option<usize>,
-    #[clap(long, help = NUM_PASSES_HELP.as_str(), help_heading = "PEELING")]
+    #[arg(long, help = NUM_PASSES_HELP.as_str(), help_heading = "PEELING")]
     pub(super) num_passes: Option<usize>,
 
-    #[clap(long, help = NUM_LOOPS_HELP.as_str(), help_heading = "PEELING")]
+    #[arg(long, help = NUM_LOOPS_HELP.as_str(), help_heading = "PEELING")]
     pub(super) num_loops: Option<usize>,
 
-    #[clap(long, help = IONO_TIME_AVERAGE_FACTOR_HELP.as_str(), help_heading = "PEELING")]
+    #[arg(long, help = IONO_TIME_AVERAGE_FACTOR_HELP.as_str(), help_heading = "PEELING")]
     pub(super) iono_time_average: Option<String>,
 
-    #[clap(long, help = IONO_FREQ_AVERAGE_FACTOR_HELP.as_str(), help_heading = "PEELING")]
+    #[arg(long, help = IONO_FREQ_AVERAGE_FACTOR_HELP.as_str(), help_heading = "PEELING")]
     pub(super) iono_freq_average: Option<String>,
 
-    #[clap(long, help = UVW_MIN_HELP.as_str(), help_heading = "PEELING")]
+    #[arg(long, help = UVW_MIN_HELP.as_str(), help_heading = "PEELING")]
     pub(super) uvw_min: Option<String>,
 
-    #[clap(long, help = UVW_MAX_HELP.as_str(), help_heading = "PEELING")]
+    #[arg(long, help = UVW_MAX_HELP.as_str(), help_heading = "PEELING")]
     pub(super) uvw_max: Option<String>,
 
-    #[clap(long, help = SHORT_BASELINE_SIGMA_HELP.as_str(), help_heading = "PEELING")]
+    #[arg(long, help = SHORT_BASELINE_SIGMA_HELP.as_str(), help_heading = "PEELING")]
     pub(super) short_baseline_sigma: Option<f64>,
 
-    #[clap(long, help = CONVERGENCE_HELP.as_str(), help_heading = "PEELING")]
+    #[arg(long, help = CONVERGENCE_HELP.as_str(), help_heading = "PEELING")]
     pub(super) convergence: Option<f64>,
 
-    #[clap(short, long, multiple_values(true), help = VIS_OUTPUTS_HELP.as_str(), help_heading = "OUTPUT FILES")]
+    #[arg(short, long, num_args(1..), help = VIS_OUTPUTS_HELP.as_str(), help_heading = "OUTPUT FILES")]
     pub(super) outputs: Option<Vec<PathBuf>>,
 
-    #[clap(long, help = OUTPUT_TIME_AVERAGE_FACTOR_HELP.as_str(), help_heading = "OUTPUT FILES")]
+    #[arg(long, help = OUTPUT_TIME_AVERAGE_FACTOR_HELP.as_str(), help_heading = "OUTPUT FILES")]
     pub(super) output_vis_time_average: Option<String>,
 
-    #[clap(long, help = OUTPUT_FREQ_AVERAGE_FACTOR_HELP.as_str(), help_heading = "OUTPUT FILES")]
+    #[arg(long, help = OUTPUT_FREQ_AVERAGE_FACTOR_HELP.as_str(), help_heading = "OUTPUT FILES")]
     pub(super) output_vis_freq_average: Option<String>,
 
     /// When writing out visibilities, rather than writing out the entire input
@@ -128,37 +128,37 @@ pub(crate) struct PeelCliArgs {
     /// usually flagged. Turning this option on means that 764 channels would be
     /// written out instead of 768. Note that other flagged channels in the band
     /// are unaffected, because the data written out must be contiguous.
-    #[clap(long, help_heading = "OUTPUT FILES")]
+    #[arg(long, help_heading = "OUTPUT FILES")]
     #[serde(default)]
     output_smallest_contiguous_band: bool,
 }
 
 #[derive(Parser, Debug, Clone, Default, Serialize, Deserialize)]
 pub(super) struct PeelArgs {
-    #[clap(name = "ARGUMENTS_FILE", help = ARG_FILE_HELP.as_str(), parse(from_os_str))]
+    #[arg(value_name = "ARGUMENTS_FILE", help = ARG_FILE_HELP.as_str())]
     pub(super) args_file: Option<PathBuf>,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     #[serde(rename = "data")]
     #[serde(default)]
     pub(super) data_args: InputVisArgs,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     #[serde(rename = "sky-model")]
     #[serde(default)]
     pub(super) srclist_args: SkyModelWithVetoArgs,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     #[serde(rename = "model")]
     #[serde(default)]
     pub(super) model_args: ModellingArgs,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     #[serde(rename = "beam")]
     #[serde(default)]
     pub(super) beam_args: BeamArgs,
 
-    #[clap(flatten)]
+    #[command(flatten)]
     #[serde(rename = "peel")]
     #[serde(default)]
     pub(super) peel_args: PeelCliArgs,
@@ -466,6 +466,7 @@ impl PeelArgs {
                 outputs: Some(vis_outputs),
                 output_vis_time_average,
                 output_vis_freq_average,
+                output_autos: input_vis_params.using_autos,
             }
             .parse(
                 input_vis_params.time_res,

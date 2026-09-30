@@ -64,6 +64,14 @@ pub(crate) trait VisRead: Sync + Send {
     /// they're read in. These are only applied to raw data.
     fn set_raw_data_corrections(&mut self, corrections: RawDataCorrections);
 
+    fn read_inner_dispatch(
+        &self,
+        cross_data: Option<CrossData>,
+        auto_data: Option<AutoData>,
+        timestep: usize,
+        flagged_fine_chans: &HashSet<u16>,
+    ) -> Result<(), VisReadError>;
+
     /// Read cross- and auto-correlation visibilities for all frequencies and
     /// baselines in a single timestep into corresponding arrays.
     #[allow(clippy::too_many_arguments)]
@@ -76,7 +84,22 @@ pub(crate) trait VisRead: Sync + Send {
         timestep: usize,
         tile_baseline_flags: &TileBaselineFlags,
         flagged_fine_chans: &HashSet<u16>,
-    ) -> Result<(), VisReadError>;
+    ) -> Result<(), VisReadError> {
+        self.read_inner_dispatch(
+            Some(CrossData {
+                vis_fb: cross_vis_fb,
+                weights_fb: cross_weights_fb,
+                tile_baseline_flags,
+            }),
+            Some(AutoData {
+                vis_fb: auto_vis_fb,
+                weights_fb: auto_weights_fb,
+                tile_baseline_flags,
+            }),
+            timestep,
+            flagged_fine_chans,
+        )
+    }
 
     /// Read cross-correlation visibilities for all frequencies and baselines in
     /// a single timestep into the `data_array` and similar for the weights.
@@ -87,7 +110,18 @@ pub(crate) trait VisRead: Sync + Send {
         timestep: usize,
         tile_baseline_flags: &TileBaselineFlags,
         flagged_fine_chans: &HashSet<u16>,
-    ) -> Result<(), VisReadError>;
+    ) -> Result<(), VisReadError> {
+        self.read_inner_dispatch(
+            Some(CrossData {
+                vis_fb,
+                weights_fb,
+                tile_baseline_flags,
+            }),
+            None,
+            timestep,
+            flagged_fine_chans,
+        )
+    }
 
     /// Read auto-correlation visibilities for all frequencies and tiles in a
     /// single timestep into the `data_array` and similar for the weights.
@@ -99,7 +133,18 @@ pub(crate) trait VisRead: Sync + Send {
         timestep: usize,
         tile_baseline_flags: &TileBaselineFlags,
         flagged_fine_chans: &HashSet<u16>,
-    ) -> Result<(), VisReadError>;
+    ) -> Result<(), VisReadError> {
+        self.read_inner_dispatch(
+            None,
+            Some(AutoData {
+                vis_fb,
+                weights_fb,
+                tile_baseline_flags,
+            }),
+            timestep,
+            flagged_fine_chans,
+        )
+    }
 
     /// Get optional MWA information to give to `Marlu` when writing out
     /// visibilities.

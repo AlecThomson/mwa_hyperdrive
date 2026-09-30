@@ -36,37 +36,37 @@ use crate::{
 #[derive(Parser, Debug)]
 pub struct SrclistShiftArgs {
     /// Path to the source list to be shifted.
-    #[clap(name = "SOURCE_LIST", parse(from_os_str))]
+    #[arg(value_name = "SOURCE_LIST")]
     source_list: PathBuf,
 
     /// Path to the .json shifts file.
-    #[clap(name = "SOURCE_SHIFTS", parse(from_os_str))]
+    #[arg(value_name = "SOURCE_SHIFTS")]
     source_shifts: PathBuf,
 
     /// Path to the output source list. If not specified, then then "_shifted"
     /// is appended to the filename.
-    #[clap(name = "OUTPUT_SOURCE_LIST", parse(from_os_str))]
+    #[arg(value_name = "OUTPUT_SOURCE_LIST")]
     output_source_list: Option<PathBuf>,
 
-    #[clap(short = 'i', long, parse(from_str), help = SOURCE_LIST_INPUT_TYPE_HELP.as_str())]
+    #[arg(short = 'i', long, help = SOURCE_LIST_INPUT_TYPE_HELP.as_str())]
     input_type: Option<String>,
 
-    #[clap(short = 'o', long, parse(from_str), help = SOURCE_LIST_OUTPUT_TYPE_HELP.as_str())]
+    #[arg(short = 'o', long, help = SOURCE_LIST_OUTPUT_TYPE_HELP.as_str())]
     output_type: Option<String>,
 
     /// Collapse all of the sky-model components into a single source; the
     /// apparently brightest source is used as the base source. This is suitable
     /// for an "RTS patch source list".
-    #[clap(long)]
+    #[arg(long)]
     collapse_into_single_source: bool,
 
     /// Don't throw away sources that have no shifts specified in the JSON file.
-    #[clap(long)]
+    #[arg(long)]
     include_unshifted_sources: bool,
 
     /// Path to the metafits file. Only needed if collapse-into-single-source is
     /// used.
-    #[clap(short, long, parse(from_str))]
+    #[arg(short, long)]
     metafits: Option<PathBuf>,
 }
 
@@ -228,16 +228,14 @@ fn shift(
             let base = sl.remove_entry(&base_name).unwrap();
             collapsed.insert(base_name, base.1);
             let base_src = collapsed.get_mut(&base.0).unwrap();
-            let mut base_comps = vec![].into_boxed_slice();
-            std::mem::swap(&mut base_src.components, &mut base_comps);
-            let mut base_comps = base_comps.to_vec();
+            let mut base_comps = std::mem::take(&mut base_src.components).to_vec();
 
             for name in &ordered[1..] {
                 for comp in sl[name].components.iter() {
                     base_comps.push(comp.clone());
                 }
             }
-            std::mem::swap(&mut base_src.components, &mut base_comps.into_boxed_slice());
+            base_src.components = base_comps.into_boxed_slice();
         } else {
             // Use the apparently brightest source as the base.
             let brightest = sl
@@ -256,13 +254,11 @@ fn shift(
             let base = sl.remove_entry(&base_name).unwrap();
             collapsed.insert(base_name, base.1);
             let base_src = collapsed.get_mut(&base.0).unwrap();
-            let mut base_comps = vec![].into_boxed_slice();
-            std::mem::swap(&mut base_src.components, &mut base_comps);
-            let mut base_comps = base_comps.to_vec();
+            let mut base_comps = std::mem::take(&mut base_src.components).to_vec();
             sl.into_iter()
                 .flat_map(|(_, src)| src.components.to_vec())
                 .for_each(|comp| base_comps.push(comp));
-            std::mem::swap(&mut base_src.components, &mut base_comps.into_boxed_slice());
+            base_src.components = base_comps.into_boxed_slice();
         }
 
         collapsed

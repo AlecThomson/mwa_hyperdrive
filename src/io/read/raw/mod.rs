@@ -37,7 +37,6 @@ use crate::{
     cli::Warn,
     context::ObsContext,
     flagging::{MwafFlags, MwafProducer},
-    math::TileBaselineFlags,
     metafits,
 };
 
@@ -161,11 +160,12 @@ impl RawDataReader {
         let metafits_context = &mwalib_context.metafits_context;
 
         let is_mwax = match mwalib_context.mwa_version {
-            MWAVersion::CorrMWAXv2 => true,
+            MWAVersion::CorrMWAXv2 | MWAVersion::CorrBeamformerMWAXv2 => true,
             MWAVersion::CorrLegacy | MWAVersion::CorrOldLegacy => false,
             MWAVersion::VCSLegacyRecombined | MWAVersion::VCSMWAXv2 => {
                 return Err(RawReadError::Vcs)
             }
+            MWAVersion::BeamformerMWAXv2 => return Err(RawReadError::Beamformer),
         };
 
         let total_num_tiles = metafits_context.num_ants;
@@ -177,7 +177,7 @@ impl RawDataReader {
             .filter(|rf| rf.pol == Pol::X && rf.flagged)
             .map(|rf_input| rf_input.ant as usize)
             .collect();
-        debug!("Found metafits tile flags: {:?}", &tile_flags_set);
+        debug!("Found metafits tile flags: {:?}", tile_flags_set);
 
         // Are there any unflagged tiles?
         let num_unflagged_tiles = total_num_tiles - tile_flags_set.len();
@@ -702,6 +702,10 @@ impl RawDataReader {
                 coarse_chan_range,
                 baseline_idxs: (0..self.all_baseline_tile_pairs.len()).collect(),
             };
+
+            // Pass in the flagged tiles from mwalib
+            let flagged = birli::FlagContext::from_mwalib(&self.mwalib_context).antenna_flags;
+
             prep_ctx
                 .preprocess(
                     &self.mwalib_context,
@@ -709,6 +713,7 @@ impl RawDataReader {
                     weight_array_tfb.view_mut(),
                     flag_array_tfb.view_mut(),
                     &vis_sel,
+                    &flagged,
                 )
                 .map_err(Box::new)?;
         }
@@ -881,72 +886,14 @@ impl VisRead for RawDataReader {
         self.corrections = corrections;
     }
 
-    fn read_crosses_and_autos(
+    fn read_inner_dispatch(
         &self,
-        cross_vis_fb: ArrayViewMut2<Jones<f32>>,
-        cross_weights_fb: ArrayViewMut2<f32>,
-        auto_vis_fb: ArrayViewMut2<Jones<f32>>,
-        auto_weights_fb: ArrayViewMut2<f32>,
+        cross_data: Option<CrossData>,
+        auto_data: Option<AutoData>,
         timestep: usize,
-        tile_baseline_flags: &TileBaselineFlags,
         flagged_fine_chans: &HashSet<u16>,
     ) -> Result<(), VisReadError> {
-        self.read_inner(
-            Some(CrossData {
-                vis_fb: cross_vis_fb,
-                weights_fb: cross_weights_fb,
-                tile_baseline_flags,
-            }),
-            Some(AutoData {
-                vis_fb: auto_vis_fb,
-                weights_fb: auto_weights_fb,
-                tile_baseline_flags,
-            }),
-            timestep,
-            flagged_fine_chans,
-        )?;
-        Ok(())
-    }
-
-    fn read_crosses(
-        &self,
-        vis_fb: ArrayViewMut2<Jones<f32>>,
-        weights_fb: ArrayViewMut2<f32>,
-        timestep: usize,
-        tile_baseline_flags: &TileBaselineFlags,
-        flagged_fine_chans: &HashSet<u16>,
-    ) -> Result<(), VisReadError> {
-        self.read_inner(
-            Some(CrossData {
-                vis_fb,
-                weights_fb,
-                tile_baseline_flags,
-            }),
-            None,
-            timestep,
-            flagged_fine_chans,
-        )?;
-        Ok(())
-    }
-
-    fn read_autos(
-        &self,
-        vis_fb: ArrayViewMut2<Jones<f32>>,
-        weights_fb: ArrayViewMut2<f32>,
-        timestep: usize,
-        tile_baseline_flags: &TileBaselineFlags,
-        flagged_fine_chans: &HashSet<u16>,
-    ) -> Result<(), VisReadError> {
-        self.read_inner(
-            None,
-            Some(AutoData {
-                vis_fb,
-                weights_fb,
-                tile_baseline_flags,
-            }),
-            timestep,
-            flagged_fine_chans,
-        )?;
+        self.read_inner(cross_data, auto_data, timestep, flagged_fine_chans)?;
         Ok(())
     }
 

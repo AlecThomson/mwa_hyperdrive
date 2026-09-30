@@ -59,13 +59,23 @@ pub(super) fn read_table(ms: &Path, table: Option<&str>) -> Result<Table, TableE
 // timesteps. This function assumes that the `main_table` and `timestamps` are
 // not empty.
 fn get_time_resolution(main_table: &mut Table, timestamps: &[Epoch]) -> Option<Duration> {
-    if let Ok(s) = main_table.get_cell("INTERVAL", 0) {
+    if let Ok(s) = main_table.get_cell::<f64>("INTERVAL", 0) {
         debug!("Using the INTERVAL column for the time resolution ({s} seconds)");
-        return Some(Duration::from_seconds(s));
+        // Check if the interval is zero or invalid, which would cause infinite loops
+        if s > 0.0 && s.is_finite() {
+            return Some(Duration::from_seconds(s));
+        } else {
+            debug!("INTERVAL column contains invalid value ({s}), falling back to other methods");
+        }
     }
-    if let Ok(s) = main_table.get_cell("EXPOSURE", 0) {
+    if let Ok(s) = main_table.get_cell::<f64>("EXPOSURE", 0) {
         debug!("Using the EXPOSURE column for the time resolution ({s} seconds)");
-        return Some(Duration::from_seconds(s));
+        // Check if the exposure is zero or invalid, which would cause infinite loops
+        if s > 0.0 && s.is_finite() {
+            return Some(Duration::from_seconds(s));
+        } else {
+            debug!("EXPOSURE column contains invalid value ({s}), falling back to other methods");
+        }
     }
     if timestamps.len() == 1 {
         debug!(
@@ -307,10 +317,21 @@ impl MsReader {
                         y: v[1],
                         z: v[2],
                     };
-                    Some(xyz.to_earth_wgs84())
+                    debug!("Found ARRAY_CENTER: [{}, {}, {}]", v[0], v[1], v[2]);
+                    let geodetic = xyz.to_earth_wgs84();
+                    debug!(
+                        "Converted to geodetic: lon={:.6}°, lat={:.6}°, height={:.3}m",
+                        geodetic.longitude_rad.to_degrees(),
+                        geodetic.latitude_rad.to_degrees(),
+                        geodetic.height_metres
+                    );
+                    Some(geodetic)
                 }
 
-                Err(_) => None,
+                Err(e) => {
+                    debug!("Could not read ARRAY_CENTER: {}", e);
+                    None
+                }
             };
 
             if let Some(pos) = maybe_pos {
@@ -1307,85 +1328,22 @@ impl VisRead for MsReader {
 
     fn set_raw_data_corrections(&mut self, _: RawDataCorrections) {}
 
-    fn read_crosses_and_autos(
+    fn read_inner_dispatch(
         &self,
-        cross_vis_fb: ArrayViewMut2<Jones<f32>>,
-        cross_weights_fb: ArrayViewMut2<f32>,
-        auto_vis_fb: ArrayViewMut2<Jones<f32>>,
-        auto_weights_fb: ArrayViewMut2<f32>,
+        cross_data: Option<CrossData>,
+        auto_data: Option<AutoData>,
         timestep: usize,
-        tile_baseline_flags: &TileBaselineFlags,
         flagged_fine_chans: &HashSet<u16>,
     ) -> Result<(), VisReadError> {
-        let cross_data = Some(CrossData {
-            vis_fb: cross_vis_fb,
-            weights_fb: cross_weights_fb,
-            tile_baseline_flags,
-        });
-        let auto_data = Some(AutoData {
-            vis_fb: auto_vis_fb,
-            weights_fb: auto_weights_fb,
-            tile_baseline_flags,
-        });
-
         match self.obs_context.polarisations.num_pols() {
             4 => self.read_inner::<4>(cross_data, auto_data, timestep, flagged_fine_chans),
             3 => self.read_inner::<3>(cross_data, auto_data, timestep, flagged_fine_chans),
             2 => self.read_inner::<2>(cross_data, auto_data, timestep, flagged_fine_chans),
             1 => self.read_inner::<1>(cross_data, auto_data, timestep, flagged_fine_chans),
-            _ => {
-                unimplemented!("num pols must be 1-4")
-            }
-        }
-    }
-
-    fn read_crosses(
-        &self,
-        vis_fb: ArrayViewMut2<Jones<f32>>,
-        weights_fb: ArrayViewMut2<f32>,
-        timestep: usize,
-        tile_baseline_flags: &TileBaselineFlags,
-        flagged_fine_chans: &HashSet<u16>,
-    ) -> Result<(), VisReadError> {
-        let cross_data = Some(CrossData {
-            vis_fb,
-            weights_fb,
-            tile_baseline_flags,
-        });
-
-        match self.obs_context.polarisations.num_pols() {
-            4 => self.read_inner::<4>(cross_data, None, timestep, flagged_fine_chans),
-            3 => self.read_inner::<3>(cross_data, None, timestep, flagged_fine_chans),
-            2 => self.read_inner::<2>(cross_data, None, timestep, flagged_fine_chans),
-            1 => self.read_inner::<1>(cross_data, None, timestep, flagged_fine_chans),
-            _ => {
-                unimplemented!("num pols must be 1-4")
-            }
-        }
-    }
-
-    fn read_autos(
-        &self,
-        vis_fb: ArrayViewMut2<Jones<f32>>,
-        weights_fb: ArrayViewMut2<f32>,
-        timestep: usize,
-        tile_baseline_flags: &TileBaselineFlags,
-        flagged_fine_chans: &HashSet<u16>,
-    ) -> Result<(), VisReadError> {
-        let auto_data = Some(AutoData {
-            vis_fb,
-            weights_fb,
-            tile_baseline_flags,
-        });
-
-        match self.obs_context.polarisations.num_pols() {
-            4 => self.read_inner::<4>(None, auto_data, timestep, flagged_fine_chans),
-            3 => self.read_inner::<3>(None, auto_data, timestep, flagged_fine_chans),
-            2 => self.read_inner::<2>(None, auto_data, timestep, flagged_fine_chans),
-            1 => self.read_inner::<1>(None, auto_data, timestep, flagged_fine_chans),
-            _ => {
-                unimplemented!("num pols must be 1-4")
-            }
+            _ => unimplemented!(
+                "num pols must be 1-4, got {}",
+                self.obs_context.polarisations.num_pols()
+            ),
         }
     }
 

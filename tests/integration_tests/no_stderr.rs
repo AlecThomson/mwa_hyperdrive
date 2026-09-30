@@ -130,7 +130,7 @@ fn test_vis_simulate_and_vis_subtract_no_stderr() {
             "--output-model-files", &format!("{}", model_path.display()),
             "--num-timesteps", &format!("{num_timesteps}"),
             "--num-fine-channels", &format!("{num_chans}"),
-            "--no-progress-bars"
+            "--no-progress-bars",
         ])
         .ok();
     assert!(
@@ -150,9 +150,8 @@ fn test_vis_simulate_and_vis_subtract_no_stderr() {
             "vis-subtract",
             "--data", &metafits, &format!("{}", model_path.display()),
             "--source-list", &srclist,
-            "--invert",
-            "--output", &format!("{}", sub_path.display()),
-            "--no-progress-bars"
+            "--outputs", &format!("{}", sub_path.display()),
+            "--no-progress-bars",
         ])
         .ok();
     assert!(

@@ -6,6 +6,85 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-09-10
+
+### Fixed
+
+- `peel` swapped `--num-passes` and `--num-loops` when unpacking peel loop parameters on both CPU and GPU.
+
+## [0.8.0] - 2026-06-09
+
+### Changed
+
+- Bumped MSRV to 1.85.0.
+- When building with CUDA, hyperdrive will now limit the compute capabilities and sm's based on the version of nvcc detected. Also implemented fallback for newer sm's and compute capabilities.
+- Updated mwalib, Marlu, hyperbeam and Birli dependencies.
+- Updated thiserror, clap from 3 to 4.
+- Minor refactor in `solutions::hyperdrive::read()` to make more readable.
+- Updated CI action versions.
+
+### Added
+
+- Added tile_names test to `test_write_and_read_hyperdrive_solutions`.
+- Added condition path for Beamformer and Correlator+Beamformer observation types.
+- Optional CLI flag `--elevation-limit` - for sky model filtering.
+
+### Fixed
+
+- #[66](https://github.com/MWATelescope/mwa_hyperdrive/issues/66) three digit CUDA compute (RTX 5090).
+
+## [0.7.0] - 2026-02-09
+
+### Fixed
+
+- [#59](https://github.com/MWATelescope/mwa_hyperdrive/issues/59) multi-timeblock calibration.
+
+### Removed
+
+- deleted unused `io::read::uvfits::error::FitsError` type
+
+### Added
+
+- auto-correlation visibility simulation and writing support
+- Fix for reading a timestep with zero length #67
+- Fix multi-timeblock solution slicing #59
+- implement cluster reading for ao style srclist #63
+- Fixes for CPU model behavior with empty component types
+
+### Changed
+
+- auto-correlations support added to all commands, but disabled by default.
+  - Use `--autos` when reading input data to include auto-correlations.
+  - Commands that write visibilities match the input: if input data includes auto-correlations, they are written to the output;
+    if input data excludes them, they are not written.
+  - `vis-simulate` does not simulate auto-correlations by default; use `--output-autos` to include them.
+  - `di-calibrate`, `solutions-apply`, `vis-convert`, `vis-subtract`, and `peel` automatically match the input data's auto-correlation state.
+- VisRead trait generalizes `read_{crosses,autos,crosses_and_autos}` with `read_inner_dispatch`
+
+## [0.6.1] - 2025-07-29
+
+### Fixed
+
+- tapered weights were accidentally written out in peeling, flagging short baselines since v0.5.0
+
+## [0.6.0] - 2025-07-28
+
+### Changed
+
+- add oversampled pfb gains from birli 0.18, these are not the default! For phase3 data, use `--pfb-flavour jake_oversampled`
+- cli args `--sources-to-subtract` and `--invert` from vis-subtract are now
+  included in all source list reading commands, behaviour is slighly different:
+    - `--sources-to-subtract` renamed to `--named-sources`
+    - `--invert` now requires `--named-sources` to be present
+- remove default `--source-dist-cutoff`.
+
+### Fixed
+
+- [#29](https://github.com/MWATelescope/mwa_hyperdrive/issues/29) confusing syntax
+  around named source filtering and inversion.
+- [#47](https://github.com/MWATelescope/mwa_hyperdrive/issues/47) `--source-dist-cutoff`
+  was too small, default removed.
+
 ## [0.5.1] - 2025-04-11
 
 ### Changed

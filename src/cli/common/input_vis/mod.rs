@@ -64,10 +64,10 @@ pub(crate) struct InputVisArgs {
     /// Paths to input data files. These can include a metafits file, a
     /// calibration solutions file, gpubox files, mwaf files, a measurement set,
     /// and/or a uvfits file.
-    #[clap(
+    #[arg(
         short = 'd',
         long = "data",
-        multiple_values(true),
+        num_args(1..),
         help_heading = "INPUT DATA"
     )]
     pub(crate) files: Option<Vec<String>>,
@@ -77,78 +77,79 @@ pub(crate) struct InputVisArgs {
     /// timesteps. e.g. The following skips the first two timesteps and use the
     /// following three: --timesteps 2 3 4, --timesteps {2..4} (bash shell
     /// syntax)
-    #[clap(long, multiple_values(true), help_heading = "INPUT DATA")]
+    #[arg(long, num_args(1..), help_heading = "INPUT DATA")]
     pub(crate) timesteps: Option<Vec<usize>>,
 
     /// Use all timesteps in the data, including flagged ones. The default is to
     /// use all unflagged timesteps.
-    #[clap(long, conflicts_with("timesteps"), help_heading = "INPUT DATA")]
+    #[arg(long, conflicts_with("timesteps"), help_heading = "INPUT DATA")]
     #[serde(default)]
     pub(crate) use_all_timesteps: bool,
 
-    #[clap(
+    #[arg(
         long, help = ARRAY_POSITION_HELP.as_str(), help_heading = "INPUT DATA",
-        number_of_values = 3,
+        num_args(3),
         allow_hyphen_values = true,
-        value_names = &["LONG_DEG", "LAT_DEG", "HEIGHT_M"]
+        value_names = ["LONG_DEG", "LAT_DEG", "HEIGHT_M"]
     )]
     pub(crate) array_position: Option<Vec<f64>>,
 
-    /// Don't read autocorrelations from the input data.
-    #[clap(long, help_heading = "INPUT DATA")]
+    /// Read autocorrelations from the input data.
+    /// Default: don't read autos
+    #[arg(long, help_heading = "INPUT DATA")]
     #[serde(default)]
-    pub(crate) no_autos: bool,
+    pub(crate) autos: bool,
 
     /// Use this value as the DUT1 [seconds].
-    #[clap(long, help_heading = "INPUT DATA")]
+    #[arg(long, help_heading = "INPUT DATA")]
     #[serde(default)]
     pub(crate) dut1: Option<f64>,
 
     /// Ignore the weights accompanying the visibilities. Internally, this will
     /// set all weights to 1, meaning all visibilities are equal, including
     /// those that would be otherwise flagged.
-    #[clap(long, help_heading = "INPUT DATA")]
+    #[arg(long, help_heading = "INPUT DATA")]
     #[serde(default)]
     pub(crate) ignore_weights: bool,
 
     /// Use a DUT1 value of 0 seconds rather than what is in the input data.
-    #[clap(long, conflicts_with("dut1"), help_heading = "INPUT DATA")]
+    #[arg(long, conflicts_with("dut1"), help_heading = "INPUT DATA")]
     #[serde(default)]
     pub(crate) ignore_dut1: bool,
 
-    #[clap(long, help = MS_DATA_COL_NAME_HELP.as_str(), help_heading = "INPUT DATA (MS)")]
+    #[arg(long, help = MS_DATA_COL_NAME_HELP.as_str(), help_heading = "INPUT DATA (MS)")]
     pub(crate) ms_data_column_name: Option<String>,
 
-    #[clap(long, help = PFB_FLAVOUR_HELP.as_str(), help_heading = "INPUT DATA (RAW)")]
+    #[arg(long, help = PFB_FLAVOUR_HELP.as_str(), help_heading = "INPUT DATA (RAW)")]
     pub(crate) pfb_flavour: Option<String>,
 
     /// When reading in raw MWA data, don't apply digital gains.
-    #[clap(long, help_heading = "INPUT DATA (RAW)")]
+    #[arg(long, help_heading = "INPUT DATA (RAW)")]
     #[serde(default)]
     pub(crate) no_digital_gains: bool,
 
     /// When reading in raw MWA data, don't apply cable length corrections. Note
     /// that some data may have already had the correction applied before it was
     /// written.
-    #[clap(long, help_heading = "INPUT DATA (RAW)")]
+    #[arg(long, help_heading = "INPUT DATA (RAW)")]
     #[serde(default)]
     pub(crate) no_cable_length_correction: bool,
 
     /// When reading in raw MWA data, don't apply geometric corrections. Note
     /// that some data may have already had the correction applied before it was
     /// written.
-    #[clap(long, help_heading = "INPUT DATA (RAW)")]
+    #[arg(long, help_heading = "INPUT DATA (RAW)")]
     #[serde(default)]
     pub(crate) no_geometric_correction: bool,
 
     /// Additional tiles to be flagged. These values correspond to either the
     /// values in the "Antenna" column of HDU 2 in the metafits file (e.g. 0 3
     /// 127), or the "TileName" (e.g. Tile011).
-    #[clap(long, multiple_values(true), help_heading = "INPUT DATA (FLAGGING)")]
+    #[arg(long, num_args(1..), help_heading = "INPUT DATA (FLAGGING)")]
     pub(crate) tile_flags: Option<Vec<String>>,
 
     /// If specified, pretend that all tiles are unflagged in the input data.
-    #[clap(long, help_heading = "INPUT DATA (FLAGGING)")]
+    #[arg(long, help_heading = "INPUT DATA (FLAGGING)")]
     #[serde(default)]
     pub(crate) ignore_input_data_tile_flags: bool,
 
@@ -156,7 +157,7 @@ pub(crate) struct InputVisArgs {
     /// Note that this does not unset any negative weights; visibilities
     /// associated with negative weights are still considered flagged even if
     /// we're ignoring input data fine channel flags.
-    #[clap(long, help_heading = "INPUT DATA (FLAGGING)")]
+    #[arg(long, help_heading = "INPUT DATA (FLAGGING)")]
     #[serde(default)]
     pub(crate) ignore_input_data_fine_channel_flags: bool,
 
@@ -165,13 +166,13 @@ pub(crate) struct InputVisArgs {
     /// to flagging 80 kHz for raw data (or as close to this as possible) at the
     /// edges, as well as the centre channel for non-MWAX data. Other visibility
     /// file formats do not use this by default.
-    #[clap(long, multiple_values(true), help_heading = "INPUT DATA (FLAGGING)")]
+    #[arg(long, num_args(1..), help_heading = "INPUT DATA (FLAGGING)")]
     pub(crate) fine_chan_flags_per_coarse_chan: Option<Vec<u16>>,
 
     /// The fine channels to be flagged across the whole observation band. e.g.
     /// 0 767 are the first and last fine channels for 40 kHz data. These flags
     /// are applied *before* any averaging is performed.
-    #[clap(long, multiple_values(true), help_heading = "INPUT DATA (FLAGGING)")]
+    #[arg(long, num_args(1..), help_heading = "INPUT DATA (FLAGGING)")]
     pub(crate) fine_chan_flags: Option<Vec<u16>>,
 
     /// The number of timesteps to average together while reading in data. The
@@ -183,7 +184,7 @@ pub(crate) struct InputVisArgs {
     /// is in 0.5s resolution and this variable is 4, then we average 2s worth
     /// of data together before performing work on it. If the variable is
     /// instead 4s, then 8 timesteps are averaged together.
-    #[clap(long, help_heading = "INPUT DATA (AVERAGING)")]
+    #[arg(long, help_heading = "INPUT DATA (AVERAGING)")]
     pub(crate) time_average: Option<String>,
 
     /// The number of fine-frequency channels to average together while reading
@@ -195,7 +196,7 @@ pub(crate) struct InputVisArgs {
     /// the input data is in 20kHz resolution and this variable was 2, then we
     /// average 40kHz worth of data together before performing work with it. If
     /// the variable is instead 80kHz, then 4 channels are averaged together.
-    #[clap(short, long, help_heading = "INPUT DATA (AVERAGING)")]
+    #[arg(short, long, help_heading = "INPUT DATA (AVERAGING)")]
     pub(crate) freq_average: Option<String>,
 }
 
@@ -206,7 +207,7 @@ impl InputVisArgs {
             timesteps: self.timesteps.or(other.timesteps),
             use_all_timesteps: self.use_all_timesteps || other.use_all_timesteps,
             array_position: self.array_position.or(other.array_position),
-            no_autos: self.no_autos || other.no_autos,
+            autos: self.autos || other.autos,
             dut1: self.dut1.or(other.dut1),
             ignore_weights: self.ignore_weights || other.ignore_weights,
             ignore_dut1: self.ignore_dut1 || other.ignore_dut1,
@@ -236,7 +237,7 @@ impl InputVisArgs {
             timesteps,
             use_all_timesteps,
             array_position,
-            no_autos,
+            autos,
             dut1,
             ignore_weights,
             ignore_dut1,
@@ -298,8 +299,8 @@ impl InputVisArgs {
                     meta.to_vec().swap_remove(0)
                 };
 
-                debug!("gpubox files: {:?}", &gpuboxes);
-                debug!("mwaf files: {:?}", &mwafs);
+                debug!("gpubox files: {:?}", gpuboxes);
+                debug!("mwaf files: {:?}", mwafs);
 
                 let corrections = RawDataCorrections::new(
                     pfb_flavour.as_deref(),
@@ -356,6 +357,8 @@ impl InputVisArgs {
                     }
                     PfbFlavour::Jake => raw_data_corrections_block
                         .push("Correcting PFB gains with 'Jake Jones' gains".into()),
+                    PfbFlavour::JakeOversampled => raw_data_corrections_block
+                        .push("Correcting PFB gains with 'Jake Jones' oversampled gains".into()),
                     PfbFlavour::Cotter2014 => raw_data_corrections_block
                         .push("Correcting PFB gains with 'Cotter 2014' gains".into()),
                     PfbFlavour::Empirical => raw_data_corrections_block
@@ -1133,7 +1136,7 @@ impl InputVisArgs {
             time_res: time_res * time_average_factor.get() as i64,
             spw,
             tile_baseline_flags,
-            using_autos: !no_autos,
+            using_autos: autos,
             ignore_weights,
             dut1,
         })
@@ -1151,7 +1154,7 @@ pub(crate) enum InputVisArgsError {
     #[error("The specified file '{0}' is a \"PPDs metafits\" and is not supported. Please use a newer metafits file.")]
     PpdMetafitsUnsupported(String),
 
-    #[error("The specified file '{0}' was not a recognised file type.\n\nSupported file formats:{}", *SUPPORTED_INPUT_FILE_TYPES)]
+    #[error("The specified file '{_0}' was not a recognised file type.\n\nSupported file formats:{}", *SUPPORTED_INPUT_FILE_TYPES)]
     NotRecognised(String),
 
     #[error("No input data was given!")]
@@ -1169,7 +1172,7 @@ pub(crate) enum InputVisArgsError {
     #[error("Multiple calibration solutions files were specified: {0:?}\nThis is unsupported.")]
     MultipleSolutions(Vec1<PathBuf>),
 
-    #[error("{0}\n\nSupported file formats:{}", *SUPPORTED_INPUT_FILE_TYPES)]
+    #[error("{_0}\n\nSupported file formats:{}", *SUPPORTED_INPUT_FILE_TYPES)]
     InvalidDataInput(&'static str),
 
     #[error("Array position specified as {pos:?}, not [<Longitude>, <Latitude>, <Height>]")]

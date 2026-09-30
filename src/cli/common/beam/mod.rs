@@ -31,7 +31,7 @@ lazy_static::lazy_static! {
         format!("Don't apply a beam response when generating a sky model. The default is to use the {} beam.", BeamType::default());
 
     static ref BEAM_FILE_HELP: String =
-        format!("The path to the HDF5 MWA FEE beam file. Only useful if the beam type is 'fee'. If not specified, this must be provided by the MWA_BEAM_FILE environment variable.");
+        "The path to the HDF5 MWA FEE beam file. Only useful if the beam type is 'fee'. If not specified, this must be provided by the MWA_BEAM_FILE environment variable.".to_string();
 }
 
 /// Options for the EveryBeam beam. These are only available if hyperdrive was
@@ -147,27 +147,27 @@ impl EveryBeamArgs {
 
 #[derive(Parser, Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct BeamArgs {
-    #[clap(short, long, help_heading = "BEAM", help = BEAM_TYPE_HELP.as_str())]
+    #[arg(short, long, help_heading = "BEAM", help = BEAM_TYPE_HELP.as_str())]
     pub(crate) beam_type: Option<String>,
 
-    #[clap(long, conflicts_with("beam-type"), help_heading = "BEAM", help = NO_BEAM_HELP.as_str())]
+    #[arg(long, conflicts_with("beam_type"), help_heading = "BEAM", help = NO_BEAM_HELP.as_str())]
     #[serde(default)]
     pub(crate) no_beam: bool,
 
     /// If specified, use these dipole delays for the MWA pointing. e.g. 0 1 2 3
     /// 0 1 2 3 0 1 2 3 0 1 2 3
-    #[clap(long, multiple_values(true), help_heading = "BEAM")]
+    #[arg(long, num_args(1..), help_heading = "BEAM")]
     pub(crate) delays: Option<Vec<u32>>,
 
     /// Pretend that all MWA dipoles are alive and well, ignoring whatever is in
     /// the metafits file.
-    #[clap(long, help_heading = "BEAM")]
+    #[arg(long, help_heading = "BEAM")]
     #[serde(default)]
     pub(crate) unity_dipole_gains: bool,
 
     /// The path to the HDF5 MWA FEE beam file. If not specified, this must be
     /// provided by the MWA_BEAM_FILE environment variable.
-    #[clap(long, help_heading = "BEAM", help = BEAM_FILE_HELP.as_str())]
+    #[arg(long, help_heading = "BEAM", help = BEAM_FILE_HELP.as_str())]
     pub(crate) beam_file: Option<PathBuf>,
 
     #[cfg(feature = "everybeam")]
@@ -250,7 +250,7 @@ impl BeamArgs {
                         for (i, row) in d.outer_iter().enumerate() {
                             if let Some(last_row) = last_row {
                                 if row == last_row {
-                                    continue
+                                    continue;
                                 }
                             }
                             trace!("{i:03} {row}");
@@ -317,7 +317,7 @@ impl BeamArgs {
                     for (i, row) in dipole_gains.outer_iter().enumerate() {
                         if let Some(last_row) = last_row {
                             if row == last_row {
-                                continue
+                                continue;
                             }
                         }
                         trace!("{i:03} {row}");
@@ -354,7 +354,7 @@ impl BeamArgs {
 
                     // Warn the user if they wanted unity dipole gains but the
                     // ideal dipole delays contain 32.
-                    if unity_dipole_gains && ideal_delays.iter().any(|&v| v == 32) {
+                    if unity_dipole_gains && ideal_delays.contains(&32) {
                         "Some ideal dipole delays are 32; these dipoles will not have unity gains"
                             .warn()
                     }

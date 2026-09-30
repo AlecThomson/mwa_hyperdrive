@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::borrow::Cow;
+
 use thiserror::Error;
 
 use crate::{
@@ -48,6 +50,20 @@ pub(crate) enum ReadSourceListError {
 
     #[error("The number of specified sources was 0, or the size of the source list was 0")]
     NoSources,
+
+    #[error("Specified source {name} is not in the input source list; can't subtract it")]
+    MissingNamedSource { name: Cow<'static, str> },
+
+    #[error("Number of sources specified {named_sources} and number of sources to use {num_sources} are not the same")]
+    NamedSourcesAndNumSources {
+        num_sources: usize,
+        named_sources: usize,
+    },
+
+    #[error(
+        "No sources were left after filtering named sources from the source list. invert={invert}"
+    )]
+    AllSourcesFiltered { invert: bool },
 
     #[error("After vetoing sources, none were left. Decrease the veto threshold, or supply more sources")]
     NoSourcesAfterVeto,
@@ -240,6 +256,9 @@ pub(crate) enum ReadSourceListAOError {
     #[error("Source list line {0}: Source name not in quotes")]
     NameNotQuoted(u32),
 
+    #[error("Source list line {0}: Cluster name not in quotes")]
+    ClusterNotQuoted(u32),
+
     #[error("Source list line {line_num}: Unrecognised component type: {comp_type}")]
     UnrecognisedComponentType { line_num: u32, comp_type: String },
 
@@ -303,7 +322,7 @@ pub(crate) enum WriteSourceListError {
         fd_type: &'static str,
     },
 
-    #[error("'{0}' is an invalid file type for a hyperdrive-style source list; must have one of the following extensions: {}", *HYPERDRIVE_SOURCE_LIST_FILE_TYPES_COMMA_SEPARATED)]
+    #[error("'{_0}' is an invalid file type for a hyperdrive-style source list; must have one of the following extensions: {}", *HYPERDRIVE_SOURCE_LIST_FILE_TYPES_COMMA_SEPARATED)]
     InvalidHyperdriveFormat(String),
 
     #[error(transparent)]
