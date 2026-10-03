@@ -1011,6 +1011,13 @@ impl MsReader {
                 let ant2 = self.tile_map[&ant2];
 
                 // Read this row if the baseline is unflagged.
+                // Baselines are stored with the lower-numbered tile first, but
+                // some measurement sets (e.g. from SKA-Low's correlator) have
+                // ANTENNA1 > ANTENNA2. The visibilities of such a baseline are
+                // the conjugate transpose of what we want.
+                let swapped = ant1 > ant2;
+                let (ant1, ant2) = if swapped { (ant2, ant1) } else { (ant1, ant2) };
+
                 if let Some(crosses) = crosses.as_mut() {
                     if let Some(bl) = crosses
                         .tile_baseline_flags
@@ -1091,6 +1098,20 @@ impl MsReader {
                                 }
                                 if NUM_POLS > 3 {
                                     vis[3] = ms_data[3];
+                                }
+                                if swapped {
+                                    vis = if NUM_POLS == 4 {
+                                        vis.h()
+                                    } else {
+                                        // Without both XY and YX, the best we
+                                        // can do is conjugate.
+                                        Jones::from([
+                                            vis[0].conj(),
+                                            vis[1].conj(),
+                                            vis[2].conj(),
+                                            vis[3].conj(),
+                                        ])
+                                    };
                                 }
                                 *out_vis = vis;
                             });
