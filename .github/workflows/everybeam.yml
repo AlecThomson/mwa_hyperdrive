@@ -43,12 +43,20 @@ jobs:
             libfreetype-dev \
             libexpat1-dev \
             libfontconfig-dev \
-            casacore-data \
             ;
-          # Point casacore at its measures data.
-          echo "measures.directory: /usr/share/casacore/data" > ~/.casarc
         env:
           DEBIAN_FRONTEND: noninteractive
+
+      # casacore needs its measures data (e.g. leap seconds). Debian's
+      # casacore-data keeps some tables outside /usr/share/casacore/data, so use
+      # ASTRON's complete set instead.
+      - name: Get casacore measures data
+        run: |
+          mkdir -p ~/casacore-data
+          curl -fL https://www.astron.nl/iers/WSRT_Measures.ztar -o WSRT_Measures.ztar
+          tar -xf WSRT_Measures.ztar -C ~/casacore-data
+          echo "measures.directory: $HOME/casacore-data" > ~/.casarc
+          ls ~/casacore-data
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable

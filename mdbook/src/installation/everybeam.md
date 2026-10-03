@@ -37,7 +37,7 @@ packages:
 
 | Distribution | Packages |
 | ------------ | -------- |
-| Debian/Ubuntu | `build-essential cmake curl git gfortran flex bison libboost-dev libhdf5-dev libfftw3-dev libgsl-dev libblas-dev liblapack-dev casacore-data` |
+| Debian/Ubuntu | `build-essential cmake curl git gfortran flex bison libboost-dev libhdf5-dev libfftw3-dev libgsl-dev libblas-dev liblapack-dev` |
 | Fedora/RHEL | `gcc-c++ gcc-gfortran cmake curl git flex bison boost-devel hdf5-devel fftw-devel gsl-devel blas-devel lapack-devel` |
 
 (plus `hyperdrive`'s usual [dependencies](from_source.md)). On RHEL-like
@@ -158,16 +158,26 @@ binaries). These can be deleted at any time; they're recreated when needed.
 ## Runtime: casacore's measures data
 
 casacore needs its "measures" data (leap seconds, Earth-orientation tables) to
-convert coordinates. The pre-compiled binaries include it. Otherwise, install it
-(e.g. `casacore-data` on Debian/Ubuntu) and, if casacore can't find it (errors
-mentioning `TAI_UTC` or `IERS`), tell casacore where it is:
+convert coordinates; without it, EveryBeam fails with errors mentioning
+`TAI_UTC` or `IERS`. The pre-compiled binaries include it. Otherwise, download
+ASTRON's copy (no root needed) and tell casacore where it is:
 
 ```shell
-echo "measures.directory: /usr/share/casacore/data" >> ~/.casarc
+mkdir -p ~/casacore-data
+curl -fL https://www.astron.nl/iers/WSRT_Measures.ztar -o WSRT_Measures.ztar
+tar -xf WSRT_Measures.ztar -C ~/casacore-data && rm WSRT_Measures.ztar
+echo "measures.directory: $HOME/casacore-data" >> ~/.casarc
 ```
 
-The data can also be downloaded from ASTRON
-(`ftp://ftp.astron.nl/outgoing/Measures/WSRT_Measures.ztar`).
+The Earth-orientation tables are updated regularly, so re-download them every
+few months for the most accurate coordinate conversions.
+
+~~~admonish tip title="Distribution packages"
+Debian/Ubuntu's `casacore-data` package keeps the leap-second table separately
+(in `/var/lib/casacore/data`), which casacore built from source (including
+the vendored build) doesn't look for, so ASTRON's copy is simpler. A casacore
+installed from a distribution or conda package knows where its own data are.
+~~~
 
 ## Check that it worked
 
