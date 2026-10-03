@@ -472,6 +472,28 @@ mod vendored {
         }
     }
 
+    /// The directory containing Boost.DateTime's library, if it's installed.
+    fn boost_date_time_dir() -> Option<PathBuf> {
+        println!("cargo:rerun-if-env-changed=BOOST_ROOT");
+        let mut dirs: Vec<PathBuf> = ["BOOST_ROOT", "CONDA_PREFIX"]
+            .iter()
+            .filter_map(env::var_os)
+            .map(|p| PathBuf::from(p).join("lib"))
+            .collect();
+        dirs.extend(
+            [
+                "/usr/lib64",
+                "/usr/lib",
+                "/usr/lib/x86_64-linux-gnu",
+                "/usr/lib/aarch64-linux-gnu",
+                "/usr/local/lib",
+            ]
+            .map(PathBuf::from),
+        );
+        dirs.into_iter()
+            .find(|d| d.join("libboost_date_time.so").exists())
+    }
+
     /// Find HDF5's include directory and library directory.
     fn find_hdf5() -> (Vec<PathBuf>, Vec<PathBuf>) {
         println!("cargo:rerun-if-env-changed=HDF5_DIR");
@@ -754,6 +776,12 @@ mod vendored {
         }
         if cfg!(target_os = "linux") {
             println!("cargo:rustc-link-lib=dylib=gomp");
+        }
+        // Boost.DateTime is header-only from Boost 1.73, but older Boosts (e.g.
+        // RHEL 8's) need its library.
+        if let Some(dir) = boost_date_time_dir() {
+            println!("cargo:rustc-link-search=native={}", dir.display());
+            println!("cargo:rustc-link-lib=dylib=boost_date_time");
         }
         for lib in env_flags("EVERYBEAM_LIBS") {
             println!("cargo:rustc-link-lib={lib}");
