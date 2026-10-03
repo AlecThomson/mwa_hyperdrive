@@ -16,9 +16,6 @@ homepage = "https://mwatelescope.github.io/mwa_hyperdrive"
 exclude = [".github/*", "test_files/*", "examples/*", "mdbook/*"]
 resolver = "3"
 
-[workspace]
-members = ["crates/everybeam-sys"]
-
 [profile.release]
 panic = "abort"
 codegen-units = 256

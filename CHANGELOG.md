@@ -17,7 +17,7 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   - The `everybeam-vendored` cargo feature downloads, builds and statically
     links EveryBeam and casacore, so they don't need to be installed.
   - The `everybeam` cargo feature uses installed copies instead.
-  - The FFI lives in a new workspace crate, `everybeam-sys`.
+  - The FFI lives in a new crate, `crates/everybeam-sys`.
   - Releases include portable `-everybeam` Linux tarballs (glibc >= 2.28).
     These are GPL-3.0, because of EveryBeam; the other release tarballs are
     unaffected.
