@@ -149,12 +149,13 @@ jobs:
     # Linux systems (e.g. RHEL/Rocky 8+, Ubuntu 20.04+). This is the same base
     # as the manylinux_2_28 images.
     container: almalinux:8
+    defaults:
+      run:
+        # The container's default is sh.
+        shell: bash
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
+      # Before checking out, so that the checkout is a git repository (needed
+      # for the version string).
       - name: Install dependencies
         run: |
           dnf install -y epel-release dnf-plugins-core
@@ -170,6 +171,11 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Get casacore measures data
         run: |
@@ -240,8 +246,9 @@ jobs:
             set -ex
             # Fonts (but not fontconfig/freetype themselves) are needed to plot.
             apt-get update -qq
+            # gdb is only used to get a backtrace if hyperdrive crashes.
             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-              fontconfig-config fonts-dejavu-core
+              fontconfig-config fonts-dejavu-core gdb
             tar -xf $TARBALL
             HYP=\$(ls -d *-everybeam)/bin/hyperdrive
             \$HYP --version
@@ -249,9 +256,13 @@ jobs:
             \$HYP vis-subtract -d test_files/everybeam/skalow_mini.ms -s neg.yaml \
               --beam-type everybeam --everybeam-element-model skala40_wave \
               --named-sources zenith_source src_n src_s src_e src_w src_ne -o sim.ms
-            \$HYP di-calibrate -d sim.ms -s test_files/everybeam/skalow_mini_srclist.yaml \
-              --beam-type everybeam --everybeam-element-model skala40_wave \
-              --beam-ms test_files/everybeam/skalow_mini.ms -o sols.fits
+            CAL_ARGS='di-calibrate -d sim.ms -s test_files/everybeam/skalow_mini_srclist.yaml
+              --beam-type everybeam --everybeam-element-model skala40_wave
+              --beam-ms test_files/everybeam/skalow_mini.ms -o sols.fits'
+            \$HYP \$CAL_ARGS || {
+              gdb -q -batch -ex run -ex 'thread apply all bt 25' --args \$HYP \$CAL_ARGS
+              exit 1
+            }
             \$HYP solutions-plot sols.fits
             ls sols_amps.png sols_phases.png
           "

@@ -833,3 +833,120 @@ fn test_sdc3() {
     );
     assert_abs_diff_eq!(cross_vis_weights[(0, 0)], 1.0);
 }
+
+/// Recursively copy a directory (e.g. a measurement set).
+fn copy_dir(src: &Path, dst: &Path) {
+    std::fs::create_dir_all(dst).unwrap();
+    for entry in std::fs::read_dir(src).unwrap() {
+        let entry = entry.unwrap();
+        let to = dst.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &to);
+        } else {
+            std::fs::copy(entry.path(), &to).unwrap();
+        }
+    }
+}
+
+/// Some measurement sets have ANTENNA1 > ANTENNA2. Such a baseline's visibilities are the conjugate transpose (and
+/// UVWs the negative) of the same baseline with ANTENNA1 < ANTENNA2, and must
+/// be read identically.
+#[test]
+#[serial]
+fn test_reversed_baselines() {
+    let src = PathBuf::from("test_files/everybeam/skalow_mini.ms");
+    let dir = tempdir().unwrap();
+    let normal = dir.path().join("normal.ms");
+    let reversed = dir.path().join("reversed.ms");
+    copy_dir(&src, &normal);
+    copy_dir(&src, &reversed);
+
+    // Write distinctive visibilities into both, with the baselines of the
+    // second reversed.
+    {
+        let mut t_normal = Table::open(&normal, TableOpenMode::ReadWrite).unwrap();
+        let mut t_reversed = Table::open(&reversed, TableOpenMode::ReadWrite).unwrap();
+        for row in 0..t_normal.n_rows() {
+            let ant1: i32 = t_normal.get_cell("ANTENNA1", row).unwrap();
+            let ant2: i32 = t_normal.get_cell("ANTENNA2", row).unwrap();
+            let num_chans = t_normal.get_cell_as_vec::<c32>("DATA", row).unwrap().len() / 4;
+            let data = Array2::from_shape_fn((num_chans, 4), |(i_chan, i_pol)| {
+                c32::new(
+                    (row as f32 + 1.0) * (i_pol as f32 + 1.0),
+                    i_chan as f32 - 2.0 * i_pol as f32 + 0.5,
+                )
+            });
+            t_normal.put_cell("DATA", row, &data).unwrap();
+            if ant1 == ant2 {
+                t_reversed.put_cell("DATA", row, &data).unwrap();
+                continue;
+            }
+
+            let mut rev = data.mapv(|c| c.conj());
+            for mut chan in rev.outer_iter_mut() {
+                chan.swap(1, 2);
+            }
+            let uvw: Vec<f64> = t_normal.get_cell_as_vec("UVW", row).unwrap();
+            let uvw: Vec<f64> = uvw.into_iter().map(|x| -x).collect();
+            t_reversed.put_cell("DATA", row, &rev).unwrap();
+            t_reversed.put_cell("UVW", row, &uvw).unwrap();
+            t_reversed.put_cell("ANTENNA1", row, &ant2).unwrap();
+            t_reversed.put_cell("ANTENNA2", row, &ant1).unwrap();
+        }
+    }
+
+    let read = |ms: PathBuf| {
+        let reader = MsReader::new(ms, None, None, None).unwrap();
+        let obs_context = reader.get_obs_context();
+        let num_tiles = obs_context.get_total_num_tiles();
+        let num_baselines = (num_tiles * (num_tiles - 1)) / 2;
+        let num_chans = obs_context.fine_chan_freqs.len();
+        let flags = TileBaselineFlags::new(num_tiles, HashSet::new());
+        let mut vis = Array2::zeros((num_chans, num_baselines));
+        let mut weights = Array2::zeros((num_chans, num_baselines));
+        reader
+            .read_crosses(
+                vis.view_mut(),
+                weights.view_mut(),
+                *obs_context.all_timesteps.first(),
+                &flags,
+                &HashSet::new(),
+            )
+            .unwrap();
+        (vis, weights)
+    };
+    let (vis_normal, weights_normal) = read(normal);
+    let (vis_reversed, weights_reversed) = read(reversed);
+
+    // Nothing was skipped.
+    assert!(vis_normal
+        .iter()
+        .all(|j| j.norm_sqr().iter().all(|n| *n > 0.0)));
+    assert_abs_diff_eq!(vis_normal, vis_reversed);
+    assert_abs_diff_eq!(weights_normal, weights_reversed);
+}
+
+/// A fully-flagged timestep between unflagged ones must not truncate the
+/// timesteps; only leading and trailing flagged timesteps are excluded.
+#[test]
+#[serial]
+fn test_flagged_timestep_in_the_middle() {
+    let dir = tempdir().unwrap();
+    let ms = dir.path().join("flagged.ms");
+    copy_dir(
+        Path::new("test_files/1090008640/1090008640_cotter_trunc_noautos.ms"),
+        &ms,
+    );
+    // This MS has one baseline (row) per timestep.
+    {
+        let mut t = Table::open(&ms, TableOpenMode::ReadWrite).unwrap();
+        for (row, flagged) in [(0, false), (1, true), (2, false)] {
+            let num_flags = t.get_cell_as_vec::<bool>("FLAG", row).unwrap().len() / 4;
+            t.put_cell("FLAG", row, &Array2::from_elem((num_flags, 4), flagged))
+                .unwrap();
+        }
+    }
+
+    let reader = MsReader::new(ms, None, None, None).unwrap();
+    assert_eq!(&reader.get_obs_context().unflagged_timesteps, &[0, 1, 2]);
+}

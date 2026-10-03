@@ -472,6 +472,28 @@ mod vendored {
         }
     }
 
+    /// The directory containing Boost.DateTime's library, if it's installed.
+    fn boost_date_time_dir() -> Option<PathBuf> {
+        println!("cargo:rerun-if-env-changed=BOOST_ROOT");
+        let mut dirs: Vec<PathBuf> = ["BOOST_ROOT", "CONDA_PREFIX"]
+            .iter()
+            .filter_map(env::var_os)
+            .map(|p| PathBuf::from(p).join("lib"))
+            .collect();
+        dirs.extend(
+            [
+                "/usr/lib64",
+                "/usr/lib",
+                "/usr/lib/x86_64-linux-gnu",
+                "/usr/lib/aarch64-linux-gnu",
+                "/usr/local/lib",
+            ]
+            .map(PathBuf::from),
+        );
+        dirs.into_iter()
+            .find(|d| d.join("libboost_date_time.so").exists())
+    }
+
     /// Find HDF5's include directory and library directory.
     fn find_hdf5() -> (Vec<PathBuf>, Vec<PathBuf>) {
         println!("cargo:rerun-if-env-changed=HDF5_DIR");
@@ -523,6 +545,20 @@ mod vendored {
 
     /// Write EveryBeam's generated headers, and patch the source so that the
     /// data directory can be set at runtime (see `eb_set_data_dir`).
+    /// Whether the C++ compiler (with the user's flags, e.g. `-march`) enables
+    /// aocommon's AVX matrices; EveryBeam's config.h must agree with it.
+    fn compiler_has_avx_matrix() -> bool {
+        let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+        let probe = out_dir.join("avx_probe.cpp");
+        fs::write(
+            &probe,
+            "#if defined(__AVX2__) && defined(__FMA__)\nHYPERDRIVE_AVX_MATRIX\n#endif\n",
+        )
+        .unwrap();
+        let expanded = cc::Build::new().cpp(true).file(&probe).expand();
+        String::from_utf8_lossy(&expanded).contains("HYPERDRIVE_AVX_MATRIX")
+    }
+
     fn prepare_everybeam(src: &Path) {
         let cpp = src.join("cpp");
         let coeffs = src.join("coeffs");
@@ -533,7 +569,10 @@ mod vendored {
                 "@EVERYBEAM_ABSOLUTE_DATADIR@",
                 coeffs.to_str().expect("path is UTF-8"),
             )
-            .replace("@COMPILED_WITH_AVX_MATRIX@", "0");
+            .replace(
+                "@COMPILED_WITH_AVX_MATRIX@",
+                if compiler_has_avx_matrix() { "1" } else { "0" },
+            );
         // Blank any remaining (test-only) substitutions.
         let config: String = config
             .lines()
@@ -755,11 +794,22 @@ mod vendored {
         if cfg!(target_os = "linux") {
             println!("cargo:rustc-link-lib=dylib=gomp");
         }
+        // Boost.DateTime is header-only from Boost 1.73, but older Boosts (e.g.
+        // RHEL 8's) need its library.
+        if let Some(dir) = boost_date_time_dir() {
+            println!("cargo:rustc-link-search=native={}", dir.display());
+            println!("cargo:rustc-link-lib=dylib=boost_date_time");
+        }
         for lib in env_flags("EVERYBEAM_LIBS") {
             println!("cargo:rustc-link-lib={lib}");
         }
         // Nothing to add to the rpath; EveryBeam and casacore are static.
         println!("cargo:rpath=");
+        // Some GSLs (e.g. RHEL's) leave their CBLAS symbols for the program to
+        // provide, but nothing else links to gslcblas, so the linker's
+        // --as-needed would drop it. Dependents must link it with
+        // --no-as-needed (link-arg directives don't propagate from here).
+        println!("cargo:no_as_needed=gslcblas");
 
         embed_data(&everybeam_src, &out_dir);
     }

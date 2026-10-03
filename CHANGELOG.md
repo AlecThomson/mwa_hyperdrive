@@ -10,6 +10,8 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Sky-model source lists in the DP3/makesourcedb ("BBS") format, as written by
+  DP3 and WSClean, can be read (type `dp3`, or detected automatically).
 - Optional EveryBeam support, enabling beam models for telescopes other than
   the MWA (e.g. SKA-Low, LOFAR). Use it with `--beam-type everybeam`; the
   telescope is described by the input measurement set or `--beam-ms`, and the
@@ -18,12 +20,28 @@ Versioning](https://semver.org/spec/v2.0.0.html).
     links EveryBeam and casacore, so they don't need to be installed.
   - The `everybeam` cargo feature uses installed copies instead.
   - The FFI lives in a new crate, `crates/everybeam-sys`.
+  - `--everybeam-normalisation` defaults to `none` (EveryBeam's default), so
+    calibration solutions don't contain the beam's spectral response. Sources
+    are still vetoed with an amplitude-normalised beam, as unnormalised
+    responses have an arbitrary scale.
   - Releases include portable `-everybeam` Linux tarballs (glibc >= 2.28).
     These are GPL-3.0, because of EveryBeam; the other release tarballs are
     unaffected.
 
 ### Changed
 
+- `solutions-plot` now plots the instrumental gains, i.e. the inverse of the
+  stored solutions (which are corrections). `--corrections` plots the stored
+  values, as before, with a `_corrections` filename suffix.
+- Measurement sets with baselines stored as ANTENNA1 > ANTENNA2 are now read;
+  previously these baselines were silently skipped.
+- Contiguous channels with a non-integer channel width (in Hz) are no longer
+  mistaken for "picket fence" data.
+- A fully-flagged timestep in the middle of a measurement set no longer causes
+  all later timesteps to be ignored.
+- Timesteps are no longer silently dropped when the time resolution isn't a
+  whole number of the timestamp rounding (10 us); without time averaging,
+  only the first timestep was used.
 - Beam calculations can now be given the time (`BeamTime`), which is needed by
   EveryBeam.
 - Tile de-duplication for beam calculations is now decided by the beam code

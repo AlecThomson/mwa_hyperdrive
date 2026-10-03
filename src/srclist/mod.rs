@@ -6,6 +6,7 @@
 //! <https://mwatelescope.github.io/mwa_hyperdrive/defs/source_lists.html>
 
 pub(crate) mod ao;
+pub(crate) mod dp3;
 pub(crate) mod fits;
 pub(crate) mod hyperdrive;
 pub(crate) mod read;
@@ -53,6 +54,10 @@ pub(crate) enum SourceListType {
 
     #[strum(serialize = "ao")]
     AO,
+
+    /// DP3/makesourcedb ("BBS") source lists. These can only be read.
+    #[strum(serialize = "dp3")]
+    Dp3,
 }
 
 /// All of the possible file extensions that a hyperdrive-style sky-model source

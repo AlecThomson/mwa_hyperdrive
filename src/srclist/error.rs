@@ -87,6 +87,9 @@ pub(crate) enum ReadSourceListError {
     AO(#[from] ReadSourceListAOError),
 
     #[error(transparent)]
+    Dp3(#[from] ReadSourceListDp3Error),
+
+    #[error(transparent)]
     Yaml(#[from] serde_yaml::Error),
 
     #[error(transparent)]
@@ -307,6 +310,41 @@ pub(crate) enum ReadSourceListAOError {
     MissingEndSed(u32),
 }
 
+/// Errors associated with reading in a DP3 (makesourcedb/BBS) source list.
+#[derive(Error, Debug, PartialEq)]
+pub(crate) enum ReadSourceListDp3Error {
+    #[error("Source list line {0}: Expected a 'format = ...' line describing the columns")]
+    NoFormatLine(u32),
+
+    #[error(
+        "Source list line {line_num}: {got} fields, but the format only has {expected} columns"
+    )]
+    TooManyFields {
+        line_num: u32,
+        got: usize,
+        expected: usize,
+    },
+
+    #[error("Source list line {line_num}: No value (or default) for column {column}")]
+    MissingValue { line_num: u32, column: &'static str },
+
+    #[error("Source list line {line_num}: Unsupported component type {comp_type} (only POINT and GAUSSIAN are supported)")]
+    UnsupportedType { line_num: u32, comp_type: String },
+
+    #[error("Source list line {line_num}: Couldn't parse RA '{value}' (expected e.g. hh:mm:ss.s, or a value with a 'deg' or 'rad' unit)")]
+    InvalidRa { line_num: u32, value: String },
+
+    #[error("Source list line {line_num}: Couldn't parse Dec '{value}' (expected e.g. dd.mm.ss.s, or a value with a 'deg' or 'rad' unit)")]
+    InvalidDec { line_num: u32, value: String },
+
+    #[error("Source list line {line_num}: Invalid {column} value '{value}'")]
+    InvalidValue {
+        line_num: u32,
+        column: &'static str,
+        value: String,
+    },
+}
+
 /// Errors associated with writing out a source list.
 #[derive(Error, Debug)]
 pub(crate) enum WriteSourceListError {
@@ -321,6 +359,9 @@ pub(crate) enum WriteSourceListError {
         source_list_type: &'static str,
         fd_type: &'static str,
     },
+
+    #[error("Writing {0} source lists isn't supported; write e.g. a hyperdrive-style source list (.yaml) instead")]
+    UnsupportedOutputType(&'static str),
 
     #[error("'{_0}' is an invalid file type for a hyperdrive-style source list; must have one of the following extensions: {}", *HYPERDRIVE_SOURCE_LIST_FILE_TYPES_COMMA_SEPARATED)]
     InvalidHyperdriveFormat(String),

@@ -194,6 +194,7 @@ pub(super) fn timesteps_to_timeblocks(
         (time_average_factor.get() - 1) as i128 * time_resolution.total_nanoseconds(),
     );
     let half_a_timeblock = timeblock_length / 2;
+    let half_a_timestep = time_resolution / 2;
     let first_timestamp = *timestamps_to_use.first();
     let last_timestamp = *timestamps_to_use.last();
     let time_res = time_resolution.total_nanoseconds() as u128;
@@ -214,16 +215,21 @@ pub(super) fn timesteps_to_timeblocks(
         let timeblock_end = timeblock_start + timeblock_length;
         let timeblock_median = timeblock_start + half_a_timeblock;
 
-        if timeblock_start > last_timestamp {
+        if timeblock_start - half_a_timestep > last_timestamp {
             break;
         }
 
+        // Timestamps are rounded, so they may not be exactly a multiple of the
+        // time resolution from the first timestamp (when the resolution isn't
+        // a whole number of the rounding unit). Allow half a timestep either
+        // side; these windows tile time without overlapping.
+        let window = (timeblock_start - half_a_timestep)..(timeblock_end + half_a_timestep);
         let (timeblock_timestamps, timeblock_timesteps): (Vec<Epoch>, Vec<usize>) =
             timestamps_to_use
                 .iter()
                 .zip(timesteps_to_use.iter())
                 .filter_map(|(timestamp, timestep)| {
-                    if (timeblock_start..=timeblock_end).contains(timestamp) {
+                    if window.contains(timestamp) {
                         Some((*timestamp, *timestep))
                     } else {
                         None
@@ -288,12 +294,15 @@ pub(super) fn channels_to_chanblocks(
         _ => (), // More complicated logic needed.
     }
 
-    // Find any picket SPWs here.
+    // Find any picket SPWs here. The frequencies and resolution have been
+    // rounded to integer Hz, so contiguous channels with a non-integer
+    // resolution can be up to a Hz further apart than the rounded resolution;
+    // only a gap of at least another half a channel is a gap in the band.
     let mut spw_index_ends = vec![];
     (0..)
         .zip(all_channel_freqs.windows(2))
         .for_each(|(i, window)| {
-            if window[1] - window[0] > freq_resolution {
+            if window[1] - window[0] > freq_resolution + freq_resolution / 2 {
                 spw_index_ends.push(i + 1);
             }
         });
@@ -320,7 +329,8 @@ pub(super) fn channels_to_chanblocks(
             None => first_freq = Some(freq),
         }
 
-        if freq - first_freq.unwrap() >= biggest_freq_diff {
+        // Allow for rounding, as above.
+        if freq - first_freq.unwrap() + freq_resolution / 2 >= biggest_freq_diff {
             if all_flagged {
                 flagged_chanblock_indices.insert(i_chanblock);
             } else {

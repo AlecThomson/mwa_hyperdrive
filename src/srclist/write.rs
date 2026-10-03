@@ -56,6 +56,9 @@ pub(crate) fn write_source_list(
             woden::write_source_list(&mut f, sl, num_sources)?;
             info!("Wrote woden-style source list to {}", path.display());
         }
+        (SourceListType::Dp3, None) => {
+            return Err(WriteSourceListError::UnsupportedOutputType("dp3"))
+        }
         (_, Some(HyperdriveFileType::Yaml)) => {
             hyperdrive::source_list_to_yaml(&mut f, sl, num_sources)?;
             info!("Wrote hyperdrive-style source list to {}", path.display());

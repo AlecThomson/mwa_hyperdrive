@@ -57,7 +57,7 @@ hyperdrive di-calibrate -d obs.ms -s srclist.yaml --beam-type everybeam
 | `--beam-ms` | The measurement set describing the telescope. |
 | `--everybeam-element-model` | The element response model, e.g. `default`, `oskar_dipole_cos`, `oskar_dipole`, `skala40_wave`, `skalow_feko`, `hamaker`, `lobes`. The default depends on the telescope; for SKA-Low/OSKAR it is `oskar_dipole_cos`, which is the best match to real SKA-Low stations. |
 | `--everybeam-mode` | `full` (default), `array_factor` or `element`. |
-| `--everybeam-normalisation` | `amplitude` (default), `none`, `full`, `preapplied` or `preapplied_or_full`. See below. |
+| `--everybeam-normalisation` | `none` (default), `amplitude`, `full`, `preapplied` or `preapplied_or_full`. See below. |
 | `--everybeam-coeff-path` | Path to element-response coefficients (telescope dependent). |
 | `--everybeam-field-id` | The measurement set `FIELD` used for the beam pointing (default 0). |
 | `--everybeam-data-column` | The data column used to check for a pre-applied beam (LOFAR only). |
@@ -72,14 +72,19 @@ Only the sky side (the columns of the beam Jones matrices) is converted to
 `hyperdrive`'s convention. The feed side (the rows) is left in the basis of the
 telescope's feeds, so that it matches the visibilities.
 
-- With `amplitude` (the default) or `none` normalisation, the rows are each
+- `none` (the default) uses each station's unnormalised response, so
+  calibration solutions don't contain the beam's spectral response. `amplitude`
+  instead scales each station's response, separately at each time and
+  frequency, to unit amplitude in the direction of the measurement set's
+  `FIELD` `REFERENCE_DIR`.
+- With `none` or `amplitude` normalisation, the rows are each
   station's own feeds. For example, SKA-Low stations are rigidly rotated with
   respect to each other (as described in the measurement set's `PHASED_ARRAY`
   table), so each station's X and Y feeds are generally not East-West and
   North-South. This is appropriate for data that have not had a beam
   correction applied.
 - With `full` (or `preapplied`) normalisation, EveryBeam multiplies the
-  response by the inverse of the response at the beam centre. The rows are
+  response by the inverse of the response in the `REFERENCE_DIR` direction. The rows are
   then in the (North, East) sky basis, i.e. the IAU order. This is only
   appropriate for data that have already had the beam at the phase centre
   corrected (e.g. with DP3's `applybeam`).

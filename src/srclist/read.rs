@@ -9,7 +9,7 @@ use std::{fs::File, path::Path};
 use log::{debug, trace};
 
 use super::{error::ReadSourceListError, SourceList, SourceListType};
-use crate::srclist::{ao, fits, hyperdrive, rts, woden};
+use crate::srclist::{ao, dp3, fits, hyperdrive, rts, woden};
 
 /// Given the path to a sky-model source list file (and optionally its type,
 /// e.g. "RTS style"), return a [SourceList] object. The [SourceListType] is
@@ -96,6 +96,11 @@ pub(crate) fn read_source_list_file<P: AsRef<Path>>(
                 }
             }
 
+            Some(SourceListType::Dp3) => {
+                let mut f = std::io::BufReader::new(File::open(path)?);
+                dp3::parse_source_list(&mut f).map(|sl| (sl, SourceListType::Dp3))
+            }
+
             None => {
                 // Try all kinds.
                 match fits::parse_source_list(path) {
@@ -117,6 +122,13 @@ pub(crate) fn read_source_list_file<P: AsRef<Path>>(
                     Ok(sl) => return Ok((sl, SourceListType::AO)),
                     Err(_) => {
                         trace!("Failed to read source list as ao-style");
+                        f = std::io::BufReader::new(File::open(path)?);
+                    }
+                }
+                match dp3::parse_source_list(&mut f) {
+                    Ok(sl) => return Ok((sl, SourceListType::Dp3)),
+                    Err(_) => {
+                        trace!("Failed to read source list as dp3-style");
                         f = std::io::BufReader::new(File::open(path)?);
                     }
                 }

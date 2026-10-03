@@ -118,6 +118,14 @@ pub trait Beam: Sync + Send {
     /// Get the beam file associated with this beam, if there is one.
     fn get_beam_file(&self) -> Option<&Path>;
 
+    /// The beam to use when vetoing (and ranking) sources by their
+    /// beam-attenuated flux densities. These are compared against an absolute
+    /// threshold, so the beam needs to be normalised (i.e. about 1 at its
+    /// peak). `None` means this beam is suitable.
+    fn veto_beam(&self) -> Option<&dyn Beam> {
+        None
+    }
+
     /// Calculate the beam-response Jones matrix for an [`AzEl`] direction. The
     /// delays and gains that will used depend on `tile_index`; if not supplied,
     /// ideal dipole delays and gains are used, otherwise `tile_index` accesses

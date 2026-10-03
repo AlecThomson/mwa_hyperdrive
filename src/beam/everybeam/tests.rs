@@ -284,3 +284,48 @@ fn test_unique_tiles() {
     assert_eq!(unique_tiles, vec![0, 1, 2]);
     assert_eq!(map, vec![0, 1, 2]);
 }
+
+/// Unnormalised responses have an arbitrary scale (e.g. skala40_wave's isn't
+/// near 1), so source vetoing must use an amplitude-normalised beam.
+#[test]
+fn test_veto_beam_is_normalised() {
+    let options = |norm: Option<&str>| EveryBeamOptions {
+        element_response_model: Some("skala40_wave".to_string()),
+        beam_normalisation_mode: norm.map(|s| s.to_string()),
+        ..Default::default()
+    };
+    let rms = |beam: &EveryBeam| {
+        let mut results = Array3::default((1, 1, 1));
+        beam.inner
+            .calc_jones_radec(
+                &ref_radecs()[..1],
+                &REF_FREQS[..1],
+                &[0],
+                BeamTime {
+                    epoch: ref_epoch(),
+                    lst_rad: 0.0,
+                },
+                results.view_mut(),
+            )
+            .unwrap();
+        let j: Jones<f64> = results[(0, 0, 0)];
+        (0.5 * j.iter().map(|c| c.norm_sqr()).sum::<f64>()).sqrt()
+    };
+
+    for norm in [None, Some("none")] {
+        let beam = EveryBeam::new(Path::new(MS), Some(8), options(norm)).unwrap();
+        let veto = beam
+            .veto_beam()
+            .expect("unnormalised beams have a veto beam");
+        let veto = veto.get_beam_file();
+        assert_eq!(veto, Some(Path::new(MS)));
+        let veto_beam = beam.inner.veto.as_ref().unwrap();
+        // The first reference direction is the delay (pointing) centre.
+        assert_abs_diff_eq!(rms(veto_beam), 1.0, epsilon = 1e-3);
+        eprintln!("skala40_wave unnormalised RMS response: {}", rms(&beam));
+    }
+
+    // Normalised beams are used for vetoing as they are.
+    let beam = EveryBeam::new(Path::new(MS), Some(8), options(Some("amplitude"))).unwrap();
+    assert!(beam.veto_beam().is_none());
+}

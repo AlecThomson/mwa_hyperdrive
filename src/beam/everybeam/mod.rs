@@ -23,17 +23,17 @@
 //!
 //! The rows are left alone, so that they continue to match the basis of the
 //! visibilities:
-//! - With "none" or "amplitude" (scalar) normalisation, the rows are each
-//!   station's own feeds, in the station's (possibly rotated) frame, as
-//!   described by the measurement set (e.g. SKA-Low stations are rigidly
+//! - With "none" (the default) or "amplitude" (scalar) normalisation, the rows
+//!   are each station's own feeds, in the station's (possibly rotated) frame,
+//!   as described by the measurement set (e.g. SKA-Low stations are rigidly
 //!   rotated with respect to each other, and this is described by the
 //!   PHASED_ARRAY table). This is appropriate for data that have not had a beam
-//!   correction applied, and "amplitude" is the default.
+//!   correction applied.
 //! - With "full" (or "preapplied") normalisation, EveryBeam left-multiplies the
-//!   response by the inverse of the response at the beam centre, so the rows
-//!   are in the (North, East) sky basis (i.e. the IAU order). This is only
-//!   appropriate for data that have had the beam at the phase centre corrected
-//!   (e.g. by DP3's applybeam).
+//!   response by the inverse of the response in the FIELD table's
+//!   REFERENCE_DIR, so the rows are in the (North, East) sky basis (i.e. the
+//!   IAU order). This is only appropriate for data that have had the beam at
+//!   the phase centre corrected (e.g. by DP3's applybeam).
 
 #[cfg(test)]
 mod reference;
@@ -129,6 +129,10 @@ struct EveryBeamInner {
     num_stations: usize,
     ms: PathBuf,
     options: EveryBeamOptions,
+    /// If this beam is unnormalised, an "amplitude"-normalised copy, used to
+    /// veto sources (see [`Beam::veto_beam`]); unnormalised responses have an
+    /// arbitrary scale.
+    veto: Option<EveryBeam>,
 }
 
 fn opt_cstring(s: Option<&str>) -> Result<Option<CString>, BeamError> {
@@ -329,12 +333,25 @@ impl EveryBeam {
         })?;
         let telescope = Telescope(telescope);
         let num_stations = unsafe { ffi::eb_num_stations(telescope.0.as_ptr()) };
+        // EveryBeam's default normalisation is "none".
+        let veto = match options.beam_normalisation_mode.as_deref() {
+            None | Some("none") => Some(EveryBeam::new(
+                ms,
+                None,
+                EveryBeamOptions {
+                    beam_normalisation_mode: Some("amplitude".to_string()),
+                    ..options.clone()
+                },
+            )?),
+            Some(_) => None,
+        };
         let beam = EveryBeam {
             inner: Arc::new(EveryBeamInner {
                 telescope,
                 num_stations,
                 ms: ms.to_path_buf(),
                 options,
+                veto,
             }),
         };
         debug!("EveryBeam telescope has {num_stations} stations");
@@ -477,6 +494,10 @@ impl Beam for EveryBeam {
 
     fn get_beam_file(&self) -> Option<&Path> {
         Some(&self.inner.ms)
+    }
+
+    fn veto_beam(&self) -> Option<&dyn Beam> {
+        self.inner.veto.as_ref().map(|b| b as &dyn Beam)
     }
 
     fn calc_jones(

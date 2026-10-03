@@ -861,3 +861,69 @@ fn test_vis_average_weights_non_zero_half_flagged() {
     assert_abs_diff_eq!(jones_to, Jones::identity() * 10. / 4.);
     assert_abs_diff_eq!(weight_to, -4.0);
 }
+
+#[test]
+fn test_channels_to_chanblocks_fractional_resolution() {
+    // A non-integer channel width [Hz]. Rounded to integer Hz, the
+    // frequencies of contiguous channels differ by 5425 or 5426 Hz, which must
+    // not be treated as a "picket fence".
+    let freq_res = 5425.35;
+    let all_channel_freqs: Vec<u64> = (0..288)
+        .map(|i| (150e6 + i as f64 * freq_res).round() as u64)
+        .collect();
+    let flagged_channels = HashSet::new();
+    for factor in [1, 2, 3, 4, 144] {
+        let spws = channels_to_chanblocks(
+            &all_channel_freqs,
+            freq_res.round() as u64,
+            NonZeroUsize::new(factor).unwrap(),
+            &flagged_channels,
+        );
+        assert_eq!(spws.len(), 1, "factor {factor}");
+        assert_eq!(
+            spws[0].chanblocks.len(),
+            288_usize.div_ceil(factor),
+            "factor {factor}"
+        );
+    }
+
+    // A real gap is still detected.
+    let mut picket = all_channel_freqs[..144].to_vec();
+    picket.extend_from_slice(&all_channel_freqs[200..]);
+    let spws = channels_to_chanblocks(
+        &picket,
+        freq_res.round() as u64,
+        NonZeroUsize::new(1).unwrap(),
+        &flagged_channels,
+    );
+    assert_eq!(spws.len(), 2);
+}
+
+#[test]
+fn test_timesteps_to_timeblocks_rounded_timestamps() {
+    // A time resolution that isn't a whole number of the 10 us that
+    // timestamps are rounded to; every timestep must still be used.
+    let time_res = Duration::from_total_nanoseconds(849_346_160);
+    let first = Epoch::from_gpst_seconds(1464696697.6);
+    let timestamps = Vec1::try_from_vec(
+        (0..2111)
+            .map(|i| (first + time_res * i as i64).round(Duration::from_microseconds(10.0)))
+            .collect(),
+    )
+    .unwrap();
+    for factor in [1, 2, 8, 2111] {
+        let timeblocks = timesteps_to_timeblocks(
+            &timestamps,
+            time_res,
+            NonZeroUsize::new(factor).unwrap(),
+            None,
+        );
+        assert_eq!(
+            timeblocks.len(),
+            2111_usize.div_ceil(factor),
+            "factor {factor}"
+        );
+        let num_timesteps: usize = timeblocks.iter().map(|tb| tb.timesteps.len()).sum();
+        assert_eq!(num_timesteps, 2111, "factor {factor}");
+    }
+}
