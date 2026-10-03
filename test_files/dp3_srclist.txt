@@ -1,0 +1,5 @@
+format = Name, Type, Patch, Ra, Dec, I, SpectralIndex, LogarithmicSI, ReferenceFrequency='183984261.97193283', MajorAxis, MinorAxis, Orientation
+J131139-221640,POINT,,13:11:39.3334008,-22.16.41.315016,43.94590718123622,[],true,183984261.97193283,,,
+,,cluster,13:00:00.0,-25.00.00.0
+cluster_g,GAUSSIAN,cluster,13:00:00.0,-25.00.00.0,2.5,[-0.8,0.05],true,,120.0,60.0,30.0
+cluster_p,POINT,cluster,13:00:05.0,-25.00.30.0,1.2,[-0.7],true,,,,

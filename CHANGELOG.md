@@ -10,6 +10,8 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Sky-model source lists in the DP3/makesourcedb ("BBS") format, as written by
+  DP3 and WSClean, can be read (type `dp3`, or detected automatically).
 - Optional EveryBeam support, enabling beam models for telescopes other than
   the MWA (e.g. SKA-Low, LOFAR). Use it with `--beam-type everybeam`; the
   telescope is described by the input measurement set or `--beam-ms`, and the
