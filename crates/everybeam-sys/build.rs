@@ -805,6 +805,11 @@ mod vendored {
         }
         // Nothing to add to the rpath; EveryBeam and casacore are static.
         println!("cargo:rpath=");
+        // Some GSLs (e.g. RHEL's) leave their CBLAS symbols for the program to
+        // provide, but nothing else links to gslcblas, so the linker's
+        // --as-needed would drop it. Dependents must link it with
+        // --no-as-needed (link-arg directives don't propagate from here).
+        println!("cargo:no_as_needed=gslcblas");
 
         embed_data(&everybeam_src, &out_dir);
     }

@@ -27,6 +27,13 @@ fn main() {
             }
         }
     }
+    // Libraries that the linker must not drop (see everybeam-sys's build.rs).
+    #[cfg(feature = "everybeam")]
+    if let Ok(libs) = std::env::var("DEP_EVERYBEAM_NO_AS_NEEDED") {
+        for lib in libs.split(',').filter(|l| !l.is_empty()) {
+            println!("cargo:rustc-link-arg=-Wl,--no-as-needed,-l{lib},--as-needed");
+        }
+    }
 }
 
 #[cfg(any(feature = "cuda", feature = "hip"))]
