@@ -545,6 +545,20 @@ mod vendored {
 
     /// Write EveryBeam's generated headers, and patch the source so that the
     /// data directory can be set at runtime (see `eb_set_data_dir`).
+    /// Whether the C++ compiler (with the user's flags, e.g. `-march`) enables
+    /// aocommon's AVX matrices; EveryBeam's config.h must agree with it.
+    fn compiler_has_avx_matrix() -> bool {
+        let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+        let probe = out_dir.join("avx_probe.cpp");
+        fs::write(
+            &probe,
+            "#if defined(__AVX2__) && defined(__FMA__)\nHYPERDRIVE_AVX_MATRIX\n#endif\n",
+        )
+        .unwrap();
+        let expanded = cc::Build::new().cpp(true).file(&probe).expand();
+        String::from_utf8_lossy(&expanded).contains("HYPERDRIVE_AVX_MATRIX")
+    }
+
     fn prepare_everybeam(src: &Path) {
         let cpp = src.join("cpp");
         let coeffs = src.join("coeffs");
@@ -555,7 +569,10 @@ mod vendored {
                 "@EVERYBEAM_ABSOLUTE_DATADIR@",
                 coeffs.to_str().expect("path is UTF-8"),
             )
-            .replace("@COMPILED_WITH_AVX_MATRIX@", "0");
+            .replace(
+                "@COMPILED_WITH_AVX_MATRIX@",
+                if compiler_has_avx_matrix() { "1" } else { "0" },
+            );
         // Blank any remaining (test-only) substitutions.
         let config: String = config
             .lines()
