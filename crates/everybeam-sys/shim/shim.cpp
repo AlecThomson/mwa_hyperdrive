@@ -8,6 +8,7 @@
 #include "shim.h"
 
 #include <complex>
+#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -37,6 +38,23 @@ void write_error(const char *msg, char *err, size_t err_len) {
 }
 
 bool is_set(const char *s) { return s != nullptr && s[0] != '\0'; }
+
+// From HDF5's H5Epublic.h (stable since HDF5 1.10, where hid_t is 64 bits).
+// Declared here so that HDF5's headers aren't needed.
+extern "C" int H5Eset_auto2(int64_t estack_id, void *func, void *client_data);
+constexpr int64_t H5E_DEFAULT = 0;
+
+// EveryBeam's OSKAR coefficient reader probes for HDF5 datasets that may not
+// exist, and calls H5::Exception::dontPrint() to silence HDF5's error
+// messages. With a thread-safe HDF5, that only applies to the calling thread,
+// so silence them for each thread that calculates responses.
+void silence_hdf5_errors() {
+    thread_local bool silenced = false;
+    if (!silenced) {
+        H5Eset_auto2(H5E_DEFAULT, nullptr, nullptr);
+        silenced = true;
+    }
+}
 
 std::mutex data_dir_mutex;
 std::string data_dir;
@@ -108,6 +126,7 @@ int eb_point_responses(const eb_telescope *telescope, double time_mjd_s, size_t 
                        size_t num_stations, double *out, size_t station_stride,
                        size_t freq_stride, char *err, size_t err_len) {
     try {
+        silence_hdf5_errors();
         // Each call gets its own point-response object; they are not
         // thread-safe, but the (const) telescope is.
         auto point_response = telescope->telescope->GetPointResponse(time_mjd_s);
