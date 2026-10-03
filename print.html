@@ -1,0 +1,3124 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>mwa_hyperdrive documentation</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="mwa_hyperdrive documentation">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="././theme/css/mdbook-admonish.css">
+        <link rel="stylesheet" href="./mdbook-admonish.css">
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">mwa_hyperdrive documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/MWATelescope/mwa_hyperdrive" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<div align="center">
+  <img src="hyperdrive.png" height="200px" alt="hyperdrive logo">
+</div>
+<p><code>mwa_hyperdrive</code> (simply referred to as <code>hyperdrive</code>) is calibration software
+for the Murchison Widefield Array radio telescope. The documentation contained
+in this book aims to help understand how to use it and how it works.</p>
+<p>Some of the more useful parts of this documentation might be:</p>
+<ul>
+<li>
+<p>an <a href="installation/intro.html">installation guide</a>;</p>
+</li>
+<li>
+<p>a <a href="user/intro.html">user guide</a>; e.g.</p>
+<ul>
+<li><a href="user/help.html">How do I use the program?</a></li>
+<li><a href="user/di_cal/intro.html">What does DI calibration do?</a></li>
+<li><a href="user/di_cal/tutorial.html">How do I get started with DI calibration?</a></li>
+</ul>
+</li>
+<li>
+<p>definitions and concepts; e.g.</p>
+<ul>
+<li><a href="defs/source_lists.html">What are supported sky-model source list formats?</a></li>
+<li><a href="defs/pols.html">How are XX, XY, YX, YY defined?</a></li>
+<li><a href="defs/blocks.html">What is a calibration timeblock?</a></li>
+</ul>
+</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p>The easiest way to get access to <code>hyperdrive</code> is to download a pre-compiled
+binary from GitHub. Instructions are on <a href="installation/pre_compiled.html">the next page</a>.</p>
+<p>However, you may need to compile <code>hyperdrive</code> from source. If so, see the
+instructions <a href="installation/from_source.html">here</a> (note that the code will likely run faster
+if you compile it from source).</p>
+<p>Finally, regardless of how you get the <code>hyperdrive</code> binary, follow the <a href="installation/post.html">post
+installation</a> instructions.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installing-hyperdrive-from-pre-compiled-binaries"><a class="header" href="#installing-hyperdrive-from-pre-compiled-binaries">Installing <code>hyperdrive</code> from pre-compiled binaries</a></h1>
+<p>Visit the <a href="https://github.com/MWATelescope/mwa_hyperdrive/releases">GitHub releases page</a>. You should see releases like the following:</p>
+<p><img src="installation/release_example.png" alt="Release example" /></p>
+<ul>
+<li>Under "Assets", download one of the <code>tar.gz</code> files starting with
+<code>mwa_hyperdrive</code>;</li>
+<li>Untar it (e.g. <code>tar -xvf mwa_hyperdrive*.tar.gz</code>); and</li>
+<li>Run the binary (<code>./hyperdrive</code>).</li>
+</ul>
+<p>If you intend on running <code>hyperdrive</code> on a desktop GPU, then you probably want
+the "CUDA-single" release. You can still use the double-precision version on a
+desktop GPU, but it will be much slower than single-precision. Instructions to
+install CUDA are on <a href="installation/from_source.html#cuda">the next page</a>.</p>
+<p>It is possible to run <code>hyperdrive</code> with HIP (i.e. the AMD equivalent to
+NVIDIA's CUDA), but HIP does not appear to offer static libraries, so no static
+feature is provided, and users will need to compile hyperdrive themselves with
+instructions on <a href="installation/from_source.html#gpu">the next page</a>.</p>
+<div id="admonition-note" class="admonition admonish-note">
+<div class="admonition-title">
+<p>Note</p>
+<p><a class="admonition-anchor-link" href="installation/pre_compiled.html#admonition-note"></a></p>
+</div>
+<div>
+<p>The pre-compiled binaries are made by GitHub actions using:</p>
+<pre><code class="language-shell">cargo build --release --locked --no-default-features --features=hdf5-static,cfitsio-static
+</code></pre>
+<p>This means they cannot plot calibration solutions.
+"CUDA-double" binaries have the <code>cuda</code> feature and "CUDA-single" binaries have
+the <code>cuda</code> and <code>gpu-single</code> features. CUDA cannot legally be statically linked
+so a local installation of CUDA is required.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installing-hyperdrive-from-source-code"><a class="header" href="#installing-hyperdrive-from-source-code">Installing <code>hyperdrive</code> from source code</a></h1>
+<h2 id="dependencies"><a class="header" href="#dependencies">Dependencies</a></h2>
+<p><code>hyperdrive</code> depends on these C libraries:</p>
+<div id="admonition-cfitsiohttpsheasarcgsfcnasagovdocssoftwarefitsio" class="admonition admonish-example">
+<div class="admonition-title">
+<p><a href="https://heasarc.gsfc.nasa.gov/docs/software/fitsio/">cfitsio</a></p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-cfitsiohttpsheasarcgsfcnasagovdocssoftwarefitsio"></a></p>
+</div>
+<div>
+<ul>
+<li>Ubuntu: <code>libcfitsio-dev</code></li>
+<li>Arch: <code>cfitsio</code></li>
+<li>Library and include dirs can be specified manually with <code>CFITSIO_LIB</code> and
+<code>CFITSIO_INC</code>
+<ul>
+<li>If not specified, <code>pkg-config</code> is used to find the library.</li>
+</ul>
+</li>
+<li>Can compile statically; use the <code>cfitsio-static</code> or <code>all-static</code> features.
+<ul>
+<li>Requires a C compiler and <code>autoconf</code>.</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div id="admonition-hdf5httpswwwhdfgrouporghdf5" class="admonition admonish-example">
+<div class="admonition-title">
+<p><a href="https://www.hdfgroup.org/hdf5">hdf5</a></p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-hdf5httpswwwhdfgrouporghdf5"></a></p>
+</div>
+<div>
+<ul>
+<li>Ubuntu: <code>libhdf5-dev</code></li>
+<li>Arch: <code>hdf5</code></li>
+<li>The library dir can be specified manually with <code>HDF5_DIR</code>
+<ul>
+<li>If not specified, <code>pkg-config</code> is used to find the library.</li>
+</ul>
+</li>
+<li>Can compile statically; use the <code>hdf5-static</code> or <code>all-static</code> features.
+<ul>
+<li>Requires <code>CMake</code> version 3.10 or higher.</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<h3 id="optional-dependencies"><a class="header" href="#optional-dependencies">Optional dependencies</a></h3>
+<div id="admonition-freetype2-for-calibration-solutions-plotting" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>freetype2 (for calibration solutions plotting)</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-freetype2-for-calibration-solutions-plotting"></a></p>
+</div>
+<div>
+<ul>
+<li>Only required if the <code>plotting</code> feature is enabled (which it is by default)</li>
+<li>Version must be <code>&gt;=2.11.1</code></li>
+<li>Arch: <code>pkg-config</code> <code>make</code> <code>cmake</code> <code>freetype2</code></li>
+<li>Ubuntu: <code>libfreetype-dev</code> <code>libexpat1-dev</code></li>
+<li>Installation may be eased by using the <code>fontconfig-dlopen</code> feature. This means
+that <code>libfontconfig</code> is used at runtime, and not found and linked at link
+time.</li>
+</ul>
+</div>
+</div>
+<div id="admonition-cuda-for-accelerated-sky-modelling-with-nvidia-gpus" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>CUDA (for accelerated sky modelling with NVIDIA GPUs)</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-cuda-for-accelerated-sky-modelling-with-nvidia-gpus"></a></p>
+</div>
+<div>
+<ul>
+<li>Only required if the <code>cuda</code> feature is enabled</li>
+<li>Requires a <a href="https://developer.nvidia.com/cuda-gpus">CUDA-capable device</a></li>
+<li>Arch: <code>cuda</code></li>
+<li>Ubuntu and others: <a href="https://developer.nvidia.com/cuda-zone">Download link</a></li>
+<li>The library dir can be specified manually with <code>CUDA_LIB</code>
+<ul>
+<li>If not specified, <code>/usr/local/cuda</code> and <code>/opt/cuda</code> are searched.</li>
+</ul>
+</li>
+<li>Can link statically; use the <code>cuda-static</code> or <code>all-static</code> features.</li>
+</ul>
+</div>
+</div>
+<div id="admonition-hip-for-accelerated-sky-modelling-with-amd-gpus" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>HIP (for accelerated sky modelling with AMD GPUs)</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-hip-for-accelerated-sky-modelling-with-amd-gpus"></a></p>
+</div>
+<div>
+<ul>
+<li>Only required if either the <code>hip</code> feature is enabled</li>
+<li>Requires a <a href="https://docs.amd.com/en/latest/release/gpu_os_support.html">HIP-capable device</a> (N.B. This seems to be incomplete)</li>
+<li>Arch:
+<ul>
+<li>See <a href="https://wiki.archlinux.org/title/GPGPU#ROCm">https://wiki.archlinux.org/title/GPGPU#ROCm</a></li>
+<li>It is possible to get pre-compiled products from the <a href="https://github.com/arch4edu/arch4edu">arch4edu repo</a>.</li>
+</ul>
+</li>
+<li>Ubuntu and others: <a href="https://docs.amd.com/projects/HIP/en/docs-5.3.0/how_to_guides/install.html">Download link</a></li>
+<li>The installation dir can be specified manually with <code>HIP_PATH</code>
+<ul>
+<li>If not specified, <code>/opt/rocm/hip</code> is used.</li>
+</ul>
+</li>
+<li>N.B. Despite HIP installations being able to run HIP code on NVIDIA GPUs,
+this is not supported by <code>hyperdrive</code>; please compile with the CUDA
+instructions above.</li>
+</ul>
+</div>
+</div>
+<h2 id="installing-rust"><a class="header" href="#installing-rust">Installing Rust</a></h2>
+<div id="admonition-tldr" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>TL;DR</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-tldr"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+</code></pre>
+</div>
+</div>
+<p><code>hyperdrive</code> is written in <a href="https://www.rust-lang.org/">Rust</a>, so a Rust
+environment is required. <a href="https://doc.rust-lang.org/book/ch01-01-installation.html">The Rust
+book</a> has excellent
+information to do this. Similar, perhaps more direct information is
+<a href="https://www.rust-lang.org/tools/install">here</a>.</p>
+<p><strong>Do not</strong> use <code>apt</code> to install Rust components.</p>
+<h2 id="installing-hyperdrive-from-cratesio"><a class="header" href="#installing-hyperdrive-from-cratesio">Installing <code>hyperdrive</code> from crates.io</a></h2>
+<pre><code class="language-shell">cargo install mwa_hyperdrive --locked
+</code></pre>
+<p>If you want to download the source code and install it yourself, read on.</p>
+<h2 id="manually-installing-from-the-hyperdrive-repo"><a class="header" href="#manually-installing-from-the-hyperdrive-repo">Manually installing from the <code>hyperdrive</code> repo</a></h2>
+<div id="admonition-optimal-performance" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Optimal Performance</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-optimal-performance"></a></p>
+</div>
+<div>
+<p>(optional) Use native CPU features (not portable!)</p>
+<pre><code class="language-shell">export RUSTFLAGS="-C target-cpu=native"
+</code></pre>
+</div>
+</div>
+<p>Clone the git repo and point <code>cargo</code> to it:</p>
+<pre><code class="language-shell">git clone https://github.com/MWATelescope/mwa_hyperdrive
+cargo install --path mwa_hyperdrive --locked
+</code></pre>
+<p>This will install <code>hyperdrive</code> to <code>~/.cargo/bin/hyperdrive</code>. This binary can be
+moved anywhere and it will still work. The installation destination can be
+changed by setting <code>CARGO_HOME</code>.</p>
+<div id="admonition-further-optimisation" class="admonition admonish-danger">
+<div class="admonition-title">
+<p>Further optimisation</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-further-optimisation"></a></p>
+</div>
+<div>
+<p>It is possible to compile with more optimisations if you give <code>--profile production</code> to the <code>cargo install</code> command. This may make things a few percent
+faster, but compilation will take much longer.</p>
+</div>
+</div>
+<div id="admonition-cuda" class="admonition admonish-danger">
+<div class="admonition-title">
+<p>CUDA</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-cuda"></a></p>
+</div>
+<div>
+<p>Do you have a CUDA-capable NVIDIA GPU? Ensure you have installed
+<a href="https://developer.nvidia.com/cuda-zone">CUDA</a> (instructions are above), find
+your CUDA device's compute capability
+<a href="https://developer.nvidia.com/cuda-gpus">here</a> (e.g. Geforce RTX 2070 is 7.5),
+and set a variable with this information (note the lack of a period in the
+number):</p>
+<pre><code class="language-shell">export HYPERDRIVE_CUDA_COMPUTE=75
+</code></pre>
+<p>Now you can compile <code>hyperdrive</code> with CUDA enabled (single-precision floats):</p>
+<pre><code class="language-shell">cargo install --path . --locked --features=cuda,gpu-single
+</code></pre>
+<p>If you're using "datacentre" products (e.g. a V100 available on the
+Pawsey-hosted supercomputer "garrawarla"), you probably want double-precision
+floats:</p>
+<pre><code class="language-shell">cargo install --path . --locked --features=cuda
+</code></pre>
+<p>You can still compile with double-precision on a desktop GPU, but it will be
+much slower than single-precision.</p>
+<p>If you get a compiler error, it may be due to a compiler mismatch. CUDA releases
+are compatible with select versions of <code>gcc</code>, so it's important to keep the CUDA
+compiler happy. You can select a custom C++ compiler with the <code>CXX</code> variable,
+e.g. <code>CXX=/opt/cuda/bin/g++</code>.</p>
+</div>
+</div>
+<div id="admonition-hip" class="admonition admonish-danger">
+<div class="admonition-title">
+<p>HIP</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-hip"></a></p>
+</div>
+<div>
+<p>Do you have a HIP-capable AMD GPU? Ensure you have installed HIP (instructions
+are above), and compile with the <code>hip</code> feature (single-precision floats):</p>
+<pre><code class="language-shell">cargo install --path . --locked --features=hip,gpu-single
+</code></pre>
+<p>If you're using "datacentre" products (e.g. the GPUs on the "setonix"
+supercomputer), you probably want double-precision floats:</p>
+<pre><code class="language-shell">cargo install --path . --locked --features=hip
+</code></pre>
+<p>You can still compile with double-precision on a desktop GPU, but it will be
+much slower than single-precision.</p>
+<p>If you are encountering problems, you may need to set your <code>HIP_PATH</code> variable.</p>
+</div>
+</div>
+<div id="admonition-static-dependencies" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Static dependencies</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-static-dependencies"></a></p>
+</div>
+<div>
+<p>The aforementioned C libraries can each be compiled by <code>cargo</code>. <code>all-static</code>
+will statically-link all dependencies (including CUDA, if CUDA is enabled) such
+that <strong>you need not have these libraries available to use <code>hyperdrive</code></strong>.
+Individual dependencies can be statically compiled and linked, e.g.
+<code>cfitsio-static</code>. See the dependencies list above for more information.</p>
+</div>
+</div>
+<div id="admonition-multiple-features" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Multiple features</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-multiple-features"></a></p>
+</div>
+<div>
+<p><code>cargo</code> features can be chained in a comma-separated list:</p>
+<pre><code class="language-shell">cargo install --path . --locked --features=cuda,all-static
+</code></pre>
+</div>
+</div>
+<div id="admonition-troubleshooting" class="admonition admonish-question">
+<div class="admonition-title">
+<p>Troubleshooting</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-troubleshooting"></a></p>
+</div>
+<div>
+<p>If you're having problems compiling, it's possible you have an older Rust
+toolchain installed. Try updating it:</p>
+<pre><code class="language-shell">rustup update
+</code></pre>
+<p>If that doesn't help, try cleaning the local build directories:</p>
+<pre><code class="language-shell">cargo clean
+</code></pre>
+<p>and try compiling again. If you're still having problems, raise a <a href="https://github.com/MWATelescope/mwa_hyperdrive/issues">GitHub
+issue</a> describing your
+system and what you've tried.</p>
+</div>
+</div>
+<div id="admonition-changes-from-older-versions" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Changes from older versions</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-changes-from-older-versions"></a></p>
+</div>
+<div>
+<p><code>hyperdrive</code> used to depend on the <a href="https://github.com/liberfa/erfa">ERFA</a> C
+library. It now uses a pure-Rust equivalent.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="post-installation-instructions"><a class="header" href="#post-installation-instructions">Post installation instructions</a></h1>
+<div id="admonition-setting-up-the-beam" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Setting up the beam</p>
+<p><a class="admonition-anchor-link" href="installation/post.html#admonition-setting-up-the-beam"></a></p>
+</div>
+<div>
+<p>Many <code>hyperdrive</code> functions require the beam code to function. The MWA FEE beam
+HDF5 file can be obtained with:</p>
+<pre><code class="language-shell">wget http://ws.mwatelescope.org/static/mwa_full_embedded_element_pattern.h5
+</code></pre>
+<p>Move the <code>h5</code> file anywhere you like, and put the file path in the
+<code>MWA_BEAM_FILE</code> environment variable:</p>
+<pre><code class="language-shell">export MWA_BEAM_FILE=/path/to/mwa_full_embedded_element_pattern.h5
+</code></pre>
+<p>See the README for <a href="https://github.com/MWATelescope/mwa_hyperbeam"><code>hyperbeam</code></a>
+for more info.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="introduction-1"><a class="header" href="#introduction-1">Introduction</a></h1>
+<p><code>hyperdrive</code> aims to make users' lives as easy as possible. Commands should
+<em>always</em> have good quality help text, errors and output messages. However, users
+may have questions that the <code>hyperdrive</code> binary itself cannot answer; that's
+where this documentation comes in.</p>
+<p>If ever you find <code>hyperdrive</code>'s help text lacking or this documentation doesn't
+answer your question, feel free to file an
+<a href="https://github.com/MWATelescope/mwa_hyperdrive/issues">issue</a> (or even better,
+file a <a href="https://github.com/MWATelescope/mwa_hyperdrive/pulls">PR</a>!).</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started"><a class="header" href="#getting-started">Getting started</a></h1>
+<p>Do you want to do some calibration, but don't know how to start? Can't remember
+what that command-line argument is called? If ever you're in doubt, consult the
+help text:</p>
+<pre><code class="language-shell"># Top-level help
+hyperdrive --help
+
+# di-calibrate help
+hyperdrive di-calibrate --help
+</code></pre>
+<p><code>di-calibrate</code> is one of many subcommands. Subcommands are accessed by typing
+them after <code>hyperdrive</code>. Each subcommand accepts <code>--help</code> (as well as <code>-h</code>).
+Detailed usage information on each subcommand can be seen in the table of
+contents of this book. More information on subcommands as a concept is below.</p>
+<div id="admonition-subcommands" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Subcommands</p>
+<p><a class="admonition-anchor-link" href="user/help.html#admonition-subcommands"></a></p>
+</div>
+<div>
+<p><code>hyperdrive</code> itself is split into many subcommands. These are simple to list:</p>
+<pre><code class="language-shell">hyperdrive -h
+# OR
+hyperdrive --help
+</code></pre>
+<p>Output (edited for brevity):</p>
+<pre><code class="language-plaintext">SUBCOMMANDS:
+    di-calibrate
+    vis-simulate
+    solutions-convert
+    solutions-plot
+    srclist-by-beam
+</code></pre>
+<p>The help text for these is accessible in a similar way:</p>
+<pre><code class="language-shell">hyperdrive solutions-plot -h
+# OR
+hyperdrive solutions-plot --help
+</code></pre>
+<pre><code class="language-plaintext">hyperdrive-solutions-plot 0.2.0-alpha.11
+Plot calibration solutions. Only available if compiled with the "plotting" feature.
+
+USAGE:
+    hyperdrive solutions-plot [OPTIONS] [SOLUTIONS_FILES]...
+
+ARGS:
+    &lt;SOLUTIONS_FILES&gt;...
+
+OPTIONS:
+    -r, --ref-tile &lt;REF_TILE&gt;    The reference tile to use. If this isn't specified, the best one from the end is used
+    -n, --no-ref-tile            Don't use a reference tile. Using this will ignore any input for `ref_tile`
+        --ignore-cross-pols      Don't plot XY and YX polarisations
+        --min-amp &lt;MIN_AMP&gt;      The minimum y-range value on the amplitude gain plots
+        --max-amp &lt;MAX_AMP&gt;      The maximum y-range value on the amplitude gain plots
+    -m, --metafits &lt;METAFITS&gt;    The metafits file associated with the solutions. This provides additional information on the plots, like the tile names
+    -v, --verbosity              The verbosity of the program. Increase by specifying multiple times (e.g. -vv). The default is to print only high-level information
+    -h, --help                   Print help information
+    -V, --version                Print version information
+</code></pre>
+</div>
+</div>
+<div id="admonition-shortcuts" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Shortcuts</p>
+<p><a class="admonition-anchor-link" href="user/help.html#admonition-shortcuts"></a></p>
+</div>
+<div>
+<p>It's possible to save keystrokes when subcommands aren't ambiguous, e.g. use
+<code>solutions-p</code> as an alias for <code>solutions-plot</code>:</p>
+<pre><code class="language-shell">hyperdrive solutions-p
+&lt;help text for "solutions-plot"&gt;
+</code></pre>
+<p>This works because there is no other subcommand that <code>solutions-p</code> could refer
+to. On the other hand, <code>solutions</code> won't be accepted because both
+<code>solutions-plot</code> and <code>solutions-convert</code> exist.</p>
+<p><code>di-c</code> works for <code>di-calibrate</code>. Unfortunately this is not perfect; the <code>-</code> is
+required even though <code>di</code> should be enough.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="di-calibration"><a class="header" href="#di-calibration">DI calibration</a></h1>
+<p>Direction-Independent (DI) calibration "corrects" raw telescope data.
+<code>hyperdrive</code> achieves this with "sky model calibration". This can work very
+well, but relies on two key assumptions:</p>
+<ul>
+<li>The sky model is an accurate reflection of the input data; and</li>
+<li>The input data are not too contaminated (e.g. by radio-frequency
+interference).</li>
+</ul>
+<p>A high-level overview of the steps in <code>di-calibrate</code> are below. Solid lines
+indicate actions that always happen, dashed lines are optional:</p>
+<pre class="mermaid">%%{init: {'theme':'dark', 'themeVariables': {'fontsize': 20}}}%%
+flowchart TD
+    InputData[fa:fa-file Input data files]--&gt;Args
+    SkyModel[fa:fa-file Sky-model source-list file]--&gt;Args
+    Settings[fa:fa-cog Other settings]-.-&gt;Args
+
+    Args[fa:fa-cog User arguments]--&gt;Valid{fa:fa-code Valid?}
+    Valid --&gt; cal
+
+    subgraph cal[For all timeblocks]
+        Read[fa:fa-code Read a timestep\nof input data]
+        Model[&quot;fa:fa-code Generate model vis\n (CPU or GPU)&quot;]
+        Model-.-&gt;WriteModelVis[fa:fa-save Write model visibilities]
+
+        LSQ[fa:fa-code Calibrate via least squares]
+        Read--&gt;LSQ
+        Model--&gt;LSQ
+        LSQ--&gt;|Iterate|LSQ
+        LSQ--&gt;Sols[fa:fa-wrench Accumulate\ncalibration solutions]
+    end
+
+    cal--&gt;WriteSols[fa:fa-save Write calibration solutions]
+</pre>
+<div id="admonition-model-visibility-outputs" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Model visibility outputs</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/intro.html#admonition-model-visibility-outputs"></a></p>
+</div>
+<div>
+<p>If <code>--model-filenames</code> is supplied, model visibilities are written for inspection.
+Auto-correlations are not read by default. Use <code>--autos</code> when reading input data to include them. Outputs match the input: if input data includes auto-correlations, they are written; if input data excludes them (default), they are not written.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="di-calibration-tutorial"><a class="header" href="#di-calibration-tutorial">DI calibration tutorial</a></h1>
+<p>Here, a series of steps are laid out to demonstrate how raw MWA data is
+calibrated with <code>hyperdrive</code>. We also plot calibration solutions and image
+calibrated data with <code>wsclean</code>.</p>
+<p><a href="user/di_cal/../../installation/intro.html">Install</a> <code>hyperdrive</code> if you haven't already.</p>
+<div id="admonition-step-1-obtain-data" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Step 1: Obtain data</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-step-1-obtain-data"></a></p>
+</div>
+<div>
+<p>Feel free to try your own data, but test data is available in the <code>hyperdrive</code>
+repo; download it with this command:</p>
+<pre><code class="language-shell">git clone https://github.com/MWATelescope/mwa_hyperdrive --depth 1
+cd mwa_hyperdrive
+</code></pre>
+<p>The files are <code>test_files/1090008640/1090008640_20140721201027_gpubox01_00.fits</code>
+and <code>test_files/1090008640/1090008640.metafits</code>. This is tiny part of the <a href="http://ws.mwatelescope.org/observation/obs/?obs_id=1090008640">real
+1090008640
+observation</a> used
+in <code>hyperdrive</code> tests.</p>
+</div>
+</div>
+<div id="admonition-step-2-obtain-a-suitable-sky-model-source-list" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Step 2: Obtain a suitable sky-model source list</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-step-2-obtain-a-suitable-sky-model-source-list"></a></p>
+</div>
+<div>
+<p>It's very important to use a sky model that corresponds to the data you're
+using. For EoR fields, <a href="https://github.com/JLBLine/srclists">srclists</a> contains
+many suitable source lists.</p>
+<p>Here, a source list is already provided for testing:
+<code>test_files/1090008640/srclist_pumav3_EoR0aegean_EoR1pietro+ForA_1090008640_100.yaml</code>.</p>
+</div>
+</div>
+<div id="admonition-step-3-run" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Step 3: Run</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-step-3-run"></a></p>
+</div>
+<div>
+<p>We're going to run the <code>di-calibrate</code> subcommand of <code>hyperdrive</code>. If you look at
+the help (with <code>hyperdrive di-calibrate --help</code>), you should see the <code>--data</code>
+(<code>-d</code> for short) and <code>--source-list</code> (<code>-s</code> for short) flags under an <code>INPUT FILES</code> header. These are the only two things needed to do calibration:</p>
+<pre><code class="language-shell">hyperdrive di-calibrate -d test_files/1090008640/1090008640_20140721201027_gpubox01_00.fits test_files/1090008640/1090008640.metafits -s test_files/1090008640/srclist_pumav3_EoR0aegean_EoR1pietro+ForA_1090008640_100.yaml
+</code></pre>
+</div>
+</div>
+<div id="admonition-tip" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Tip</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-tip"></a></p>
+</div>
+<div>
+<p>The above command can be more neatly expressed as:</p>
+<pre><code class="language-shell">hyperdrive di-calibrate \
+    -d test_files/1090008640/1090008640_20140721201027_gpubox01_00.fits \
+       test_files/1090008640/1090008640.metafits \
+    -s test_files/1090008640/srclist_pumav3_EoR0aegean_EoR1pietro+ForA_1090008640_100.yaml
+</code></pre>
+<p>This isn't specific to <code>hyperdrive</code>; this is just telling your shell to use
+multiple lines separated by <code>\</code>.</p>
+</div>
+</div>
+<div id="admonition-step-4-understanding-the-output" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Step 4: Understanding the output</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-step-4-understanding-the-output"></a></p>
+</div>
+<div>
+<p>The command we ran in step 3 should give us information on the input data, the
+sky model, any output files, as well as things relating to calibration. One line reports:</p>
+<pre><code class="language-plaintext">Reading input data and sky modelling
+</code></pre>
+<p>This indicates that <code>hyperdrive</code> is reading the data from disk and generating
+model visibilities. This is usually the slowest part of the whole process, so
+depending on your inputs, this could take some time. You should also see some
+progress bars related to these two tasks.</p>
+<p>Once the progress bars are finished, calibration can begin. You should see many lines like:</p>
+<pre><code class="language-plaintext">Chanblock  11: converged (50): 1e-4 &gt; 9.57140e-7 &gt; 1e-8
+</code></pre>
+<p>This indicates three things:</p>
+<ul>
+<li>Chanblock 11 converged;</li>
+<li>50 iterations were performed; and</li>
+<li>The final error was 9.57140e-7, which is between 1e-4 and 1e-8.</li>
+</ul>
+</div>
+</div>
+<div id="admonition-what-do-these-things-mean" class="admonition admonish-info">
+<div class="admonition-title">
+<p>What do these things mean?</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-what-do-these-things-mean"></a></p>
+</div>
+<div>
+<p>A <a href="user/di_cal/../../defs/blocks.html">"chanblock"</a> is a frequency unit of calibration;
+it may correspond to one or many channels of the input data.</p>
+<p>Calibration is done iteratively; it iterates until the "stop threshold" is
+reached, or up to a set number of times. The "stop" and "minimum" thresholds
+are used during convergence. If the stop threshold is reached before the maximum
+number of iterations, we say that the chanblock has converged well enough that
+we can stop iterating. However, if we reach the maximum number of iterations,
+one of two things happens:</p>
+<ul>
+<li>The chanblock convergence has not reached the stop threshold but exceed the
+minimum threshold.
+<ul>
+<li>In this case, we say the chanblock converged and note that it didn't reach
+the stop threshold.</li>
+</ul>
+</li>
+<li>The chanblock convergence has not reached either the stop or minimum (1e-4
+by default) thresholds.
+<ul>
+<li>In this case, we say the chanblock did not converge ("failed").</li>
+</ul>
+</li>
+</ul>
+<p>All of these calibration parameters (maximum iterations, stop threshold,
+minimum threshold) are allowed to be adjusted.</p>
+</div>
+</div>
+<div id="admonition-step-5-analyse" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Step 5: Analyse</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-step-5-analyse"></a></p>
+</div>
+<div>
+<p>Don't assume that things will always work! A good indicator of how calibration
+went is given toward the end of the output of <code>di-calibrate</code>:</p>
+<pre><code class="language-plaintext">All timesteps: 27/27 (100%) chanblocks converged
+</code></pre>
+<p>In this case, all chanblocks converged, giving us confidence that things went
+OK. But there are other things we can do to inspect calibration quality; good
+examples are plotting the solutions, and imaging the calibrated data.</p>
+</div>
+</div>
+<div id="admonition-plotting-solutions" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Plotting solutions</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-plotting-solutions"></a></p>
+</div>
+<div>
+<p>First, we need to know where the solutions were written; this is also reported
+toward the end of the output of <code>di-calibrate</code>:</p>
+<pre><code class="language-plaintext">INFO  Calibration solutions written to hyperdrive_solutions.fits
+</code></pre>
+<p>So the solutions are at <code>hyperdrive_solutions.fits</code>. We can make plots with <code>solutions-plot</code>; i.e.</p>
+<pre><code class="language-shell">hyperdrive solutions-plot hyperdrive_solutions.fits
+</code></pre>
+<p>The command should give output like this:</p>
+<pre><code class="language-plaintext">INFO  Wrote ["hyperdrive_solutions_amps.png", "hyperdrive_solutions_phases.png"]
+</code></pre>
+<p>These plots should look something like this:</p>
+<p><img src="user/di_cal/amps.png" alt="" />
+<img src="user/di_cal/phases.png" alt="" /></p>
+<p>Each box corresponds to an MWA tile and each tile has dots plotted for each
+channel we calibrated. The dots are really hard to see because there are only 27
+channels with solutions. However, if we look <em>very</em> closely, we can see that,
+generally, the dot values don't change much with frequency (particularly for the
+amps), or the dot values change steadily with frequency (particularly for the
+phases). This also hints that the calibration solutions are good.</p>
+</div>
+</div>
+<div id="admonition-info" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Info</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-info"></a></p>
+</div>
+<div>
+<p>The solutions plots for the full 1090008640 observation look like this:</p>
+<p><img src="user/di_cal/amps_full.jpg" alt="" />
+<img src="user/di_cal/phases_full.jpg" alt="" /></p>
+<p>Things are much easier to see when there are more dots! As before, changes
+with frequency are small or smooth.</p>
+<p>More information on the calibration solutions file formats can be seen
+<a href="user/di_cal/../../defs/cal_sols.html">here</a>.</p>
+</div>
+</div>
+<div id="admonition-imaging-calibrated-data" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Imaging calibrated data</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-imaging-calibrated-data"></a></p>
+</div>
+<div>
+<p>We have calibration solutions, but not calibrated data. We need to "apply" the
+solutions to data to calibrate them:</p>
+<pre><code class="language-shell">hyperdrive solutions-apply \
+    -d test_files/1090008640/1090008640_20140721201027_gpubox01_00.fits \
+       test_files/1090008640/1090008640.metafits \
+    -s hyperdrive_solutions.fits \
+    -o hyp_cal.ms
+</code></pre>
+<p>This will write calibrated visibilities to <code>hyp_cal.ms</code>. Now we can image the
+measurement set with <a href="https://gitlab.com/aroffringa/wsclean"><code>wsclean</code></a>:</p>
+<pre><code class="language-shell">wsclean -size 4096 4096 -scale 40asec -niter 1000 -auto-threshold 3 hyp_cal.ms
+</code></pre>
+<p>This writes an image file to <code>wsclean-image.fits</code>. You can use many FITS file
+viewers to inspect the image, but here's what it looks like with
+<a href="https://sites.google.com/cfa.harvard.edu/saoimageds9">DS9</a>:</p>
+<p><img src="user/di_cal/calibrated.jpg" alt="" /></p>
+<p>Sources are visible! Generally the image quality is OK, but not great. This is
+because there was very little input data.</p>
+</div>
+</div>
+<div id="admonition-info-1" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Info</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/tutorial.html#admonition-info-1"></a></p>
+</div>
+<div>
+<p>When using the <a href="http://ws.mwatelescope.org/observation/obs/?obs_id=1090008640">full 1090008640
+observation</a>,
+this is what the same image looks like (note that unlike the above image, "sqrt"
+scaling is used):</p>
+<p><img src="user/di_cal/calibrated_full.jpg" alt="" /></p>
+<p>Many more sources are visible, and the noise is much lower. Depending on your
+science case, these visibilities might be "science ready".</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="simple-usage-of-di-calibrate"><a class="header" href="#simple-usage-of-di-calibrate">Simple usage of DI calibrate</a></h1>
+<div id="admonition-info" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Info</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/simple.html#admonition-info"></a></p>
+</div>
+<div>
+<p>DI calibration is done with the <code>di-calibrate</code> subcommand, i.e.</p>
+<pre><code class="language-shell">hyperdrive di-calibrate
+</code></pre>
+<p>At the very least, this requires:</p>
+<ul>
+<li>Input data (with the flag <code>-d</code>)
+<ul>
+<li><a href="user/di_cal/../../defs/vis_formats_read.html">Supported formats</a></li>
+</ul>
+</li>
+<li>A sky model (with the flag <code>-s</code>)
+<ul>
+<li><a href="user/di_cal/../../defs/source_lists.html">Supported formats</a></li>
+<li>PUMA sky models suitable for EoR calibration (and perhaps other parts of the
+sky) can be obtained <a href="https://github.com/JLBLine/srclists">here</a> (at the time of writing <a href="https://github.com/JLBLine/srclists/blob/master/srclist_pumav3_EoR0aegean_fixedEoR1pietro%2BForA_phase1%2B2.txt">srclist_pumav3_EoR0aegean_fixedEoR1pietro+ForA_phase1+2.txt</a> is preferred)</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
+<div id="admonition-raw-mwa-data" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Raw MWA data</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/simple.html#admonition-raw-mwa-data"></a></p>
+</div>
+<div>
+<p>A <a href="user/di_cal/../../defs/mwa/metafits.html">metafits</a> file is always required when reading
+raw MWA data. <a href="user/di_cal/../../defs/mwa/mwaf.html"><code>mwaf</code></a> files are optional.</p>
+<p>For "legacy" MWA data:</p>
+<pre><code class="language-shell">hyperdrive di-calibrate -d *gpubox*.fits *.metafits *.mwaf -s a_good_sky_model.yaml
+</code></pre>
+<p>or for MWAX:</p>
+<pre><code class="language-shell">hyperdrive di-calibrate -d *ch???*.fits *.metafits *.mwaf -s a_good_sky_model.yaml
+</code></pre>
+</div>
+</div>
+<div id="admonition-measurement-sets" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Measurement sets</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/simple.html#admonition-measurement-sets"></a></p>
+</div>
+<div>
+<p>Note that a metafits may not be required, but is generally a good idea.</p>
+<pre><code class="language-shell">hyperdrive di-calibrate -d *.ms *.metafits -s a_good_sky_model.yaml
+</code></pre>
+</div>
+</div>
+<div id="admonition-uvfits" class="admonition admonish-example">
+<div class="admonition-title">
+<p>uvfits</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/simple.html#admonition-uvfits"></a></p>
+</div>
+<div>
+<p>Note that a metafits may not be required, but is generally a good idea.</p>
+<pre><code class="language-shell">hyperdrive di-calibrate -d *.uvfits *.metafits -s a_good_sky_model.yaml
+</code></pre>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="writing-out-calibrated-data"><a class="header" href="#writing-out-calibrated-data">Writing out calibrated data</a></h1>
+<p><code>di-calibrate</code> does not write out calibrated data (visibilities); see
+<a href="user/di_cal/../solutions_apply/intro.html"><code>solutions-apply</code></a>. You will need calibration
+solutions, so refer to the previous pages on DI calibration to get those.</p>
+<div id="admonition-tip" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Tip</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/out_calibrated.html#admonition-tip"></a></p>
+</div>
+<div>
+<p>Calibrated visibilities are written out in one of the <a href="user/di_cal/../../defs/vis_formats_write.html">supported
+formats</a> and can be
+<a href="user/di_cal/../../defs/vis_formats_write.html#visibility-averaging">averaged</a>.</p>
+</div>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="varying-solutions-over-time"><a class="header" href="#varying-solutions-over-time">Varying solutions over time</a></h1>
+<div id="admonition-tip" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Tip</p>
+<p><a class="admonition-anchor-link" href="user/di_cal/advanced/time_varying.html#admonition-tip"></a></p>
+</div>
+<div>
+<p>See <a href="user/di_cal/advanced/../../../defs/blocks.html">this page</a> for information on timeblocks.</p>
+</div>
+</div>
+<p>By default, <code>di-calibrate</code> uses only one "timeblock", i.e. all data timesteps
+are averaged together during calibration. This provides good signal-to-noise,
+but it is possible that calibration is improved by taking time variations into
+account. This is done with <code>--timesteps-per-timeblock</code> (<code>-t</code> for short).</p>
+<p>If <code>--timesteps-per-timeblock</code> is given a value of 4, then every 4 timesteps are
+calibrated together and written out as a timeblock. Values with time units (e.g.
+<code>8s</code>) are also accepted; in this case, every 8 seconds worth of data are
+averaged during calibration and written out as a timeblock.</p>
+<p>Depending on the number of timesteps in the data, using <code>-t</code> could result in
+<em>many</em> timeblocks written to the calibration solutions. Each solution timeblock
+is plotted when these solutions are given to <code>solutions-plot</code>. For each timestep
+in question, the best solution timeblock is used when running <code>solutions-apply</code>.</p>
+<h2 id="implementation"><a class="header" href="#implementation">Implementation</a></h2>
+<p>When multiple timeblocks are to be made, <code>hyperdrive</code> will do a pass of
+calibration using <em>all</em> timesteps to provide each timeblock's calibration with a
+good "initial guess" of what their solutions should be.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="usage-on-garrawarla"><a class="header" href="#usage-on-garrawarla">Usage on garrawarla</a></h1>
+<p><a href="https://support.pawsey.org.au/documentation/display/US/Garrawarla+User+Guide">garrawarla</a>
+is a supercomputer dedicated to MWA activities hosted by the Pawsey
+Supercomputing Centre. <a href="https://wiki.mwatelescope.org/pages/viewpage.action?pageId=52068764">This MWA wiki
+page</a>
+details how to use <code>hyperdrive</code> there.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="how-does-it-work"><a class="header" href="#how-does-it-work">How does it work?</a></h1>
+<p><code>hyperdrive</code>'s direction-independent calibration is based off of a sky model.
+That is, data visibilities are compared against "sky model" visibilities, and
+the differences between the two are used to calculate antenna gains (a.k.a.
+calibration solutions).</p>
+<p>Here is the algorithm used to determine antenna gains in <code>hyperdrive</code>:</p>
+<p>\[ G_{p,i} = \frac{ \sum_{q,q \neq p} D_{pq} G_{q,i-1} M_{pq}^{H}}{ \sum_{q,q \neq p} (M_{pq} G_{q,i-1}^{H}) (M_{pq} G_{q,i-1}^{H})^{H} } \]</p>
+<p>where</p>
+<ul>
+<li>\( p \) and \( q \) are antenna indices;</li>
+<li>\( G_{p} \) is the gain Jones matrix for an antenna \( p \);</li>
+<li>\( D_{pq} \) is a "data" Jones matrix from baseline \( pq \);</li>
+<li>\( M_{pq} \) is a "model" Jones matrix from baseline \( pq \);</li>
+<li>\( i \) is the current iteration index; and</li>
+<li>the \( H \) superscript denotes a <a href="https://en.wikipedia.org/wiki/Conjugate_transpose">Hermitian
+transpose</a>.</li>
+</ul>
+<p>The maximum number of iterations can be changed at run time, as well as
+thresholds of acceptable convergence (i.e. the amount of change in the gains
+between iterations).</p>
+<p>This iterative algorithm is done independently for every individual channel
+supplied. This means that if, for whatever reason, part of the data's band is
+problematic, the good parts of the band can be calibrated without issue.</p>
+<h2 id="stefcal-mitchcal"><a class="header" href="#stefcal-mitchcal">StefCal? MitchCal?</a></h2>
+<p><a href="https://www.aoc.nrao.edu/~sbhatnag/misc/stefcal.pdf">It appears that</a> StefCal
+(as well as
+<a href="https://ui.adsabs.harvard.edu/abs/2008ISTSP...2..707M/abstract">MitchCal</a>) is
+no different to "antsol" (i.e. the above equation).</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="solutions-apply"><a class="header" href="#solutions-apply">Solutions apply</a></h1>
+<p><code>solutions-apply</code> takes calibration solutions and applies them to input
+visibilities before writing out visibilities. All input formats are supported,
+however <code>hyperdrive</code>-style calibration solutions are preferred because they are
+unambiguous when applying multiple timeblocks.</p>
+<p><code>apply-solutions</code> can be used instead of <code>solutions-apply</code>.</p>
+<p>A high-level overview of the steps in <code>solutions-apply</code> are below. Solid lines
+indicate actions that always happen, dashed lines are optional:</p>
+<pre class="mermaid">%%{init: {'theme':'dark', 'themeVariables': {'fontsize': 20}}}%%
+flowchart TD
+    InputData[fa:fa-file Input data files]--&gt;Args
+    CalSols[fa:fa-wrench Calibration\nsolutions]--&gt;Args
+    Settings[fa:fa-cog Other settings]-.-&gt;Args
+
+    Args[fa:fa-cog User arguments]--&gt;Valid{fa:fa-code Valid?}
+    Valid --&gt; apply
+
+    subgraph apply[For all timesteps]
+        Read[fa:fa-code Read a timestep\nof input data]
+        Read--&gt;Apply[&quot;fa:fa-code Apply calibration\nsolutions to timeblock&quot;]
+        Apply--&gt;Write[fa:fa-save Write timeblock\nvisibilities]
+    end
+</pre>
+<div id="admonition-autos" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Autos</p>
+<p><a class="admonition-anchor-link" href="user/solutions_apply/intro.html#admonition-autos"></a></p>
+</div>
+<div>
+<p>Auto-correlations are not read by default. Use <code>--autos</code> when reading input data to include them. Outputs match the input: if input data includes auto-correlations, they are written; if input data excludes them (default), they are not written.</p>
+<p>Auto-correlations are not modified by <code>solutions-apply</code>.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="simple-usage-of-solutions-apply"><a class="header" href="#simple-usage-of-solutions-apply">Simple usage of solutions apply</a></h1>
+<div id="admonition-info" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Info</p>
+<p><a class="admonition-anchor-link" href="user/solutions_apply/simple.html#admonition-info"></a></p>
+</div>
+<div>
+<p>Use the <code>solutions-apply</code> subcommand, i.e.</p>
+<pre><code class="language-shell">hyperdrive solutions-apply
+</code></pre>
+<p>At the very least, this requires:</p>
+<ul>
+<li>Input data (with the flag <code>-d</code>)
+<ul>
+<li><a href="user/solutions_apply/../../defs/vis_formats_read.html">Supported formats</a></li>
+</ul>
+</li>
+<li>Calibration solutions (with the flag <code>-s</code>)
+<ul>
+<li><a href="user/solutions_apply/../../defs/cal_sols.html">Supported formats</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<h2 id="examples-1"><a class="header" href="#examples-1">Examples</a></h2>
+<div id="admonition-from-raw-mwa-data" class="admonition admonish-example">
+<div class="admonition-title">
+<p>From raw MWA data</p>
+<p><a class="admonition-anchor-link" href="user/solutions_apply/simple.html#admonition-from-raw-mwa-data"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">hyperdrive solutions-apply -d *gpubox*.fits *.metafits *.mwaf -s hyp_sols.fits -o hyp_cal.ms
+</code></pre>
+</div>
+</div>
+<div id="admonition-from-an-uncalibrated-measurement-set" class="admonition admonish-example">
+<div class="admonition-title">
+<p>From an uncalibrated measurement set</p>
+<p><a class="admonition-anchor-link" href="user/solutions_apply/simple.html#admonition-from-an-uncalibrated-measurement-set"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">hyperdrive solutions-apply -d *.ms -s hyp_sols.fits -o hyp_cal.ms
+</code></pre>
+</div>
+</div>
+<div id="admonition-from-an-uncalibrated-uvfits" class="admonition admonish-example">
+<div class="admonition-title">
+<p>From an uncalibrated uvfits</p>
+<p><a class="admonition-anchor-link" href="user/solutions_apply/simple.html#admonition-from-an-uncalibrated-uvfits"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">hyperdrive solutions-apply -d *.uvfits -s hyp_sols.fits -o hyp_cal.ms
+</code></pre>
+</div>
+</div>
+<p>Generally the syntax is the same as <a href="user/solutions_apply/../di_cal/simple.html"><code>di-calibrate</code></a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="plot-solutions"><a class="header" href="#plot-solutions">Plot solutions</a></h1>
+<div id="admonition-availability" class="admonition admonish-danger">
+<div class="admonition-title">
+<p>Availability</p>
+<p><a class="admonition-anchor-link" href="user/plotting.html#admonition-availability"></a></p>
+</div>
+<div>
+<p>Plotting calibration solutions is <em>not</em> available for GitHub-built releases of
+<code>hyperdrive</code>. <code>hyperdrive</code> must be built with the <code>plotting</code> <code>cargo</code> feature;
+see the <a href="user/../installation/from_source.html">installation from source instructions
+here</a>.</p>
+</div>
+</div>
+<p><code>hyperdrive</code> is capable of producing plots of calibration solutions for any of
+its <a href="user/../defs/cal_sols.html">supported file formats</a>. Note that only
+<code>hyperdrive</code>-formatted calibration solutions can contain tile names; when tile
+names are unavailable, they won't be on the plots <em>unless</em> a corresponding
+metafits file is provided. With or without tile names, an index is provided.</p>
+<p>By default, a reference tile is selected and reported at the top left of the
+plot. (By default, the last tile that isn't comprised of only NaNs is selected,
+but this can be manually chosen.) It is also possible to neglect using any
+reference tile. With a reference tile, each tile's solutions are divided by the
+reference's solutions, and the resulting Jones matrix values are plotted (the
+legend is indicated at the top right of each plot). \( g_x \) is the gain on a
+tile's X polarisation and \( g_y \) is the gain on a tile's Y
+polarisation. \( D_x \) and \( D_y \) are the leakage terms of those
+polarisations.</p>
+<p>By default, the y-axis of amplitude plots capture the entire range of values.
+These plots can therefore be skewed by bad tiles; it is possible to control the
+range by specifying <code>--max-amp</code> and <code>--min-amp</code>.</p>
+<p>If a calibration solutions file contains multiple timeblocks, plots are produced
+for each timeblock. Timeblock information is given at the top left, if
+available.</p>
+<h2 id="example-plots"><a class="header" href="#example-plots">Example plots</a></h2>
+<h3 id="amplitudes-amps"><a class="header" href="#amplitudes-amps">Amplitudes ("amps")</a></h3>
+<p><img src="user/./di_cal/amps_full.jpg" alt="" /></p>
+<h3 id="phases"><a class="header" href="#phases">Phases</a></h3>
+<p><img src="user/./di_cal/phases_full.jpg" alt="" /></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="convert-visibilities"><a class="header" href="#convert-visibilities">Convert visibilities</a></h1>
+<p><code>vis-convert</code> reads in visibilities and writes them out, performing whatever
+transformations were requested on the way (e.g. ignore autos, average to a
+particular time resolution, flag some tiles, etc.).</p>
+<p>Autos control: Auto-correlations are not read by default. Use <strong>--autos</strong> to include them when reading, and they will be written to the output. If <code>--autos</code> is not used (default), autos are not read and not written.</p>
+<div id="admonition-simple-examples" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Simple examples</p>
+<p><a class="admonition-anchor-link" href="user/vis_convert/intro.html#admonition-simple-examples"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">hyperdrive vis-convert \
+    -d *gpubox* *.metafits \
+    --tile-flags Tile011 Tile012 \
+    -o hyp_converted.uvfits hyp_converted.ms
+</code></pre>
+<pre><code class="language-shell">hyperdrive vis-convert \
+    -d *.uvfits \
+    --autos \
+    -o hyp_converted.ms
+</code></pre>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="simulate-visibilities"><a class="header" href="#simulate-visibilities">Simulate visibilities</a></h1>
+<p><code>vis-simulate</code> effectively turns a sky-model source list into visibilities.</p>
+<div id="admonition-simple-example" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Simple example</p>
+<p><a class="admonition-anchor-link" href="user/vis_simulate/intro.html#admonition-simple-example"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">hyperdrive vis-simulate \
+    -s srclist.yaml \
+    -m *.metafits
+</code></pre>
+</div>
+</div>
+<h2 id="considerations"><a class="header" href="#considerations">Considerations</a></h2>
+<h3 id="disabling-beam-attenuation"><a class="header" href="#disabling-beam-attenuation">Disabling beam attenuation</a></h3>
+<p><code>--no-beam</code></p>
+<h3 id="dead-dipoles"><a class="header" href="#dead-dipoles">Dead dipoles</a></h3>
+<p>By default, <a href="user/vis_simulate/../../defs/mwa/dead_dipoles.html">dead dipoles</a> in the
+<a href="user/vis_simulate/../../defs/mwa/metafits.html">metafits</a> are used. These will affect the generated
+visibilities. You can disable them with <code>--unity-dipole-gains</code>.</p>
+<h3 id="vetoing"><a class="header" href="#vetoing">Vetoing</a></h3>
+<p>Vetoing removes sources that have components below the elevation limit,
+components that are too far from the phase centre,
+components with beam-attenuated flux densities less than the threshold,
+and/or remove sources that aren't in the top N sources specified by <code>num_sources</code>.</p>
+<p>This is important for calibration, because it is expensive to generate a sky
+model, and using only dim sources would result in poor calibration.</p>
+<p>Sources are vetoed if any of their components are further away from the
+phase centre than <code>source_dist_cutoff_deg</code> or their beam attenuated flux
+densities are less than <code>veto_threshold</code>.</p>
+<p>Source-list vetoing can do unexpected things. You can effectively disable it by
+supplying <code>--veto-threshold 0</code>, although the veto routine will still:</p>
+<ol>
+<li>Remove sources below the horizon; and</li>
+<li>Sort the remaining sources by brightness based off of the centre frequencies
+MWA coarse channels.</li>
+</ol>
+<p>If there are fewer sources than that of <code>num_sources</code>, an error is returned;
+it's up to the caller to handle this if they want to.</p>
+<p>The frequencies to use for beam calculations are the coarse channel centers,
+1.28 MHz apart on MWA.</p>
+<h3 id="auto-correlations"><a class="header" href="#auto-correlations">Auto-correlations</a></h3>
+<p>By default, visibilities exclude auto-correlations when simulated. To include auto-correlations, use:</p>
+<pre><code class="language-shell">hyperdrive vis-simulate \
+  -s srclist.yaml \
+  -m *.metafits \
+  --output-autos
+</code></pre>
+<p>Including autos can increase file size; only enable them if needed.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="subtract-visibilities"><a class="header" href="#subtract-visibilities">Subtract visibilities</a></h1>
+<p><code>vis-subtract</code> can subtract the sky-model visibilities from calibrated data
+visibilities and write them out. This can be useful to see how well the sky
+model agrees with the input data, although direction-dependent effects (e.g. the
+ionosphere) may be present and produce "holes" in the visibilities, e.g.:</p>
+<p><img src="user/vis_subtract/subtracted.jpg" alt="subtracted visibilities" /></p>
+<p>A high-level overview of the steps in <code>vis-subtract</code> are below. Solid lines
+indicate actions that always happen, dashed lines are optional:</p>
+<pre class="mermaid">%%{init: {'theme':'dark', 'themeVariables': {'fontsize': 20}}}%%
+flowchart TD
+    InputData[/fa:fa-file Calibrated input data/]--&gt;Args
+    CalSols[/fa:fa-file Sky-model source-list file/]--&gt;Args
+    Settings[/fa:fa-cog Other settings/]-.-&gt;Args
+
+    Args[fa:fa-cog User arguments]--&gt;Valid{fa:fa-code Valid?}
+    Valid --&gt; subtract
+
+    subgraph subtract[For all timesteps]
+        Read[&quot;fa:fa-code Read a timestep
+        of input data&quot;]
+        Simulate[&quot;fa:fa-code Generate model vis&quot;]
+        Read &amp; Simulate--&gt;Subtract[&quot;fa:fa-minus Subtract model vis from data&quot;]
+        Subtract--&gt;Write[fa:fa-save Write timeblock
+        visibilities]
+    end
+</pre>
+<div id="admonition-autos" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Autos</p>
+<p><a class="admonition-anchor-link" href="user/vis_subtract/intro.html#admonition-autos"></a></p>
+</div>
+<div>
+<p>Auto-correlations are not read by default. Use <code>--autos</code> when reading input data to include them. Outputs match the input: if input data includes auto-correlations, they are written; if input data excludes them (default), they are not written.</p>
+<p>Auto-correlations are not modified by <code>vis-subtract</code>.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="peel-visibilities"><a class="header" href="#peel-visibilities">Peel visibilities</a></h1>
+<p><code>peel</code> can subtract the sky-model visibilities from calibrated data visibilities, and write them out like <a href="user/peel/../vis_subtract/intro.html">vis-subtract</a>, but it additionally solves for and applies the direction dependent effects of the ionosphere.</p>
+<div id="admonition-work-in-progress" class="admonition admonish-warning">
+<div class="admonition-title">
+<p>Work in progress</p>
+<p><a class="admonition-anchor-link" href="user/peel/intro.html#admonition-work-in-progress"></a></p>
+</div>
+<div>
+<p>Hyperdrive's <code>peel</code> implementation technically only performs ionospheric subtraction. For more on the distinction between the two, read on. Familiarity with the <code>vis-subtract</code> command is recommended.</p>
+</div>
+</div>
+<div id="admonition-autos" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Autos</p>
+<p><a class="admonition-anchor-link" href="user/peel/intro.html#admonition-autos"></a></p>
+</div>
+<div>
+<p>Auto-correlations are not read by default. Use <code>--autos</code> when reading input data to include them. Outputs match the input: if input data includes auto-correlations, they are written; if input data excludes them (default), they are not written.</p>
+<p>Auto-correlations are not modified by <code>peel</code>.</p>
+</div>
+</div>
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
+<p>From the images below, it's clear that peeling 100 sources, rather than directly subtracting them
+results in a much cleaner image.</p>
+<p><img src="user/peel/unsubtracted.png" alt="unsubtracted visibilities" />
+<img src="user/peel/subtracted.png" alt="subtracted visibilities" />
+<img src="user/peel/peeled.png" alt="peeled visibilities" /></p>
+<details>
+<summary>Steps to reproduce the images above.</summary>
+<p>The images above were generated using mwa-demo with the following <code>demo/00_env.sh</code></p>
+<pre><code class="language-bash">export obsid=1321103688
+
+# preprocessing
+export freqres_khz=40
+export timeres_s=2
+# calibration: only use the 11th timestep from the raw files
+export apply_args="--timesteps 10"
+export dical_name="_t10"
+
+# peeling
+export num_sources=100
+export iono_sources=100
+export num_passes=1
+export num_loops=1
+export freq_average=80kHz
+export time_average=8s
+export iono_freq_average=1280kHz
+export iono_time_average=8s
+export uvw_min=50lambda
+export uvw_max=300lambda
+export short_baseline_sigma=40
+export convergence=0.9
+
+# imaging
+export briggs=0.5
+export size=8000
+export scale=0.0035502
+export niter=10000000
+export nmiter=5
+export wsclean_args="-multiscale-gain 0.15 -join-channels -channels-out 4 -save-source-list -fit-spectral-pol 2"
+
+# generate the peeled visibilities
+demo/09_peel.sh
+
+# generate the subtracted visibilities
+export iono_sources=0
+export peel_prefix="sub_"
+demo/09_peel.sh
+
+# image everything
+demo/07_img.sh
+</code></pre>
+</details>
+<h2 id="ionospheric-subtraction"><a class="header" href="#ionospheric-subtraction">Ionospheric subtraction</a></h2>
+<p>Light travels slower through regions of higher electron density, especially at lower frequencies. When light from a source passes through the ionosphere, it is refracted, causing a shift in the apparent position and brightness of the source. This shift varies with the direction of the source and can change over time.</p>
+<p>Assuming the ionosphere is a thin screen with a slowly varying electron density, the direction and magnitude of the shift depend on the gradient of the electron density along the line of sight and scale with the square of the light's wavelength.</p>
+<p>Ionospheric subtraction models the effect of the ionosphere on a given source using three parameters:</p>
+<ul>
+<li>The ionospheric offset vector (α, β), which is a constant of proportionality in front of λ², representing the shift in the source's apparent position in image space (l, m), such that l = αλ², m = βλ².</li>
+<li>A gain (g), which captures any changes in the apparent brightness of the source.</li>
+</ul>
+<p>Hyperdrive solves for these ionospheric parameters for each source using the algorithm described in <a href="https://ieeexplore.ieee.org/document/4703504">Mitchell 2008</a> one timeblock at a time.</p>
+<h3 id="algorithm"><a class="header" href="#algorithm">Algorithm</a></h3>
+<p>The starting point (and end point) for ionospheric subtraction is the residual visibilities, which is the calibrated data with the ionospheric sky model subtracted. Initially, the ionospheric parameters of each source are not known, and so the sources are subtracted without any ionospheric corrections, but the solutions are usually improved in subsequent passes.</p>
+<p>Looping over each source, the residuals are phased to the source's catalogue position, and the model for the source that was subtracted is added back in to the data. Let's call these visibilities the</p>
+<p>First, all other sources in the sky-model are subtracted from the calibrated data, and the data is phased to the catalogue position of the source. The data can then be averaged to a lower resolution to improve performance. Finally, the ionospheric parameters are measured using the least-squares fit described in the paper.</p>
+<h2 id="loop-parameters"><a class="header" href="#loop-parameters">Loop parameters</a></h2>
+<p>In reality, the ionosphere is a complex, turbulent medium, and not all tiles see the same ionosphere so the algorithm includes several safeguards to prevent divergent solutions. Each source's offsets are calculated in a loop, with a convergence factor to reduce the step size as the solution approaches the correct value.</p>
+<p>In the first pass of the algorithm, the ionospheric offsets are not known, and so the sources are not necessarily subtracted from their correct positions, but the solutions are usually improved in subsequent passes.</p>
+<p><code>--num-loops</code> sets the maximum number of loops for each source, while <code>--num-passes</code> is the number of passes over all sources. Decreasing <code>--convergence</code> is one way to improve the quality of the solutions, but it will also increase the runtime.</p>
+<h2 id="averaging"><a class="header" href="#averaging">Averaging</a></h2>
+<p>hyperdrive reasons about visibilities at multiple resolutions:</p>
+<ul>
+<li>The input data's original resolution</li>
+<li>The input data's resolution during reading ( <code>--time-average</code>, <code>--freq-average</code> )</li>
+<li>The resolution of the ionospheric subtraction ( <code>--iono-time-average</code>, <code>--iono-freq-average</code> )</li>
+<li>The resolution of the output visibilities ( <code>--output-vis-time-average</code>, <code>--output-vis-freq-average</code> )</li>
+</ul>
+<p>All of these resolutions are specified in seconds or Hz, and are multiples of the input data's resolution. If the resolution is 0, then all data are averaged together.</p>
+<h2 id="weighting"><a class="header" href="#weighting">Weighting</a></h2>
+<p>It is important to down-weight short baselines if your point-source sky model is missing diffuse information. The minimum uv-distance to include in the fit can be set with <code>--uvw-min</code>, and the maximum with <code>--uvw-max</code>. The default is to include all baselines &gt; 50λ.</p>
+<p>hyperdrive also borrows from RTS, which used a gaussian weighting scheme to taper short baselines, <code>1-exp(-(u²+v²)/(2*σ²))</code>, where <code>σ</code> is the tapering parameter. This can be set with <code>--short-baseline-sigma</code>, and defaults to 40λ.</p>
+<h2 id="source-counts"><a class="header" href="#source-counts">Source Counts</a></h2>
+<p>Similar to <a href="user/peel/../vis_subtract/intro.html"><code>vis-subtract</code></a>, the total number of sources in the sky model to be subtracted is limited by <code>--num-sources</code>, but only the top <code>--iono-sub</code> brightest have their ionospheric constants measured and modeled during subtraction. By default, hyperdrive will include sources in the sky model after <a href="user/peel/../vis_simulate/intro.html#vetoing">vetoing</a> if <code>--num-sources</code> is not specified, and will ionospherically subtract all of these sources if <code>--iono-sub</code> is not specified. An error will occur if <code>--num-sources</code> is greater than the number of sources in the sky model.</p>
+<p>Future versions of peel will include a <code>--peel</code> argument to specify the number of sources to peel.</p>
+<h2 id="high-level-overview"><a class="header" href="#high-level-overview">High level overview</a></h2>
+<pre class="mermaid">%%{init: {'theme':'dark', 'themeVariables': {'fontsize': 20}}}%%
+flowchart TD
+    InputData[fa:fa-file Calibrated input data]--&gt;Args
+    CalSols[fa:fa-file Sky-model source-list file]--&gt;Args
+    Settings[fa:fa-cog Other settings]-.-&gt;Args
+
+    Args[fa:fa-cog User arguments]--&gt;Valid{fa:fa-code Valid?}
+    Valid --&gt; peel
+
+    subgraph peel[For all timesteps]
+        Read[&quot;fa:fa-code Read a timestep
+        of input data&quot;]
+        IonoConsts[&quot;fa:fa-cog Ionospheric consts
+        α, β, g
+        per-source, initially unknown&quot;]
+        Residual[&quot;fa:fa-code Subtract for Residual&quot;]
+        Model[&quot;fa:fa-code Generate
+        ionospheric model vis&quot;]
+        IonoConsts --&gt; Model
+        Read -------&gt; Residual
+        Model --&gt; Residual
+        Residual --&gt; Loop
+        IonoConsts --&gt; Loop
+        subgraph Loop[For each source]
+            Phased[&quot;fa:fa-code Phase residual to source&quot;]
+            SourceModel[&quot;fa:fa-code model source&quot;]
+            SourceModel &amp; Phased --&gt; Average[&quot;fa:fa-code Add source and average data&quot;]
+            SourceModel &amp; Average --&gt; Fit[&quot;fa:fa-code Fit ionospheric
+            model&quot;]
+        end
+        Fit --&gt; IonoConsts
+        Residual --&gt; Write[&quot;fa:fa-save Write timeblock
+        visibilities&quot;]
+    end
+</pre>
+<h2 id="peeling"><a class="header" href="#peeling">Peeling</a></h2>
+<p>A full peel involves performing direction-independent calibration towards each source, this is currently a work in progress and not yet implemented.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="get-beam-responses"><a class="header" href="#get-beam-responses">Get beam responses</a></h1>
+<p>The <code>beam</code> subcommand can be used to obtain beam responses from any of the
+supported beam types. The output format is
+<a href="https://en.wikipedia.org/wiki/Tab-separated_values">tab-separated values</a> (<code>tsv</code>).</p>
+<p>The responses are calculated by moving the zenith angle from 0 to the <code>--max-za</code>
+in steps of <code>--step</code>, then for each of these zenith angles, moving from 0 to
+\( 2 \pi \) in steps of <code>--step</code> for the azimuth. Using a smaller <code>--step</code>
+will generate many more responses, so be aware that it might take a while.</p>
+<div id="admonition-cudahip" class="admonition admonish-danger">
+<div class="admonition-title">
+<p>CUDA/HIP</p>
+<p><a class="admonition-anchor-link" href="user/beam.html#admonition-cudahip"></a></p>
+</div>
+<div>
+<p>If CUDA or HIP is available to you, the <code>--gpu</code> flag will generate the beam
+responses on the GPU, vastly decreasing the time taken.</p>
+</div>
+</div>
+<div id="admonition-python-example-to-plot-beam-responses" class="admonition admonish-example">
+<div class="admonition-title">
+<p><code>Python</code> example to plot beam responses</p>
+<p><a class="admonition-anchor-link" href="user/beam.html#admonition-python-example-to-plot-beam-responses"></a></p>
+</div>
+<div>
+<pre><code class="language-python">#!/usr/bin/env python3
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+data = np.genfromtxt(fname="beam_responses.tsv", delimiter="\t", skip_header=0)
+
+fig, ax = plt.subplots(1, 2, subplot_kw=dict(projection="polar"))
+p = ax[0].scatter(data[:, 0], data[:, 1], c=data[:, 2])
+plt.colorbar(p)
+p = ax[1].scatter(data[:, 0], data[:, 1], c=np.log10(data[:, 2]))
+plt.colorbar(p)
+plt.show()
+</code></pre>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="instrumental-polarisations"><a class="header" href="#instrumental-polarisations">Instrumental polarisations</a></h1>
+<p>In <code>hyperdrive</code> (and <a href="https://github.com/MWATelescope/mwalib"><code>mwalib</code></a> and
+<a href="https://github.com/MWATelescope/mwa_hyperbeam"><code>hyperbeam</code></a>), the X
+polarisation refers to the East-West dipoles and the Y refers to North-South.
+Note that this contrasts with the IAU definition of X and Y, which is opposite
+to this. However, this is consistent within the MWA.</p>
+<p>MWA visibilities in raw data products are ordered XX, XY, YX, YY where X is
+East-West and Y is North-South. <code>Birli</code> and <code>cotter</code> also write pre-processed
+visibilities this way.</p>
+<p><code>wsclean</code> expects its input measurement sets to be in the IAU order, meaning
+that, currently, <code>hyperdrive</code> outputs are (somewhat) inappropriate for usage
+with <code>wsclean</code>. We are discussing how to move forward given the history of MWA
+data processing and expectations in the community.</p>
+<p>We expect that any input data contains 4 cross-correlation polarisations (XX XY
+YX YY), but <code>hyperdrive</code> is able to read the following combinations out of the
+supported <a href="defs/./vis_formats_read.html">input data types</a>:</p>
+<ul>
+<li>XX</li>
+<li>YY</li>
+<li>XX YY</li>
+<li>XX XY YY</li>
+</ul>
+<p>In addition, uvfits files need not have a weight associated with each
+polarisation.</p>
+<h1 id="stokes-polarisations"><a class="header" href="#stokes-polarisations">Stokes polarisations</a></h1>
+<p>In <code>hyperdrive</code>:</p>
+<ul>
+<li>\( \text{XX} = \text{I} - \text{Q} \)</li>
+<li>\( \text{XY} = \text{U} - i\text{V} \)</li>
+<li>\( \text{YX} = \text{U} + i\text{V} \)</li>
+<li>\( \text{YY} = \text{I} + \text{Q} \)</li>
+</ul>
+<p>where \( \text{I} \), \( \text{Q} \), \( \text{U} \), \( \text{V} \) are
+Stokes polarisations and \( i \) is the imaginary unit.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="supported-visibility-formats-for-reading"><a class="header" href="#supported-visibility-formats-for-reading">Supported visibility formats for reading</a></h1>
+<div id="admonition-raw-mwa-data" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Raw MWA data</p>
+<p><a class="admonition-anchor-link" href="defs/vis_formats_read.html#admonition-raw-mwa-data"></a></p>
+</div>
+<div>
+<p>Raw "legacy" MWA data comes in "gpubox" files. "MWAX" data comes in a similar
+format, and <code>*ch???*.fits</code> is a useful glob to identify them. Raw data can be
+accessed from the <a href="https://asvo.mwatelescope.org/">ASVO</a>.</p>
+<p>Here are examples of using each of these MWA formats with <code>di-calibrate</code>:</p>
+<pre><code class="language-shell">hyperdrive di-calibrate -d *gpubox*.fits *.metafits *.mwaf -s a_good_sky_model.yaml
+hyperdrive di-calibrate -d *ch???*.fits *.metafits *.mwaf -s a_good_sky_model.yaml
+</code></pre>
+<p>Note that all visibility formats should probably be accompanied by a metafits
+file. See <a href="defs/mwa/metafits.html">this page</a> for more info.</p>
+<p><code>mwaf</code> files indicate what visibilities should be flagged. See <a href="defs/mwa/mwaf.html">this
+page</a> for more info.</p>
+</div>
+</div>
+<div id="admonition-measurement-sets" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Measurement sets</p>
+<p><a class="admonition-anchor-link" href="defs/vis_formats_read.html#admonition-measurement-sets"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">hyperdrive di-calibrate -d *.ms *.metafits -s a_good_sky_model.yaml
+</code></pre>
+<p>Measurement sets (MSs) are typically made with
+<a href="https://github.com/MWATelescope/Birli"><code>Birli</code></a> or
+<a href="https://github.com/MWATelescope/cotter"><code>cotter</code></a>
+(<a href="https://github.com/MWATelescope/Birli"><code>Birli</code></a> preferred). At the time of
+writing, MWA-formatted measurement sets do not contain dead dipole information,
+and so calibration may not be as accurate as it could be. To get around this, an
+observation's <a href="defs/mwa/metafits.html">metafits</a> file can be supplied alongside the MS
+to improve calibration. See
+<a href="defs/./vis_formats_read.html#admonition-when-using-a-metafits">below</a> for more info.</p>
+</div>
+</div>
+<div id="admonition-uvfits" class="admonition admonish-info">
+<div class="admonition-title">
+<p>uvfits</p>
+<p><a class="admonition-anchor-link" href="defs/vis_formats_read.html#admonition-uvfits"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">hyperdrive di-calibrate -d *.uvfits *.metafits -s a_good_sky_model.yaml
+</code></pre>
+<p>When reading uvfits, a metafits is not required <em>only</em> if the user has supplied
+the MWA dipole delays. At the time of writing, MWA-formatted uvfits files do not
+contain dipole delays or dead dipole information, and so avoiding a metafits
+file when calibrating may mean it is not as accurate as it could be. See
+<a href="defs/./vis_formats_read.html#admonition-when-using-a-metafits">below</a> for more info.</p>
+<p>A copy of the uvfits standard is
+<a href="https://library.nrao.edu/public/memos/aips/memos/AIPSM_117.pdf">here</a>.</p>
+</div>
+</div>
+<div id="admonition-when-using-a-metafits" class="admonition admonish-warning">
+<div class="admonition-title">
+<p>When using a metafits</p>
+<p><a class="admonition-anchor-link" href="defs/vis_formats_read.html#admonition-when-using-a-metafits"></a></p>
+</div>
+<div>
+<p>When using a metafits file with a uvfits/MS, the tile names in the metafits and
+uvfits/MS must <em>exactly</em> match. Only when they exactly match are the dipole
+delays and dipole gains able to be applied properly. If they don't match, a
+warning is issued.</p>
+<p>MWA uvfits/MS files made with <code>Birli</code> or <code>cotter</code> will always match their
+observation's metafits tile names, so this issue only applies to uvfits/MS files
+created elsewhere.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="supported-visibility-formats-for-writing"><a class="header" href="#supported-visibility-formats-for-writing">Supported visibility formats for writing</a></h1>
+<p>The following examples illustrate how to produce each of the supported
+visibility file formats with <code>solutions-apply</code>, but other aspects of
+<code>hyperdrive</code> are also able to produce these file formats, and all aspects are
+able to perform averaging and write to multiple outputs.</p>
+<div id="admonition-measurement-sets" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Measurement sets</p>
+<p><a class="admonition-anchor-link" href="defs/vis_formats_write.html#admonition-measurement-sets"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">hyperdrive solutions-apply \
+    -d *gpubox*.fits *.metafits \
+    -s hyp_sols.fits \
+    -o hyp_cal.ms
+</code></pre>
+</div>
+</div>
+<div id="admonition-uvfits" class="admonition admonish-info">
+<div class="admonition-title">
+<p>uvfits</p>
+<p><a class="admonition-anchor-link" href="defs/vis_formats_write.html#admonition-uvfits"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">hyperdrive solutions-apply \
+    -d *gpubox*.fits *.metafits \
+    -s hyp_sols.fits \
+    -o hyp_cal.uvfits
+</code></pre>
+<p>A copy of the uvfits standard is
+<a href="https://library.nrao.edu/public/memos/aips/memos/AIPSM_117.pdf">here</a>.</p>
+</div>
+</div>
+<div id="admonition-visibility-averaging" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Visibility averaging</p>
+<p><a class="admonition-anchor-link" href="defs/vis_formats_write.html#admonition-visibility-averaging"></a></p>
+</div>
+<div>
+<p>When writing out visibilities, they can be averaged in time and frequency. Units
+can be given to these; e.g. using seconds and kiloHertz:</p>
+<pre><code class="language-shell">hyperdrive solutions-apply \
+    -d *gpubox*.fits *.metafits *.mwaf \
+    -s hyp_sols.fits \
+    -o hyp_cal.ms \
+    --time-average 8s \
+    --freq-average 80kHz
+</code></pre>
+<p>Units are not required; in this case, these factors multiply the observation's
+time and freq. resolutions:</p>
+<pre><code class="language-shell">hyperdrive solutions-apply \
+    -d *gpubox*.fits *.metafits *.mwaf \
+    -s hyp_sols.fits \
+    -o hyp_cal.ms \
+    --time-average 4 \
+    --freq-average 2
+</code></pre>
+<p>If the same observation is used in both examples, with a time resolution of 2s
+and a freq. resolution of 40kHz, then both commands will yield the same result.</p>
+<p>See <a href="defs/blocks.html">this page</a> for information on how visibilities are averaged in
+time and frequency.</p>
+</div>
+</div>
+<div id="admonition-writing-to-multiple-visibility-outputs" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Writing to multiple visibility outputs</p>
+<p><a class="admonition-anchor-link" href="defs/vis_formats_write.html#admonition-writing-to-multiple-visibility-outputs"></a></p>
+</div>
+<div>
+<p>All aspects of <code>hyperdrive</code> that can write visibilities can write to multiple
+outputs. Note that it probably does not make sense to write out more than one of
+each kind (e.g. two uvfits files), as each of these files will be exactly the
+same, and a simple <code>cp</code> from one to the other is probably faster than writing to
+two files simultaneously from <code>hyperdrive</code>.</p>
+<p>Example (a measurement set and uvfits):</p>
+<pre><code class="language-shell">hyperdrive solutions-apply \
+    -d *gpubox*.fits *.metafits *.mwaf \
+    -s hyp_sols.fits \
+    -o hyp_cal.ms hyp_cal.uvfits \
+    --time-average 4 \
+    --freq-average 2
+</code></pre>
+</div>
+</div>
+<div id="admonition-auto-correlations" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Auto-correlations</p>
+<p><a class="admonition-anchor-link" href="defs/vis_formats_write.html#admonition-auto-correlations"></a></p>
+</div>
+<div>
+<p>Auto-correlations are not read by default. Use <code>--autos</code> when reading input data to include them. All writers match the input: if input data includes auto-correlations, they are written to the output; if input data excludes them (default), they are not written. <code>vis-simulate</code> does not simulate auto-correlations by default; use <code>--output-autos</code> to include them.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="metafits-files"><a class="header" href="#metafits-files">Metafits files</a></h1>
+<p>The MWA tracks observation metadata with "metafits" files. Often these accompany
+the raw visibilities in a download, but these could be old (such as the "PPD
+metafits" files). <strong><code>hyperdrive</code> does not support PPD metafits files; only new
+metafits files should be used.</strong></p>
+<p>This command downloads a new metafits file for the specified observation ID:</p>
+<div id="admonition-download-mwa-metafits-file" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Download MWA metafits file</p>
+<p><a class="admonition-anchor-link" href="defs/mwa/metafits.html#admonition-download-mwa-metafits-file"></a></p>
+</div>
+<div>
+<pre><code>OBSID=1090008640; wget "http://ws.mwatelescope.org/metadata/fits?obs_id=${OBSID}" -O "${OBSID}".metafits
+</code></pre>
+</div>
+</div>
+<div id="admonition-why-should-i-use-a-metafits-file" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Why should I use a metafits file?</p>
+<p><a class="admonition-anchor-link" href="defs/mwa/metafits.html#admonition-why-should-i-use-a-metafits-file"></a></p>
+</div>
+<div>
+<p>Measurement sets and uvfits files do not contain MWA-specific information,
+particularly dead dipole information. Calibration should perform better when
+<a href="defs/mwa/dead_dipoles.html">dead dipoles</a> are taken into account. Measurement sets and
+uvfits file may also lack <a href="defs/mwa/delays.html">dipole delay</a> information.</p>
+</div>
+</div>
+<div id="admonition-why-are-new-metafits-files-better" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Why are new metafits files better?</p>
+<p><a class="admonition-anchor-link" href="defs/mwa/metafits.html#admonition-why-are-new-metafits-files-better"></a></p>
+</div>
+<div>
+<p>The database of MWA metadata can change over time for observations conducted
+even many years ago, and the engineering team may decide that some tiles/dipoles
+for some observations should be retroactively flagged, or that digital gains
+were wrong, etc. In addition, older metafits files may not have all the metadata
+that is required to be present by
+<a href="https://github.com/MWATelescope/mwalib"><code>mwalib</code></a>, which is used by
+<code>hyperdrive</code> when reading metafits files.</p>
+</div>
+</div>
+<h2 id="controlling-dipole-gains"><a class="header" href="#controlling-dipole-gains">Controlling dipole gains</a></h2>
+<p>If the "TILEDATA" HDU of a metafits contains a "DipAmps" column, each row
+containing 16 double-precision values for bowties in the M&amp;C order, these are
+used as the dipole gains in beam calculations. If the "DipAmps" column isn't
+available, the default behaviour is to use gains of 1.0 for all dipoles, except
+those that have delays of 32 in the "Delays" column (they will have a gain of
+0.0, and are considered <a href="defs/mwa/dead_dipoles.html">dead</a>).</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="dipole-delays"><a class="header" href="#dipole-delays">Dipole delays</a></h1>
+<p>A tile's dipole delays control where it is "pointing". Delays are provided as
+numbers, and this controls how long a dipole's response is delayed before its
+response correlated with other dipoles. This effectively allows the MWA to be
+more sensitive in a particular direction without any physical movement.</p>
+<p>e.g. This set of dipole delays</p>
+<pre><code class="language-plaintext"> 6  4  2  0
+ 8  6  4  2
+10  8  6  4
+12 10  8  6
+</code></pre>
+<p>has the North-East-most (top-right) dipole not being delayed, whereas all others
+are delayed by some amount. See <a href="https://wiki.mwatelescope.org/pages/viewpage.action?pageId=48005139">this
+page</a> for
+more info on dipole ordering.</p>
+<p>Dipole delays are usually provided by <a href="defs/mwa/metafits.html">metafits</a> files, but can
+also be supplied by command line arguments, e.g.</p>
+<pre><code class="language-shell">--delays 6 4 2 0 8 6 4 2 10 8 6 4 12 10 8 6
+</code></pre>
+<p>would correspond to the example above. Note that these user-supplied delays will
+override delays that are otherwise provided.</p>
+<p>Dipoles cannot be delayed by more than "31". "32" is code for <a href="defs/mwa/dead_dipoles.html">"dead
+dipole"</a>, which means that these dipoles should not be used
+when modelling a tile's response.</p>
+<h2 id="ideal-dipole-delays"><a class="header" href="#ideal-dipole-delays">Ideal dipole delays</a></h2>
+<p>Most (all?) MWA observations use a single set of delays for all tiles. Dipole
+delays are listed in two ways in a metafits file:</p>
+<ul>
+<li>In the <code>DELAYS</code> key in HDU 1; and</li>
+<li>For each tile in HDU 2.</li>
+</ul>
+<p>The delays in HDU 1 are referred to as "ideal" dipole delays. A set of delays
+are not ideal if any are "32" (i.e. dead).</p>
+<p>However, the HDU 1 delays may all be "32". This is an indication from the
+observatory that this observation is "bad" and should not be used. <code>hyperdrive</code>
+will proceed with such observations but issue a warning. In this case, the ideal
+delays are obtained by iterating over all tile delays until each delay is not
+32.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="dead-dipoles-1"><a class="header" href="#dead-dipoles-1">Dead dipoles</a></h1>
+<p>Each MWA tile has 16 "bowties", and each bowtie is made up of two dipoles (one
+X, one Y). We refer to a "dead" dipole as one that is not functioning correctly
+(hopefully not receiving any power at all). This information is used in
+generating beam responses as part of modelling visibilities. The more accurate
+the visibilities, the better that calibration performs, so it is important to
+account for dead dipoles if possible.</p>
+<p>Beam responses are generated with
+<a href="https://github.com/MWATelescope/mwa_hyperbeam"><code>hyperbeam</code></a> and dead dipole
+information is encoded as a "dipole gain" of 1 ("alive") or 0 ("dead"). It is
+possible to supply other values for dipole gains with a "DipAmps" column; see
+the <a href="defs/mwa/metafits.html">metafits page</a>.</p>
+<p>For the relevant functions, dead dipole information can be ignored by supplying
+a flag <code>--unity-dipole-gains</code>. This sets all dipole gains to 1.</p>
+<p>At the time of writing, dead dipole information is <em>only</em> supplied by a
+<a href="defs/mwa/metafits.html">metafits file</a>.</p>
+<p>See <a href="https://wiki.mwatelescope.org/pages/viewpage.action?pageId=48005139">this
+page</a> for
+more info on dipole ordering.</p>
+<p>In the image below, you can see the 12th Y dipole is dead for "Tile022". All
+other dipoles are "alive".</p>
+<p><img src="defs/mwa/dead_dipoles.jpg" alt="" /></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="mwaf-flag-files"><a class="header" href="#mwaf-flag-files">mwaf flag files</a></h1>
+<p><code>mwaf</code> files indicate what visibilities should be flagged, and should be made
+with <a href="https://github.com/MWATelescope/Birli"><code>Birli</code></a> (which uses
+<a href="https://gitlab.com/aroffringa/aoflagger"><code>AOFlagger</code></a>). They aren't necessary,
+but may improve things by removing radio-frequency interference. An example of
+producing them is:</p>
+<pre><code class="language-shell">birli *gpubox*.fits -m *.metafits -f birli_flag_%%.mwaf
+</code></pre>
+<p>At the time of writing, <code>hyperdrive</code> only utilises <code>mwaf</code> files when reading
+visibilities from raw data.</p>
+<div id="admonition-cotter-produced-mwaf-files" class="admonition admonish-danger">
+<div class="admonition-title">
+<p>cotter-produced mwaf files</p>
+<p><a class="admonition-anchor-link" href="defs/mwa/mwaf.html#admonition-cotter-produced-mwaf-files"></a></p>
+</div>
+<div>
+<p><code>cotter</code>-produced <code>mwaf</code> files are unreliable because</p>
+<ol>
+<li>The start time of the flags is not written; and</li>
+<li>The number of timesteps per mwaf file can vary, further confusing things.</li>
+</ol>
+<p>Many MWA observations have pre-generated <code>mwaf</code> files that are stored in the
+archive. These should be ignored and <code>mwaf</code> files should be made with <code>Birli</code>,
+versions 0.7.0 or greater.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="raw-data-corrections"><a class="header" href="#raw-data-corrections">Raw data corrections</a></h1>
+<p>A number of things can be done to "correct" or "pre-process" raw MWA data before
+it is ready for calibration (or other analysis). These tasks are handled by
+<a href="https://github.com/MWATelescope/Birli"><code>Birli</code></a>, either as the <code>Birli</code>
+executable itself, or internally in <code>hyperdrive</code>.
+<a href="https://github.com/MWATelescope/cotter"><code>cotter</code></a> used to perform these tasks
+but it has been superseded by <code>Birli</code>.</p>
+<div id="admonition-geometric-correction-aka-phase-tracking" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Geometric correction (a.k.a. phase tracking)</p>
+<p><a class="admonition-anchor-link" href="defs/mwa/corrections.html#admonition-geometric-correction-aka-phase-tracking"></a></p>
+</div>
+<div>
+<p>Many MWA observations do not apply a geometric correction despite having a
+desired phase centre. This correction applies</p>
+<p>\[ e^{-2 \pi i w_f / \lambda} \]</p>
+<p>to each visibility; note the dependence on baseline \( w \) and frequency.</p>
+<p>Not performing the geometric correction can have a dramatically adverse effect
+on calibration!</p>
+</div>
+</div>
+<div id="admonition-pfb-gains" class="admonition admonish-info">
+<div class="admonition-title">
+<p>PFB gains</p>
+<p><a class="admonition-anchor-link" href="defs/mwa/corrections.html#admonition-pfb-gains"></a></p>
+</div>
+<div>
+<p>The poly-phase filter bank used by the MWA affects visibilities before they get
+saved to disk. Over time, a number of "flavours" of these gains have been used:</p>
+<ul>
+<li>"Jake Jones" (<code>jake</code>; 200 Hz)</li>
+<li>"Jake Jones (oversampled)" (<code>jake_oversampled</code>; 200 Hz, oversampled; Birli ≥ 0.18)</li>
+<li>"cotter 2014" (<code>cotter2014</code>; 10 kHz)</li>
+<li>"RTS empirical" (<code>empirical</code>; 40 kHz)</li>
+<li>"Alan Levine" (<code>levine</code>; 40 kHz)</li>
+</ul>
+<p>When correcting raw data, the "Jake Jones" gains are used by default.
+For Phase 3 data oversampled data, use <code>--pfb-flavour jake_oversampled</code>. For each
+flavour, the first item in the parentheses (e.g. <code>cotter2014</code>) indicates what
+should be supplied to <code>hyperdrive</code> if you want to use those gains instead. There
+is also a <code>none</code> "flavour" if you want to disable PFB gain correction.</p>
+<p>In CHJ's experience, using different flavours have very little effect on
+calibration quality.</p>
+<p>Some more information on the PFB can be found
+<a href="https://wiki.mwatelescope.org/display/MP/RRI+Receiver+PFB+Filter">here</a>.</p>
+</div>
+</div>
+<div id="admonition-cable-lengths" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Cable lengths</p>
+<p><a class="admonition-anchor-link" href="defs/mwa/corrections.html#admonition-cable-lengths"></a></p>
+</div>
+<div>
+<p>Each tile is connected by a cable, and that cable might have a different length
+to others. This correction aims to better align the signals of each tile.</p>
+</div>
+</div>
+<div id="admonition-digital-gains" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Digital gains</p>
+<p><a class="admonition-anchor-link" href="defs/mwa/corrections.html#admonition-digital-gains"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">todo!()
+</code></pre>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="picket-fence-observations"><a class="header" href="#picket-fence-observations">Picket fence observations</a></h1>
+<p>A "picket fence" observation contains more than one "spectral window" (or
+"SPW"). That is, not all the frequency channels in an observation are
+continuous; there's at least one gap somewhere.</p>
+<p><code>hyperdrive</code> does not currently support picket fence observations, but it will
+eventually support them properly. <em>However</em>, it is possible to calibrate a
+single SPW of a picket fence obs. with <code>hyperdrive</code>; e.g. MWA observation
+<a href="https://ws.mwatelescope.org/observation/obs/?obs_id=1329828184">1329828184</a> has
+12 SPWs. If all 24 raw data files are given to <code>hyperdrive</code>, it will refuse to
+interact with the data. But, if you supply one of the SPWs, e.g. coarse channels
+62 and 63, <code>hyperdrive</code> will calibrate and provide solutions for the provided
+channels, i.e.</p>
+<pre><code class="language-shell">hyperdrive di-calibrate \
+    -d *ch{062,063}*.fits *.metafits \
+    -s srclist_pumav3_EoR0aegean_EoR1pietro+ForA_phase1+2_TGSSgalactic.txt \
+    -n 100 \
+    -o hyp_sols.fits
+</code></pre>
+<p>For this example, the output contains solutions for 256 channels, and only one
+channel did not converge.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="mwalib"><a class="header" href="#mwalib"><code>mwalib</code></a></h1>
+<p><a href="https://github.com/MWATelescope/mwalib"><code>mwalib</code></a> is the official MWA
+raw-data-reading library. <code>hyperdrive</code> users usually don't need to concern
+themselves with it, but <code>mwalib</code> errors may arise.</p>
+<p><code>mwalib</code> can be quite noisy with log messages (particularly at the "trace"
+level); it is possible to suppress these messages by setting an environment
+variable:</p>
+<pre><code class="language-shell">RUST_LOG=mwalib=error
+</code></pre>
+<h2 id="errors"><a class="header" href="#errors">Errors</a></h2>
+<h3 id="missing-a-key-in-the-metafits-file"><a class="header" href="#missing-a-key-in-the-metafits-file">Missing a key in the metafits file</a></h3>
+<p><code>mwalib</code> does not support PPD metafits files; only new metafits files should be
+used. See the <a href="defs/mwa/metafits.html">metafits</a> page for more info.</p>
+<h3 id="others"><a class="header" href="#others">Others</a></h3>
+<p>Hopefully the error message alone is clear enough! Please file a <a href="https://github.com/MWATelescope/mwa_hyperdrive/issues">GitHub
+issue</a> if something is
+confusing.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="sky-model-source-lists"><a class="header" href="#sky-model-source-lists">Sky-model source lists</a></h1>
+<p><code>hyperdrive</code> performs sky-model calibration. Sky-model source lists describe
+what the sky looks like, and the closer the sky model matches the data to be
+calibrated, the better the calibration quality.</p>
+<p>A sky-model source list is composed of many sources, and each source is composed
+of at least one component. Each component has a position, a component type and a
+flux-density type. Within the code, a source list is a tree structure
+associating a source name to a collection of components.</p>
+<p>Source list file formats have historically been bespoke. In line with
+<code>hyperdrive</code>'s goals, <code>hyperdrive</code> will read many source list formats, but also
+presents its own preferred format (which has no limitations within this
+software). Each supported format is detailed on the following documentation
+pages.</p>
+<p><code>hyperdrive</code> can also convert between formats, although in a "lossy" way;
+non-<code>hyperdrive</code> formats cannot represent all component and/or flux-density
+types.</p>
+<div id="admonition-supported-formats" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Supported formats</p>
+<p><a class="admonition-anchor-link" href="defs/source_lists.html#admonition-supported-formats"></a></p>
+</div>
+<div>
+<ul>
+<li><a href="defs/source_list_hyperdrive.html"><code>hyperdrive</code> format</a></li>
+<li><a href="defs/source_list_ao.html">André Offringa (<code>ao</code>) format</a></li>
+<li><a href="defs/source_list_rts.html"><code>RTS</code> format</a></li>
+<li><a href="defs/source_list_fits.html">Jack, Gleam or LoBES style fits</a></li>
+</ul>
+</div>
+</div>
+<div id="admonition-conversion" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Conversion</p>
+<p><a class="admonition-anchor-link" href="defs/source_lists.html#admonition-conversion"></a></p>
+</div>
+<div>
+<p><code>hyperdrive</code> can convert (as best it can) between different source list formats.
+<code>hyperdrive srclist-convert</code> takes the path to input file, and the path to the
+output file to be written. If it isn't specified, the type of the input file
+will be guessed. Depending on the output file name, the output source list type
+may need to be specified.</p>
+</div>
+</div>
+<div id="admonition-verification" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Verification</p>
+<p><a class="admonition-anchor-link" href="defs/source_lists.html#admonition-verification"></a></p>
+</div>
+<div>
+<p><code>hyperdrive</code> can be given many source lists in order to test that they are
+correctly read. For each input file, <code>hyperdrive srclist-verify</code> will print out
+what kind of source list the file represents (i.e. <code>hyperdrive</code>, <code>ao</code>, <code>rts</code>,
+...) as well as how many sources and components are within the file.</p>
+</div>
+</div>
+<div id="admonition-component-types" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Component types</p>
+<p><a class="admonition-anchor-link" href="defs/source_lists.html#admonition-component-types"></a></p>
+</div>
+<div>
+<p>Each component in a sky model is represented in one of three ways:</p>
+<ul>
+<li>point source</li>
+<li>Gaussian</li>
+<li>shapelet</li>
+</ul>
+<p>Point sources are the simplest. Gaussian sources could be considered the same as
+point sources, but have details on their structure (major- and minor-axes,
+position angle). Finally, shapelets are described the same way as Gaussians but
+additionally have multiple "shapelet components". Examples of each of these
+components can be found on the following documentation pages and in the <a href="https://github.com/MWATelescope/mwa_hyperdrive/tree/main/examples">examples
+directory</a>.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="flux-density-types"><a class="header" href="#flux-density-types">Flux-density types</a></h1>
+<p>This page describes supported flux-density types within <code>hyperdrive</code>. The
+following pages detail their usage within sky-model source lists. <a href="defs/modelling/estimating.html">This
+page</a> details how each type is estimated in modelling.</p>
+<div id="admonition-power-laws-and-curved-power-laws" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Power laws and Curved power laws</p>
+<p><a class="admonition-anchor-link" href="defs/fd_types.html#admonition-power-laws-and-curved-power-laws"></a></p>
+</div>
+<div>
+<p>Most astrophysical sources are modelled as power laws. These are simply
+described by a reference Stokes \( \text{I} \), \( \text{Q} \), \( \text{U}
+\) and \( \text{V} \) flux density at a frequency \( \nu \) alongside a
+spectral index \( \alpha \).</p>
+<p>Curved power laws are formalised in Section 4.1 of <a href="https://ui.adsabs.harvard.edu/abs/2017ApJ...836..174C/abstract">Callingham et al.
+2017</a>. These are
+the same as power laws but with an additional "spectral curvature" parameter \(
+q \).</p>
+<p>Both kinds of power law flux-density representations are preferred in
+<code>hyperdrive</code>.</p>
+</div>
+</div>
+<div id="admonition-flux-density-lists" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Flux density lists</p>
+<p><a class="admonition-anchor-link" href="defs/fd_types.html#admonition-flux-density-lists"></a></p>
+</div>
+<div>
+<p>The list type is simply many instances of a Stokes \( \text{I} \), \(
+\text{Q} \), \( \text{U} \) and \( \text{V} \) value at a frequency.
+Example: this source (in the <a href="defs/source_list_rts.html">RTS</a> style) has 3 defined
+frequencies for flux densities:</p>
+<pre><code class="language-plaintext">SOURCE J161720+151943 16.2889374 15.32883
+FREQ 80.0e+6 1.45351 0 0 0
+FREQ 100.0e+6 1.23465 0 0 0
+FREQ 120.0e+6 1.07389 0 0 0
+ENDSOURCE
+</code></pre>
+<p>In this case, Stokes \( \text{Q} \), \( \text{U} \) and \( \text{V} \) are
+all 0 (this is typical), but Stokes \( \text{I} \) is 1.45351 Jy at 80 MHz,
+1.23465 Jy at 100 MHz and 1.07389 Jy at 120 MHz. This information can be used to
+estimate flux densities within the defined frequencies (\( 80 &lt;=
+\nu_{\text{MHz}} &lt;= 120 \); interpolation) or outside the range (\(
+\nu_{\text{MHz}} &lt; 80 \) or \( \nu_{\text{MHz}} &gt; 120 \); extrapolation).</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-hyperdrive-source-list-format"><a class="header" href="#the-hyperdrive-source-list-format">The <code>hyperdrive</code> source list format</a></h1>
+<p>Coordinates are right ascension (RA) and declination, both with units of degrees
+in the J2000 epoch. All frequencies are in Hz and all flux densities are in Jy.</p>
+<p>All Gaussian and shapelet sizes are in arcsec, but their position angles are in
+degrees. In an image space where RA increases from right to left (i.e. bigger RA
+values are on the left), position angles rotate counter clockwise. A
+position angle of 0 has the major axis aligned with the declination axis.</p>
+<p><code>hyperdrive</code>-style source lists can be read from and written to either the
+<a href="https://yaml.org/">YAML</a> or <a href="https://www.json.org/json-en.html">JSON</a> file
+formats (YAML preferred). Example Python code to read and write these files is
+in the <a href="https://github.com/MWATelescope/mwa_hyperdrive/tree/main/examples">examples
+directory</a>.</p>
+<p>As most sky-models only include Stokes I, Stokes Q, U and V are not required to
+be specified. If they are not specified, they are assumed to have values of 0.</p>
+<div id="admonition-yaml-example" class="admonition admonish-example">
+<div class="admonition-title">
+<p>YAML example</p>
+<p><a class="admonition-anchor-link" href="defs/source_list_hyperdrive.html#admonition-yaml-example"></a></p>
+</div>
+<div>
+<p>The following are the contents of a valid YAML file. <code>super_sweet_source1</code> is a
+single-component point source with a list-type flux density.
+<code>super_sweet_source2</code> has two components: one Gaussian with a power law, and a
+shapelet with a curved power law.</p>
+<pre><code class="language-yaml">super_sweet_source1:
+- ra: 10.0
+  dec: -27.0
+  comp_type: point
+  flux_type:
+    list:
+    - freq: 150000000.0
+      i: 10.0
+    - freq: 170000000.0
+      i: 5.0
+      q: 1.0
+      u: 2.0
+      v: 3.0
+super_sweet_source2:
+- ra: 0.0
+  dec: -35.0
+  comp_type:
+    gaussian:
+      maj: 20.0
+      min: 10.0
+      pa: 75.0
+  flux_type:
+    power_law:
+      si: -0.8
+      fd:
+        freq: 170000000.0
+        i: 5.0
+        q: 1.0
+        u: 2.0
+        v: 3.0
+- ra: 155.0
+  dec: -10.0
+  comp_type:
+    shapelet:
+      maj: 20.0
+      min: 10.0
+      pa: 75.0
+      coeffs:
+      - n1: 0
+        n2: 1
+        value: 0.5
+  flux_type:
+    curved_power_law:
+      si: -0.6
+      fd:
+        freq: 150000000.0
+        i: 50.0
+        q: 0.5
+        u: 0.1
+      q: 0.2
+</code></pre>
+</div>
+</div>
+<div id="admonition-json-example" class="admonition admonish-example">
+<div class="admonition-title">
+<p>JSON example</p>
+<p><a class="admonition-anchor-link" href="defs/source_list_hyperdrive.html#admonition-json-example"></a></p>
+</div>
+<div>
+<p>The following are the contents of a valid JSON file. <code>super_sweet_source1</code> is a
+single-component point source with a list-type flux density.
+<code>super_sweet_source2</code> has two components: one Gaussian with a power law, and a
+shapelet with a curved power law.</p>
+<pre><code class="language-json">{
+  "super_sweet_source1": [
+    {
+      "ra": 10.0,
+      "dec": -27.0,
+      "comp_type": "point",
+      "flux_type": {
+        "list": [
+          {
+            "freq": 150000000.0,
+            "i": 10.0
+          },
+          {
+            "freq": 170000000.0,
+            "i": 5.0,
+            "q": 1.0,
+            "u": 2.0,
+            "v": 3.0
+          }
+        ]
+      }
+    }
+  ],
+  "super_sweet_source2": [
+    {
+      "ra": 0.0,
+      "dec": -35.0,
+      "comp_type": {
+        "gaussian": {
+          "maj": 20.0,
+          "min": 10.0,
+          "pa": 75.0
+        }
+      },
+      "flux_type": {
+        "power_law": {
+          "si": -0.8,
+          "fd": {
+            "freq": 170000000.0,
+            "i": 5.0,
+            "q": 1.0,
+            "u": 2.0,
+            "v": 3.0
+          }
+        }
+      }
+    },
+    {
+      "ra": 155.0,
+      "dec": -10.0,
+      "comp_type": {
+        "shapelet": {
+          "maj": 20.0,
+          "min": 10.0,
+          "pa": 75.0,
+          "coeffs": [
+            {
+              "n1": 0,
+              "n2": 1,
+              "value": 0.5
+            }
+          ]
+        }
+      },
+      "flux_type": {
+        "curved_power_law": {
+          "si": -0.6,
+          "fd": {
+            "freq": 150000000.0,
+            "i": 50.0,
+            "q": 0.5,
+            "u": 0.1
+          },
+          "q": 0.2
+        }
+      }
+    }
+  ]
+}
+</code></pre>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-andré-offringa-ao-source-list-format"><a class="header" href="#the-andré-offringa-ao-source-list-format">The André Offringa (<code>ao</code>) source list format</a></h1>
+<p>This format is used by <code>calibrate</code> within <code>mwa-reduce</code> (closed-source code).</p>
+<p>RA is in decimal hours (0 to 24) and Dec is in degrees in the J2000 epoch, but
+sexagesimal formatted. All frequencies and flux densities have their units
+annotated (although these appear to only be MHz and Jy, respectively).</p>
+<p>Point and Gaussian components are supported, but not shapelets. All Gaussian
+sizes are in arcsec, but their position angles are in degrees. In an image space
+where RA increases from right to left (i.e. bigger RA values are on the left),
+position angles rotate counter clockwise. A
+position angle of 0 has the major axis aligned with the declination axis.</p>
+<p>Flux densities must be specified in the power law or "list" style (i.e. curved
+power laws are not supported).</p>
+<p>Source names are allowed to have spaces inside them, because the names are
+surrounded by quotes. This is fine for reading, but when converting one of these
+sources to another format, the spaces need to be translated to underscores.</p>
+<div id="admonition-example" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Example</p>
+<p><a class="admonition-anchor-link" href="defs/source_list_ao.html#admonition-example"></a></p>
+</div>
+<div>
+<pre><code class="language-plaintext">skymodel fileformat 1.1
+source {
+  name "J002549-260211"
+  component {
+    type point
+    position 0h25m49.2s -26d02m13s
+    measurement {
+      frequency 80 MHz
+      fluxdensity Jy 15.83 0 0 0
+    }
+    measurement {
+      frequency 100 MHz
+      fluxdensity Jy 16.77 0 0 0
+    }
+  }
+}
+source {
+  name "COM000338-1517"
+  component {
+    type gaussian
+    position 0h03m38.7844s -15d17m09.7338s
+    shape 89.05978540785397 61.79359416237104 89.07023307815388
+    sed {
+      frequency 160 MHz
+      fluxdensity Jy 0.3276758375536325 0 0 0
+      spectral-index { -0.9578697792073567 0.00 }
+    }
+  }
+}
+</code></pre>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-rts-source-list-format"><a class="header" href="#the-rts-source-list-format">The <code>RTS</code> source list format</a></h1>
+<p>Coordinates are right ascension and declination, which have units of decimal
+hours (i.e. 0 - 24) and degrees, respectively. All frequencies are in Hz, and
+all flux densities are in Jy.</p>
+<p>Gaussian and shapelet sizes are specified in arcminutes, whereas position angles
+are in degrees. In an image space where RA increases from right to left (i.e.
+bigger RA values are on the left), position angles rotate counter clockwise. A
+position angle of 0 has the major axis aligned with the declination axis.</p>
+<p>All flux densities are specified in the "list" style (i.e. power laws and curved
+power laws are not supported).</p>
+<p>Keywords like <code>SOURCE</code>, <code>COMPONENT</code>, <code>POINT</code> etc. must be at the start of a line
+(i.e. no preceding space).</p>
+<p>RTS sources always have a "base source", which can be thought of as a
+non-optional component or the first component in a collection of components.</p>
+<div id="admonition-example" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Example</p>
+<p><a class="admonition-anchor-link" href="defs/source_list_rts.html#admonition-example"></a></p>
+</div>
+<div>
+<p>Taken from <a href="https://github.com/JLBLine/srclists">srclists</a>, file
+<code>srclist_pumav3_EoR0aegean_fixedEoR1pietro+ForA_phase1+2.txt</code>.</p>
+<p>Single-component point source:</p>
+<pre><code class="language-plaintext">SOURCE J161720+151943 16.2889374 15.32883
+FREQ 80.0e+6 1.45351 0 0 0
+FREQ 100.0e+6 1.23465 0 0 0
+FREQ 120.0e+6 1.07389 0 0 0
+FREQ 140.0e+6 0.95029 0 0 0
+FREQ 160.0e+6 0.85205 0 0 0
+FREQ 180.0e+6 0.77196 0 0 0
+FREQ 200.0e+6 0.70533 0 0 0
+FREQ 220.0e+6 0.64898 0 0 0
+FREQ 240.0e+6 0.60069 0 0 0
+ENDSOURCE
+</code></pre>
+<p>Two component Gaussian source:</p>
+<pre><code class="language-plaintext">SOURCE EXT035221-3330 3.8722900 -33.51040
+FREQ 150.0e+6 0.34071 0 0 0
+FREQ 170.0e+6 0.30189 0 0 0
+FREQ 190.0e+6 0.27159 0 0 0
+FREQ 210.0e+6 0.24726 0 0 0
+GAUSSIAN 177.89089 1.419894937734689 0.9939397975299238
+COMPONENT 3.87266 -33.52005
+FREQ 150.0e+6 0.11400 0 0 0
+FREQ 170.0e+6 0.10101 0 0 0
+FREQ 190.0e+6 0.09087 0 0 0
+FREQ 210.0e+6 0.08273 0 0 0
+GAUSSIAN 2.17287 1.5198465761214996 0.9715267232520484
+ENDCOMPONENT
+ENDSOURCE
+</code></pre>
+<p>Single component shapelet source (truncated):</p>
+<pre><code class="language-plaintext">SOURCE FornaxA 3.3992560 -37.27733
+FREQ 185.0e+6 209.81459 0 0 0
+SHAPELET2 68.70984356 3.75 4.0
+COEFF 0.0 0.0 0.099731291104
+COEFF 0.0 1.0 0.002170910745
+COEFF 0.0 2.0 0.078201040179
+COEFF 0.0 3.0 0.000766942939
+ENDSOURCE
+</code></pre>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="fits-source-list-formats"><a class="header" href="#fits-source-list-formats">FITS source list formats</a></h1>
+<p>There are three supported fits file formats:</p>
+<ul>
+<li>LoBES: used in LoBES catalogue <a href="https://doi.org/10.1017/pasa.2021.50">https://doi.org/10.1017/pasa.2021.50</a></li>
+<li>Jack: extended LoBES format for Jack Line's sourcelist repository, <a href="https://github.com/JLBLine/srclists/">https://github.com/JLBLine/srclists/</a>.</li>
+<li>Gleam: used in GLEAM-X pipeline <a href="https://github.com/GLEAM-X/GLEAM-X-pipeline/tree/master/models">https://github.com/GLEAM-X/GLEAM-X-pipeline/tree/master/models</a></li>
+</ul>
+<p>These formats differ mostly in the names of columns, and component and flux types
+supported. <em>LoBES</em> fits files support point, and Gaussian components with list,
+power law and curved power law flux density models. <em>Jack</em> fits files extend the
+LoBES format with an additional table for shapelet coefficients. <em>Gleam</em> fits are
+similar to LoBES fits, but with different column names, and combine power law and
+curved power law flux density models into a just two columns.</p>
+<p>More info from <a href="https://woden.readthedocs.io/en/latest/operating_principles/skymodel.html">woden docs</a></p>
+<h2 id="source-posititons"><a class="header" href="#source-posititons">Source posititons</a></h2>
+<p>Coordinates are right ascension (RA) and declination, both with units of degrees
+in the J2000 epoch. All frequencies are in Hz and all flux densities are in Jy.</p>
+<p>Jack and LoBES fits formats use the columns <code>RA</code> and <code>DEC</code> for source positions,
+while Gleam fits files use <code>RAJ2000</code> and <code>DEJ2000</code>.</p>
+<h2 id="component-types"><a class="header" href="#component-types">Component types</a></h2>
+<p>Jack and LoBES fits formats use the column <code>COMP_TYPE</code> for component types:</p>
+<ul>
+<li><code>P</code> for point</li>
+<li><code>G</code> for Gaussian</li>
+<li><code>S</code> for shapelet (Jack only)</li>
+</ul>
+<p>Jack and LoBES fits formats use the columns <code>MAJOR_DC</code>, <code>MINOR_DC</code> and <code>PA_DC</code>
+for Gaussian component sizes and position angles (in degrees), while Gleam
+fits files use <code>a</code>, <code>b</code> (arcseconds) and <code>pa</code> (degrees).</p>
+<p>In an image space where RA increases from right to left (i.e. bigger RA
+values are on the left), position angles rotate counter clockwise. A
+position angle of 0 has the major axis aligned with the declination axis.</p>
+<h2 id="flux-density-models"><a class="header" href="#flux-density-models">Flux density models</a></h2>
+<p>Jack and LoBES fits formats use the column <code>MOD_TYPE</code> for flux density types:</p>
+<ul>
+<li><code>pl</code> for power law</li>
+<li><code>cpl</code> for curved power law</li>
+<li><code>nan</code> for lists</li>
+</ul>
+<p>Jack and LoBES fits formats use the columns <code>NORM_COMP_PL</code> and <code>ALPHA_PL</code> for
+power law flux density normalisation and spectral index; and <code>NORM_COMP_CPL</code>,
+<code>ALPHA_CPL</code> and <code>CURVE_CPL</code> for curved power law flux density normalisation,
+while Gleam fits files use <code>S_200</code>, <code>alpha</code> and <code>beta</code>.</p>
+<p>A reference frequency of 200MHz is assumed in all fits files.</p>
+<p>Jack and LoBES fits formats use the columns <code>INT_FLXnnn</code> for integrated flux
+densities in Jy at frequencies <code>nnn</code> MHz, while Gleam fits files use only <code>s_200</code>.
+These columns are used to construct flux lists if power law information is
+missing, or <code>MOD_TYPE</code> is <code>nan</code>.</p>
+<p>Only Stokes I can be specified in fits sourcelists, Stokes Q, U and V are
+assumed to have values of 0.</p>
+<h2 id="examples-2"><a class="header" href="#examples-2">Examples</a></h2>
+<p>Example Python code to display these files is in the <a href="https://github.com/MWATelescope/mwa_hyperdrive/tree/main/examples">examples
+directory</a>.</p>
+<p>e.g. <code>python examples/read_fits_srclist.py test_files/jack.fits</code></p>
+<div class="table-wrapper"><table><thead><tr><th>UNQ_SOURCE_ID</th><th>NAME</th><th>RA</th><th>DEC</th><th>INT_FLX100</th><th>INT_FLX150</th><th>INT_FLX200</th><th>MAJOR_DC</th><th>MINOR_DC</th><th>PA_DC</th><th>MOD_TYPE</th><th>COMP_TYPE</th><th>NORM_COMP_PL</th><th>ALPHA_PL</th><th>NORM_COMP_CPL</th><th>ALPHA_CPL</th><th>CURVE_CPL</th></tr></thead><tbody>
+<tr><td>point-list</td><td>point-list_C0</td><td>0</td><td>1</td><td>3</td><td>2</td><td>1</td><td>0</td><td>0</td><td>0</td><td>nan</td><td>P</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>point-pl</td><td>point-pl_C0</td><td>1</td><td>2</td><td>3.5</td><td>2.5</td><td>2</td><td>0</td><td>0</td><td>0</td><td>pl</td><td>P</td><td>2</td><td>-0.8</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>point-cpl</td><td>point-cpl_C0</td><td>3</td><td>4</td><td>5.6</td><td>3.8</td><td>3</td><td>0</td><td>0</td><td>0</td><td>cpl</td><td>P</td><td>0</td><td>0</td><td>3</td><td>-0.9</td><td>0.2</td></tr>
+<tr><td>gauss-list</td><td>gauss-list_C0</td><td>0</td><td>1</td><td>3</td><td>2</td><td>1</td><td>20</td><td>10</td><td>75</td><td>nan</td><td>G</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>gauss-pl</td><td>gauss-pl_C0</td><td>1</td><td>2</td><td>3.5</td><td>2.5</td><td>2</td><td>20</td><td>10</td><td>75</td><td>pl</td><td>G</td><td>2</td><td>-0.8</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>gauss-cpl</td><td>gauss-cpl_C0</td><td>3</td><td>4</td><td>5.6</td><td>3.8</td><td>3</td><td>20</td><td>10</td><td>75</td><td>cpl</td><td>G</td><td>0</td><td>0</td><td>3</td><td>-0.9</td><td>0.2</td></tr>
+<tr><td>shape-pl</td><td>shape-pl_C0</td><td>1</td><td>2</td><td>3.5</td><td>2.5</td><td>2</td><td>20</td><td>10</td><td>75</td><td>pl</td><td>S</td><td>2</td><td>-0.8</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>shape-pl</td><td>shape-pl_C1</td><td>1</td><td>2</td><td>3.5</td><td>2.5</td><td>2</td><td>20</td><td>10</td><td>75</td><td>pl</td><td>S</td><td>2</td><td>-0.8</td><td>0</td><td>0</td><td>0</td></tr>
+</tbody></table>
+</div><div class="table-wrapper"><table><thead><tr><th>NAME</th><th>N1</th><th>N2</th><th>COEFF</th></tr></thead><tbody>
+<tr><td>shape-pl_C0</td><td>0</td><td>0</td><td>0.9</td></tr>
+<tr><td>shape-pl_C0</td><td>0</td><td>1</td><td>0.2</td></tr>
+<tr><td>shape-pl_C0</td><td>1</td><td>0</td><td>-0.2</td></tr>
+<tr><td>shape-pl_C1</td><td>0</td><td>0</td><td>0.8</td></tr>
+</tbody></table>
+</div>
+<p>e.g. <code>python examples/read_fits_srclist.py test_files/gleam.fits</code></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>RAJ2000</th><th>DEJ2000</th><th>S_200</th><th>alpha</th><th>beta</th><th>a</th><th>b</th><th>pa</th></tr></thead><tbody>
+<tr><td>point-pl</td><td>1</td><td>2</td><td>2</td><td>-0.8</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>point-cpl</td><td>3</td><td>4</td><td>3</td><td>-0.9</td><td>0.2</td><td>0</td><td>0</td><td>0</td></tr>
+<tr><td>gauss-pl</td><td>1</td><td>2</td><td>2</td><td>-0.8</td><td>0</td><td>72000</td><td>36000</td><td>75</td></tr>
+<tr><td>gauss-cpl</td><td>3</td><td>4</td><td>3</td><td>-0.9</td><td>0.2</td><td>72000</td><td>36000</td><td>75</td></tr>
+</tbody></table>
+</div>
+<p>these are both equivalent to the following YAML file (ignoring shapelets and
+lists for the gleam example):</p>
+<pre><code class="language-yaml">point-list:
+- ra: 0.0
+  dec: 1.0
+  comp_type: point
+  flux_type:
+    list:
+    - freq: 100000000.0
+      i: 3.0
+    - freq: 150000000.0
+      i: 2.0
+    - freq: 200000000.0
+      i: 1.0
+point-pl:
+- ra: 1.0
+  dec: 2.0
+  comp_type: point
+  flux_type:
+    power_law:
+      si: -0.8
+      fd:
+        freq: 200000000.0
+        i: 2.0
+point-cpl:
+- ra: 3.0000000000000004
+  dec: 4.0
+  comp_type: point
+  flux_type:
+    curved_power_law:
+      si: -0.9
+      fd:
+        freq: 200000000.0
+        i: 3.0
+      q: 0.2
+gauss-list:
+- ra: 0.0
+  dec: 1.0
+  comp_type:
+    gaussian:
+      maj: 72000.0
+      min: 36000.0
+      pa: 75.0
+  flux_type:
+    list:
+    - freq: 100000000.0
+      i: 3.0
+    - freq: 150000000.0
+      i: 2.0
+    - freq: 200000000.0
+      i: 1.0
+gauss-pl:
+- ra: 1.0
+  dec: 2.0
+  comp_type:
+    gaussian:
+      maj: 72000.0
+      min: 36000.0
+      pa: 75.0
+  flux_type:
+    power_law:
+      si: -0.8
+      fd:
+        freq: 200000000.0
+        i: 2.0
+gauss-cpl:
+- ra: 3.0000000000000004
+  dec: 4.0
+  comp_type:
+    gaussian:
+      maj: 72000.0
+      min: 36000.0
+      pa: 75.0
+  flux_type:
+    curved_power_law:
+      si: -0.9
+      fd:
+        freq: 200000000.0
+        i: 3.0
+      q: 0.2
+shape-pl:
+- ra: 1.0
+  dec: 2.0
+  comp_type:
+    shapelet:
+      maj: 72000.0
+      min: 36000.0
+      pa: 75.0
+      coeffs:
+      - n1: 0
+        n2: 0
+        value: 0.9
+      - n1: 0
+        n2: 1
+        value: 0.2
+      - n1: 1
+        n2: 0
+        value: -0.2
+  flux_type:
+    power_law:
+      si: -0.8
+      fd:
+        freq: 200000000.0
+        i: 2.0
+- ra: 1.0
+  dec: 2.0
+  comp_type:
+    shapelet:
+      maj: 72000.0
+      min: 36000.0
+      pa: 75.0
+      coeffs:
+      - n1: 0
+        n2: 0
+        value: 0.8
+  flux_type:
+    power_law:
+      si: -0.8
+      fd:
+        freq: 200000000.0
+        i: 2.0
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="calibration-solutions-file-formats"><a class="header" href="#calibration-solutions-file-formats">Calibration solutions file formats</a></h1>
+<p>Calibration solutions are Jones matrices that, when applied to raw data,
+"calibrate" the visibilities.</p>
+<p><code>hyperdrive</code> can convert between supported formats (see <code>solutions-convert</code>).
+Soon it will also be able to apply them (but users can write out calibrated
+visibilities as part of <code>di-calibrate</code>).</p>
+<ul>
+<li><a href="defs/cal_sols_hyp.html"><code>hyperdrive</code> format</a></li>
+<li><a href="defs/cal_sols_ao.html">André Offringa (<code>ao</code>) format</a></li>
+<li><a href="defs/cal_sols_rts.html"><code>RTS</code> format</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-hyperdrive-calibration-solutions-format"><a class="header" href="#the-hyperdrive-calibration-solutions-format">The <code>hyperdrive</code> calibration solutions format</a></h1>
+<p>Jones matrices are stored in a <code>fits</code> file as an "image" with 4 dimensions
+(timeblock, tile, chanblock, float, in that order) in the "SOLUTIONS" HDU (which
+is the second HDU). An element of the solutions is a 64-bit float (a.k.a.
+double-precision float). The last dimension always has a length of 8; these
+correspond to the complex gains of the X dipoles (\( g_x \)), the leakage of
+the X dipoles (\( D_x \)), then the leakage of the Y dipoles (\( D_y \)) and
+the gains of the Y dipoles (\( g_y \)); these form a complex 2x2 Jones matrix:</p>
+<p>\[ \begin{pmatrix} g_x &amp; D_x \\ D_y &amp; g_y \end{pmatrix} \]</p>
+<p>Tiles are ordered by antenna number, i.e. the second column in the observation's
+corresponding metafits files labelled "Antenna". Times and frequencies are
+sorted ascendingly.</p>
+<blockquote>
+<p>Note that in the context of the MWA, "antenna" and "tile" are used
+interchangeably.</p>
+</blockquote>
+<h2 id="metadata"><a class="header" href="#metadata">Metadata</a></h2>
+<p>Many metadata keys are stored in HDU 1. All keys (in fact, all metadata) are
+optional.</p>
+<p><code>OBSID</code> describes the MWA observation ID, which is a GPS timestamp.</p>
+<p><code>SOFTWARE</code> reports the software used to write this <code>fits</code> file.</p>
+<p><code>CMDLINE</code> is the command-line call that produced this <code>fits</code> file.</p>
+<h3 id="calibration-specific"><a class="header" href="#calibration-specific">Calibration-specific</a></h3>
+<p><code>MAXITER</code> is the maximum number of iterations allowed for each chanblock's
+convergence.</p>
+<p><code>S_THRESH</code> is the stop threshold of calibration; chanblock iteration ceases once
+its precision is better than this.</p>
+<p><code>M_THRESH</code> is the minimum threshold of calibration; if a chanblock reaches the
+maximum number of iterations while calibrating and this minimum threshold has
+not been reached, we say that the chanblock failed to calibrate.</p>
+<p><code>UVW_MIN</code> and <code>UVW_MAX</code> are the respective minimum and maximum UVW cutoffs in
+metres. Any UVWs below or above these thresholds have baseline weights of 0
+during calibration (meaning they effectively aren't used in calibration).
+<code>UVW_MIN_L</code> and <code>UVW_MAX_L</code> correspond to <code>UVW_MIN</code> and <code>UVW_MAX</code>, but are in
+wavelength units (the <code>L</code> stands for lambda).</p>
+<p>Some MWA beam codes require a file for their calculations. <code>BEAMFILE</code> is the
+path to this file.</p>
+<h3 id="raw-mwa-data-corrections"><a class="header" href="#raw-mwa-data-corrections">Raw MWA data corrections</a></h3>
+<p><code>PFB</code> describes the <a href="defs/mwa/corrections.html#pfb-gains">PFB gains flavour</a> applied to
+the raw MWA data. At the time of writing, this flavour is described as "jake",
+"cotter2014", "empirical", "levine", or "none".</p>
+<p><code>D_GAINS</code> is "Y" if the <a href="defs/../defs/mwa/corrections.html#digital-gains">digital
+gains</a> were applied to the raw MWA
+data. "N" if they were not.</p>
+<p><code>CABLELEN</code> is "Y" if the <a href="defs/../defs/mwa/corrections.html#cable-lengths">cable length
+corrections</a> were applied to the raw
+MWA data. "N" if they were not.</p>
+<p><code>GEOMETRY</code> is "Y" if the <a href="defs/../defs/mwa/corrections.html#geometric-correction-aka-phase-tracking">geometric delay
+correction</a>
+was applied to the raw MWA data. "N" if they were not.</p>
+<h3 id="others-1"><a class="header" href="#others-1">Others</a></h3>
+<p><code>MODELLER</code> describes what was used to generate model visibilities in
+calibration. This is either <code>CPU</code> or details on the CUDA device used, e.g.
+<code>NVIDIA GeForce RTX 2070 (capability 7.5, 7979 MiB), CUDA driver 11.7, runtime 11.7</code>.</p>
+<h2 id="extra-hdus"><a class="header" href="#extra-hdus">Extra HDUs</a></h2>
+<p>More metadata are contained in HDUs other than the first one (that which
+contains the metadata keys described above). Other than the first HDU and the
+"SOLUTIONS" HDU (HDUs 1 and 2, respectfully), <em>all HDUs and their contents are
+optional</em>.</p>
+<h3 id="timeblocks"><a class="header" href="#timeblocks">TIMEBLOCKS</a></h3>
+<p>See <a href="defs/blocks.html">blocks</a> for an explanation of what timeblocks are.</p>
+<p>The "TIMEBLOCKS" HDU is a FITS table with three columns:</p>
+<ol>
+<li><code>Start</code></li>
+<li><code>End</code></li>
+<li><code>Average</code></li>
+</ol>
+<p>Each row represents a calibration timeblock, and there must be the same number
+of rows as there are timeblocks in the calibration solutions (in the "SOLUTIONS"
+HDU). Each of these times is a centroid GPS timestamp.</p>
+<p>It is possible to have one or multiple columns without data; <code>cfitsio</code> will
+write zeros for values, but <code>hyperdrive</code> will ignore columns with all zeros.</p>
+<p>While average times are likely just the median of its corresponding start and
+end times, it need not be so; in this case, it helps to clarify that some
+timesteps in that calibration timeblock were not used. e.g. a start time of 10
+and an end time of 16 probably has an average time of 13, but, if 3 of 4
+timesteps in that timeblock are used, then the average time could be 12.666 or
+13.333.</p>
+<h3 id="tiles"><a class="header" href="#tiles">TILES</a></h3>
+<p>The "TILES" HDU is a FITS table with up to five columns:</p>
+<ol>
+<li><code>Antenna</code></li>
+<li><code>Flag</code></li>
+<li><code>TileName</code></li>
+<li><code>DipoleGains</code></li>
+<li><code>DipoleDelays</code></li>
+</ol>
+<p><code>Antenna</code> is the 0-N antenna index (where N is the total number of antennas in
+the observation). These indices match the "Antenna" column of an <a href="defs/mwa/metafits.html">MWA
+metafits</a> file.</p>
+<p><code>Flag</code> is a boolean indicating whether an antenna was flagged for calibration
+(1) or not (0).</p>
+<p><code>TileName</code> is the... name of the tile. As with <code>Antenna</code>, this should match the
+contents of an MWA metafits file.</p>
+<p><code>DipoleGains</code> contains the dipole gains used for each tile in calibration. There
+are 32 values per tile; the first 16 are for the X dipoles and the second 16 are
+for the Y dipoles. Typically, the values are either 0 (dead dipole) or 1.</p>
+<p><code>DipoleDelays</code> contains the dipole delays used for each tile in calibration.
+There are 16 values per tile.</p>
+<h3 id="chanblocks"><a class="header" href="#chanblocks">CHANBLOCKS</a></h3>
+<p>See <a href="defs/blocks.html">blocks</a> for an explanation of what chanblocks are.</p>
+<p>The "CHANBLOCKS" HDU is a FITS table with up to three columns:</p>
+<ol>
+<li><code>Index</code></li>
+<li><code>Flag</code></li>
+<li><code>Freq</code></li>
+</ol>
+<p><code>Index</code> is the 0-N chanblock index (where N is the total number of chanblocks in
+the observation). Note that this is not necessarily the same as the total number
+of <em>channels</em> in the observation; channels may be averaged before calibration,
+making the number of chanblocks less than the number of channels.</p>
+<p><code>Flag</code> indicates whether calibration was attempted (0) or not (1) on a chanblock
+(boolean).</p>
+<p><code>Freq</code> is the centroid frequency of the chanblock (as a double-precision float).
+If <em>any</em> of the frequencies is an NaN, then <code>hyperdrive</code> will not use the <code>Freq</code>
+column.</p>
+<h3 id="results-calibration-results"><a class="header" href="#results-calibration-results">RESULTS (Calibration results)</a></h3>
+<p>The "RESULTS" HDU is a FITS image with two dimensions -- timeblock and
+chanblock, in that order -- that describe the precision to which a chanblock
+converged for that timeblock (as double-precision floats). If a chanblock was
+flagged, NaN is provided for its precision. NaN is also listed for chanblocks
+that completely failed to calibrate.</p>
+<p>These calibration precisions must have the same number of timeblocks and
+chanblocks described by the calibration solutions (in the "SOLUTIONS" HDU).</p>
+<h3 id="baselines"><a class="header" href="#baselines">BASELINES</a></h3>
+<p>The "BASELINES" HDU is a FITS image with one dimension. The values of the
+"image" (let's call it an array) are the double-precision float baseline weights
+used in calibration (controlled by UVW minimum and maximum cutoffs). The length
+of the array is the total number of baselines (i.e. flagged and unflagged).
+Flagged baselines have weights of NaN, e.g. baseline 0 is between antennas 0 and
+1, but if antenna 1 is flagged, the weight of baseline 0 is NaN, but baseline 1
+is between antennas 0 and 2 so it has a value other than NaN.</p>
+<p>These baseline weights must have a non-NaN value for all tiles in the
+observation (e.g. if there are 128 tiles in the calibration solutions, then
+there must be 8128 baseline weights).</p>
+<div id="admonition-python-code-for-reading" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Python code for reading</p>
+<p><a class="admonition-anchor-link" href="defs/cal_sols_hyp.html#admonition-python-code-for-reading"></a></p>
+</div>
+<div>
+<p>A full example of reading and plotting solutions is
+<a href="https://github.com/MWATelescope/mwa_hyperdrive/blob/main/examples/read_hyperdrive_sols.py">here</a>,
+but simple examples of reading solutions and various metadata are below.</p>
+<pre><code class="language-python">#!/usr/bin/env python3
+
+from astropy.io import fits
+
+f = fits.open("hyperdrive_solutions.fits")
+sols = f["SOLUTIONS"].data
+num_timeblocks, num_tiles, num_chanblocks, _ = sols.shape
+
+obsid = f[0].header["OBSID"]
+pfb_flavour = f[0].header["PFB"]
+start_times = f[0].header["S_TIMES"]
+
+tile_names = [tile["TileName"] for tile in f["TILES"].data]
+tile_flags = [tile["Flag"] for tile in f["TILES"].data]
+
+freqs = [chan["FREQ"] for chan in f["CHANBLOCKS"].data]
+
+cal_precisions_for_timeblock_0 = f["RESULTS"].data[0]
+</code></pre>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-andré-offringa-ao-calibration-solutions-format"><a class="header" href="#the-andré-offringa-ao-calibration-solutions-format">The André Offringa (<code>ao</code>) calibration solutions format</a></h1>
+<p>This format is output by <code>calibrate</code> and is documented in <code>mwa-reduce</code> as
+follows. Note that the <code>startTime</code> and <code>endTime</code> should be populated with "AIPS
+time", although <code>calibrate</code> appears to always write 0 for these. <code>hyperdrive</code>
+instead opts to write the centroid GPS times here (the end time is the last
+timestep inclusive).</p>
+<p>Tiles are ordered by antenna number, i.e. the second column in the observation's
+corresponding metafits files labelled "antenna". Times and frequencies are
+sorted ascendingly.</p>
+<h2 id="mwa-reduce-documentation"><a class="header" href="#mwa-reduce-documentation"><code>mwa-reduce</code> documentation</a></h2>
+<pre><code class="language-text">| Bytes  |  Description |
+|-------:|:-------------|
+|  0- 7  |  string intro ; 8-byte null terminated string "MWAOCAL" |
+|  8-11  |  int fileType ; always 0, reserved for indicating something other than complex Jones solutions |
+| 12-15  |  int structureType ; always 0, reserved for indicating different ordering |
+| 16-19  |  int intervalCount ; Number of solution intervals in file |
+| 20-23  |  int antennaCount ; Number of antennas that were in the measurement set (but were not necessary all solved for) |
+| 24-27  |  int channelCount ; Number of channels in the measurement set |
+| 28-31  |  int polarizationCount ; Number of polarizations solved for -- always four. |
+| 32-39  |  double startTime ; Start time of solutions (AIPS time) |
+| 40-47  |  double endTime ; End time of solutions (AIPS time) |
+</code></pre>
+<p>After the header follow 2 x nSolution doubles, with</p>
+<p>nSolutions = nIntervals * nAntennas * nChannels * nPols</p>
+<p>Ordered in the way as given, so:
+double 0 : real of interval 0, antenna 0, channel 0, pol 0
+double 1 : imaginary of interval 0, antenna 0, channel 0, pol 0
+double 2 : real of interval 0, antenna 0, channel 0, pol 1
+...
+double 8 : real of interval 0, antenna 0, channel 1, pol 0
+double nChannel x 8 : real of interval 0, antenna 1, channel 0, pol 0
+etc.</p>
+<p>here, ints are always 32 bits unsigned integers, doubles are IEEE double precision 64 bit floating points.
+If a solution is not available, either because no data were selected during calibration for this interval
+or because the calibration diverged, a "NaN" will be stored in the doubles belonging to that solution.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-rts-calibration-solutions-format"><a class="header" href="#the-rts-calibration-solutions-format">The <code>RTS</code> calibration solutions format</a></h1>
+<p><img src="https://media.giphy.com/media/NsIwMll0rhfgpdQlzn/giphy.gif" alt="" /></p>
+<p>This format is extremely complicated and therefore its usage is discouraged.
+However, it is possible to convert <code>RTS</code> solutions to one of the other supported
+formats; a metafits file is required, and the <em>directory</em> containing the
+solutions (i.e. <code>DI_JonesMatrices</code> and <code>BandpassCalibration</code> files) is supplied:</p>
+<div id="admonition-converting-rts-solutions-to-another-format" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Converting <code>RTS</code> solutions to another format</p>
+<p><a class="admonition-anchor-link" href="defs/cal_sols_rts.html#admonition-converting-rts-solutions-to-another-format"></a></p>
+</div>
+<div>
+<pre><code class="language-shell">hyperdrive solutions-convert /path/to/rts/solutions/ rts-as-hyp-solutions.fits -m /path/to/obs.metafits
+</code></pre>
+</div>
+</div>
+<p>Once in another format, the solutions can also be plotted.</p>
+<p>An example of RTS solutions can be found in the <code>test_files</code> directory (as a
+<code>.tar.gz</code> file). The code to read the solutions attempts to unpack and clarify
+the format, but it is messy.</p>
+<div id="admonition-writing-rts-solutions" class="admonition admonish-warning">
+<div class="admonition-title">
+<p>Writing <code>RTS</code> solutions</p>
+<p><a class="admonition-anchor-link" href="defs/cal_sols_rts.html#admonition-writing-rts-solutions"></a></p>
+</div>
+<div>
+<p>I (CHJ) spent a very long time trying to make the writing of <code>RTS</code> solutions
+possible, but ultimately gave up. One particularly difficult detail here is that
+the RTS solutions contain a beam response; this could be either the MWA analytic
+or FEE beam. But its application to the solutions is not clear and difficult to
+reverse-engineer.</p>
+<p>If you dare, there is incomplete commented-out code within <code>hyperdrive</code> that
+attempts to write out the solutions.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="beam-responses"><a class="header" href="#beam-responses">Beam responses</a></h1>
+<p>Beam responses are given by
+<a href="https://github.com/MWATelescope/mwa_hyperbeam"><code>mwa_hyperbeam</code></a>. At present,
+only MWA beam code is used.</p>
+<p>To function, MWA beam code needs a few things:</p>
+<ul>
+<li>The <a href="defs/mwa/delays.html">dipole delays</a>;</li>
+<li>The <a href="defs/mwa/dead_dipoles.html">dipole gains</a> (usually dead dipoles are 0, others are 1);</li>
+<li>The direction we want the beam response as an Azimuth-Elevation coordinate; and</li>
+<li>A frequency.</li>
+</ul>
+<p>In addition, the FEE beam code needs an HDF5 file to function. See the
+<a href="defs/../installation/post.html">post-installation instructions</a> for information on
+getting that set up.</p>
+<h2 id="errors-1"><a class="header" href="#errors-1">Errors</a></h2>
+<p>Beam code usually does not error, but if it does it's likely because:</p>
+<ol>
+<li>There aren't exactly 16 dipole delays;</li>
+<li>There aren't exactly 16 or 32 dipole gains per tile; or</li>
+<li>There's something wrong with the FEE HDF5 file. The official file is well
+tested.</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="modelling-visibilities"><a class="header" href="#modelling-visibilities">Modelling visibilities</a></h1>
+<p><code>hyperdrive</code> uses a sky model when modelling/simulating visibilities. This means
+that for every sky-model source, a visibility needs to be generated for each
+observation time, baseline and frequency. Modelling visibilities for a source
+can be broken down into three broad steps:</p>
+<ul>
+<li><a href="defs/modelling/estimating.html">Estimating</a> a source's flux density at a particular frequency;</li>
+<li>Getting the baseline's beam response toward the source; and</li>
+<li>Applying these factors to the result of the <a href="defs/modelling/rime.html">measurement equation</a>.</li>
+</ul>
+<p>Beam responses are given by
+<a href="https://github.com/MWATelescope/mwa_hyperbeam"><code>mwa_hyperbeam</code></a>. See more info
+on the beam <a href="defs/modelling/../beam.html">here</a>.</p>
+<p>The following pages go into further detail of how visibilities are modelled in
+<code>hyperdrive</code>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="measurement-equation"><a class="header" href="#measurement-equation">Measurement equation</a></h1>
+<div id="admonition-note" class="admonition admonish-note">
+<div class="admonition-title">
+<p>Note</p>
+<p><a class="admonition-anchor-link" href="defs/modelling/rime.html#admonition-note"></a></p>
+</div>
+<div>
+<p>A lot of this content was taken from <a href="https://github.com/JLBLine/WODEN">Jack Line's
+<code>WODEN</code></a>.</p>
+</div>
+</div>
+<p>The measurement equation (also known as the Radio Interferometer Measurement
+Equation; RIME) used in <code>hyperdrive</code>'s calculations is:</p>
+<p>\[ V_{s,f}(u_f,v_f,w_f) = \int\int S_{s,f}(l,m) e^{2 \pi i \phi} \frac{dl dm}{n} \]</p>
+<p>where</p>
+<ul>
+<li>\( V_{s,f}(u_f,v_f,w_f) \) is the measured visibility in some Stokes
+polarisation \( s \) for some frequency \( f \) at baseline coordinates
+\( u_f, v_f, w_f \);</li>
+<li>\( S_{s,f} \) is the apparent brightness in the direction \( l, m \) at
+the same frequency \( f \);</li>
+<li>\( i \) is the imaginary unit;</li>
+<li>\( \phi = \left(u_fl + v_fm + w_f(n-1) \right) \); and</li>
+<li>\( n = \sqrt{1 - l^2 - m^2} \).</li>
+</ul>
+<p>As we cannot ever have the true \( S_{s,f} \) function, we approximate with a
+sky-model source list, which details the expected positions and brightnesses of
+sources. This effectively turns the above continuous equation into a discrete
+one:</p>
+<p>\[ V_{s,f}(u_f,v_f,w_f) = \sum S_{s,f}(l,m) e^{2 \pi i \left(u_fl + v_fm + w_f(n-1) \right)} \]</p>
+<p><code>hyperdrive</code> implements this equation as code, either on the CPU or GPU
+(preferred), and it is a good example of an embarrassingly parallel problem.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="estimating-flux-densities"><a class="header" href="#estimating-flux-densities">Estimating flux densities</a></h1>
+<p>The algorithm used to estimate a sky-model component's flux density depends on
+the <a href="defs/modelling/../fd_types.html">flux-density type</a>.</p>
+<p>Note that in the calculations below, flux densities are allowed to be negative.
+It is expected, however, that a sky-model component with a negative flux density
+belongs to a source with multiple components, and that the overall flux density
+of that source at any frequency is positive. A source with a negative flux
+density is not physical.</p>
+<div id="admonition-power-laws-and-curved-power-laws" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Power laws and Curved power laws</p>
+<p><a class="admonition-anchor-link" href="defs/modelling/estimating.html#admonition-power-laws-and-curved-power-laws"></a></p>
+</div>
+<div>
+<p>Both power-law and curved-power-law sources have a spectral index (\( \alpha
+\)) and a reference flux density (\( S_0 \)) defined at a particular
+frequency (\( \nu_0 \)). In addition to this, curved power laws have a
+curvature term (\( q \)).</p>
+<p>To estimate a flux density (\( S \)) at an arbitrary frequency (\( \nu \)), a
+ratio is calculated:</p>
+<p>\[ r = \left(\frac{\nu}{\nu_0}\right)^\alpha \]</p>
+<p>For power laws, \( S \) is simply:</p>
+<p>\[ S = S_0 r \]</p>
+<p>whereas another term is needed for curved power laws:</p>
+<p>\[ c = \exp\left({q \ln\left(\frac{\nu}{\nu_0}\right)^2 }\right) \]
+\[ S = S_0 r c \]</p>
+<p>\( S \) can represent a flux density for Stokes \( \text{I} \), \( \text{Q}
+\), \( \text{U} \) or \( \text{V} \). The same \( r \) and \( c \)
+values are used for each Stokes flux density.</p>
+</div>
+</div>
+<!-- ~~~admonish info title="Flux density lists" -->
+<p>To estimate a flux density (\( S \)) at an arbitrary frequency (\( \nu \)),
+a number of considerations must be made.</p>
+<p>In the case that a list only has one flux density, we must assume that it is a
+power law, use a default spectral index (\( -0.8 \)) for it and follow the
+algorithm above.</p>
+<p>In all other cases, there are at least two flux densities in the list (\( n &gt;=
+2 \)). We find the two list frequencies (\( \nu_i \)) and (\( \nu_j \))
+closest to \( \nu \) (these can both be smaller and larger than \( \nu \)).
+If the flux densities \( S_i \) and \( S_j \) are both positive or both
+negative, we proceed with the power law approach: A spectral index is calculated
+with \( \nu_i \) and \( \nu_j \) (\( \alpha \)) and used to estimate a
+flux density with the power law algorithm. If \( \alpha &lt; -2.0 \), a
+trace-level message is emitted, indicating that this is a very steep spectral
+index.</p>
+<p>If the signs of \( S_i \) and \( S_j \) are opposites, then we cannot fit a
+spectral index. Instead, we fit a straight between \( S_i \) and \( S_j \)
+and use the straight line to estimate \( S \).</p>
+<p>No estimation is required when \( \nu \) is equal to any of the list
+frequencies \( \nu_i \).</p>
+<!-- ~~~ -->
+<div id="admonition-concerns-on-list-types" class="admonition admonish-danger">
+<div class="admonition-title">
+<p>Concerns on list types</p>
+<p><a class="admonition-anchor-link" href="defs/modelling/estimating.html#admonition-concerns-on-list-types"></a></p>
+</div>
+<div>
+<p>When estimating flux densities from a list, it is feared that the "jagged" shape
+of a component's spectral energy distribution introduces artefacts into an EoR
+power spectrum.</p>
+<p>It is relatively expensive to estimate flux densities from a list type. For all
+these reasons, users are strongly encouraged to not use list types where
+possible.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="coordinate-systems"><a class="header" href="#coordinate-systems">Coordinate systems</a></h1>
+<h2 id="antennatilestationarray-coordinates"><a class="header" href="#antennatilestationarray-coordinates">Antenna/tile/station/array coordinates</a></h2>
+<p>In measurement sets and uvfits files, antennas/tiles/stations usually have their
+positions recorded in the
+<a href="https://en.wikipedia.org/wiki/International_Terrestrial_Reference_System_and_Frame">ITRF</a>
+frame (internally we refer to this as "geocentric XYZ"). There's also a
+"geodetic XYZ" frame; an example of this is <a href="https://en.wikipedia.org/wiki/World_Geodetic_System#WGS_84">WGS
+84</a> (which we assume
+everywhere when converting, as it's the current best ellipsoid). Finally,
+there's also an "East North Height" coordinate system.</p>
+<p>To calculate UVW baseline coordinates, geodetic XYZ coordinates are
+required<sup class="footnote-reference"><a href="#1">1</a></sup>. Therefore, various coordinate conversions are required to obtain
+UVWs. The conversion between all of these systems is briefly described below.
+The relevant code lives within <a href="https://github.com/MWATelescope/Marlu"><code>Marlu</code></a>.</p>
+<h2 id="itrf-and-geocentric-xyz"><a class="header" href="#itrf-and-geocentric-xyz">ITRF and "geocentric XYZ"</a></h2>
+<p>As the name implies, this coordinate system uses the centre of the Earth as a
+reference. To convert between geocentric and geodetic, an array position is
+required (i.e. the "average" location on the Earth of the instrument collecting
+visibilities). When all antenna positions are geocentric, the array position is
+given by the mean antenna position.</p>
+<p>Measurement sets indicate the usage of ITRF with the "MEASURE_REFERENCE" keyword
+attached to the POSITION column of an ANTENNA table (value "ITRF").</p>
+<p>The <a href="https://library.nrao.edu/public/memos/aips/memos/AIPSM_117.pdf">uvfits
+standard</a> states
+that only supported frame is "ITRF", and <code>hyperdrive</code> assumes that only ITRF is
+used. However, CASA/casacore seem to write out antenna positions incorrectly;
+the positions look like what you would find in an equivalent measurement set.
+The incorrect behaviour is detected and accounted for.</p>
+<h2 id="geodetic-xyz"><a class="header" href="#geodetic-xyz">"Geodetic XYZ"</a></h2>
+<p>This coordinate system is similar to geocentric, but uses an array position as
+its reference.</p>
+<p>Measurement sets support the WGS 84 frame, again with the "MEASURE_REFERENCE"
+keyword attached to the POSITION column of an ANTENNA table (value "WGS84").
+However, <code>hyperdrive</code> currently does not check if geodetic positions are used;
+it instead just assumes geocentric.</p>
+<p>When read literally, the antenna positions in a uvfits file ("STABXYZ" column of
+the "AIPS AN" HDU) <em>should</em> be geodetic, not counting the aforementioned
+casacore bug.</p>
+<h2 id="east-north-height-enh"><a class="header" href="#east-north-height-enh">East North Height (ENH)</a></h2>
+<p>MWA tiles positions are listed in <a href="defs/../defs/mwa/metafits.html">metafits</a> files with
+the ENH coordinate system. Currently, ENH coordinates are converted to geodetic
+XYZ with the following pseudocode:</p>
+<pre><code class="language-python">x = -n * sin(latitude) + h * cos(latitude)
+y = e
+z = n * cos(latitude) + h * sin(latitude)
+</code></pre>
+<p>(I unfortunately don't know anything more about this system.)</p>
+<h2 id="array-positions"><a class="header" href="#array-positions">Array positions</a></h2>
+<p>Array positions can be found with the mean geocentric antenna positions, as is
+the case with measurement sets, or with the <code>ARRAYX</code>, <code>ARRAYY</code> and <code>ARRAYZ</code> keys
+in a uvfits file. However, <code>hyperdrive</code> allows the user to supply a custom array
+position, which will be used in any conversions between provided antenna
+positions and other coordinate systems as required.</p>
+<p>For raw MWA data, no array position is supplied, so we assume a location for the
+MWA. This is currently:</p>
+<ul>
+<li>Latitude: -0.4660608448386394 radians (or −26.70331941 degrees)</li>
+<li>Longitude: 2.0362898668561042 radians (or 116.6708152 degrees)</li>
+<li>Height: 377.827 metres</li>
+</ul>
+<h2 id="precession"><a class="header" href="#precession">Precession</a></h2>
+<p>It is often necessary to precess antenna positions to the J2000 epoch, because:</p>
+<ul>
+<li>Measurement sets and uvfits expect their UVWs to be specified in the J2000 epoch; and</li>
+<li>Sky model source lists are expected to be specified in the J2000 epoch.</li>
+</ul>
+<p><code>hyperdrive</code> performs precession on each timestep of input visibility data to
+(hopefully) get UVWs as correct as possible.</p>
+<p>The process to precess geodetic XYZs is too complicated to detail here, but the
+code lives within <a href="https://github.com/MWATelescope/Marlu"><code>Marlu</code></a>. This code is
+a re-write of old MWA code, and there appears to be no references on how or why
+it works; any information is greatly appreciated!</p>
+<h2 id="uvws"><a class="header" href="#uvws">UVWs</a></h2>
+<p>A geodetic XYZ is converted to UVW using the following pseudocode:</p>
+<pre><code class="language-python">s_ha = sin(phase_centre.hour_angle)
+c_ha = cos(phase_centre.hour_angle)
+s_dec = sin(phase_centre.declination)
+c_dec = cos(phase_centre.declination)
+
+u = s_ha * x + c_ha * y,
+v = -s_dec * c_ha * x + s_dec * s_ha * y + c_dec * z,
+w = c_dec * c_ha * x - c_dec * s_ha * y + s_dec * z,
+</code></pre>
+<p>Note that this is a UVW coordinate for an antenna. To get the proper baseline
+UVW, a difference between two antennas' UVWs needs to be taken. The order of
+this subtraction is important; <code>hyperdrive</code> uses the "antenna1 - antenna2"
+convention. Software that reads data may need to conjugate visibilities if this
+convention is different.</p>
+<h3 id="further-reading"><a class="header" href="#further-reading">Further reading</a></h3>
+<ul>
+<li><a href="https://en.wikipedia.org/wiki/International_Terrestrial_Reference_System_and_Frame">https://en.wikipedia.org/wiki/International_Terrestrial_Reference_System_and_Frame</a></li>
+<li><a href="https://en.wikipedia.org/wiki/World_Geodetic_System">https://en.wikipedia.org/wiki/World_Geodetic_System</a></li>
+<li>The <a href="https://library.nrao.edu/public/memos/aips/memos/AIPSM_117.pdf">uvfits
+standard</a></li>
+<li><a href="https://casa.nrao.edu/Memos/CoordConvention.pdf">https://casa.nrao.edu/Memos/CoordConvention.pdf</a></li>
+<li><a href="https://casa.nrao.edu/Memos/229.html#SECTION00042000000000000000">https://casa.nrao.edu/Memos/229.html#SECTION00042000000000000000</a></li>
+</ul>
+<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
+<p>If this isn't true, <em>please</em> file a <code>hyperdrive</code> issue.</p>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="dut1"><a class="header" href="#dut1">DUT1</a></h1>
+<p><a href="https://en.wikipedia.org/wiki/DUT1">DUT1</a> is the difference between the UT1 and
+UTC time frames. In short, using the DUT1 allows a better representation of the
+local sidereal time within <code>hyperdrive</code>.</p>
+<p>Since July 2022, <a href="defs/./mwa/metafits.html">MWA metafits files</a> contain a key <code>DUT1</code>
+populated by <code>astropy</code>.</p>
+<p>If available, uvfits files display the DUT1 with the <code>UT1UTC</code> key in the antenna
+table HDU. However, the times in <code>hyperdrive</code>-written uvfits files will still be
+in the UTC frame, as if there was no DUT1 value.</p>
+<p>Measurement sets don't appear to have a way of displaying what the DUT1 value
+is; when writing out measurement sets, <code>hyperdrive</code> will change the time frame
+of the <code>TIME</code> and <code>TIME_CENTROID</code> columns from UTC to UT1 iff the DUT1 is non
+zero.</p>
+<h2 id="more-explanation"><a class="header" href="#more-explanation">More explanation</a></h2>
+<p>A lot of good, easy-to-read information is
+<a href="https://lweb.cfa.harvard.edu/~jzhao/times.html">here</a>.</p>
+<p>UTC keeps track with TAI but only through the aid of leap seconds (both are
+"atomic time frames"). UT1 is the "actual time", but the Earth's rate of
+rotation is difficult to measure and predict. DUT1 is not allowed to be more
+than -0.9 or 0.9 seconds; a leap second is introduced before that threshold is
+reached.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="timeblocks-1"><a class="header" href="#timeblocks-1">Timeblocks</a></h1>
+<p>A timeblock is an averaged unit of timesteps. The number of timesteps per
+timeblock is determined by the user, but it is always at least 1. An observation
+may be calibrated in multiple timeblocks, e.g. 4 timesteps per timeblock. If the
+same observation has more than 4 timesteps, then there are multiple calibration
+timeblocks, and time-varying effects can be seen. Here's a representation of an
+observation with 10 timesteps and 4 timesteps per timeblock:</p>
+<pre><code class="language-text">Timeblock 1    Timeblock 2   Timeblock 3
+[[0, 1, 2, 3], [4, 5, 6, 7], [8, 9]]
+</code></pre>
+<p>Timeblocks do not need to be contiguous and can be sparse, e.g. for an
+observation containing 10 timesteps (starting at timestep 0):</p>
+<pre><code class="language-text">    Timeblock 1            Timeblock 2
+[_, [1, _, 3],  [_, _, _], [_, _, 9]]
+</code></pre>
+<p>is a valid representation of how the data would be averaged if there are 3
+timesteps per timeblock. In this case, the <strong>timestamps</strong> of each timeblock
+correspond to the timestamps of timesteps 2 and 8.</p>
+<p>Timeblock are also used in writing out averaged visibilities. If there are 4
+timesteps per timeblock, then the output visibilities might be 4x smaller than
+the input visibilities (depending on how the timesteps align with the
+timeblocks).</p>
+<h1 id="chanblocks-1"><a class="header" href="#chanblocks-1">Chanblocks</a></h1>
+<p>Similar to timeblocks, chanblocks are averaged units of channels. Frequency
+averaging is currently only implemented when writing out visibilities, so there
+is not much discussion needed here, yet.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="multiple-dimension-arrays-ndarray"><a class="header" href="#multiple-dimension-arrays-ndarray">Multiple-dimension arrays (<code>ndarray</code>)</a></h1>
+<p><a href="https://docs.rs/ndarray/latest/ndarray/"><code>ndarray</code></a>s are used liberally
+throughout <code>hyperdrive</code> (and its dependencies). <code>ndarray</code>'s usage is a little
+different to the usual Rust vectors and slices. This page hopes to help
+developers understand what some of the loops using <code>ndarray</code>s is doing.</p>
+<p>Here's a simplified example:</p>
+<pre><code class="language-rust ignore">use marlu::Jones;
+use ndarray::Array3;
+
+// Set up `vis` and `weights` to be 3D arrays. The dimensions are time,
+// channel/frequency, baseline.
+let shape = (2, 768, 8128);
+let mut vis: Array3&lt;Jones&lt;f32&gt;&gt; = Array3::from_elem(shape, Jones::identity());
+let mut weights: Array3&lt;f32&gt; = Array3::ones(shape);
+// `outer_iter_mut` mutably iterates over the slowest dimension (in this
+// case, time).
+vis.outer_iter_mut()
+    // Iterate over weights at the same time as `vis`.
+    .zip(weights.outer_iter_mut())
+    // Also get an index of how far we are into the time dimension.
+    .enumerate()
+    .for_each(|(i_time, (mut vis, mut weights))| {
+        // `vis` and `weights` are now 2D arrays. `i_time` starts from 0 and
+        // is an index for the time dimension.
+        vis.outer_iter_mut()
+            .zip(weights.outer_iter_mut())
+            .enumerate()
+            .for_each(|(i_chan, (mut vis, mut weights))| {
+                // `vis` and `weights` are now 1D arrays. `i_chan` starts from
+                // 0 and is an index for the channel/frequency dimension.
+
+                // Use standard Rust iterators to get the
+                // elements of the 1D arrays.
+                vis.iter_mut().zip(weights.iter_mut()).enumerate().for_each(
+                    |(i_bl, (vis, weight))| {
+                        // `vis` is a mutable references to a Jones matrix
+                        // and `weight` is a mutable reference to a float.
+                        // `i_bl` starts from 0 and is an index for the
+                        // baseline dimension.
+                        // Do something with these references.
+                        *vis += Jones::identity() * (i_time + i_chan + i_bl) as f32;
+                        *weight += 2.0;
+                    },
+                );
+            });
+    });</code></pre>
+<h2 id="views"><a class="header" href="#views">Views</a></h2>
+<p>It is typical to pass Rust <code>Vec</code>s around as slices, i.e. a <code>Vec&lt;f64&gt;</code> is
+borrowed as a <code>&amp;[f64]</code>. Similarly, one might be tempted to make a function
+argument a borrowed <code>ndarray</code>, e.g. <code>&amp;Array3&lt;f64&gt;</code>, but there is a better way.
+Calling <code>.view()</code> or <code>.view_mut()</code> on an <code>ndarray</code> yields an <code>ArrayView</code> or
+<code>ArrayViewMut</code>, which can be any subsection of the full array. By using views we
+can avoid requiring a borrow of the whole array when we only want a part of it.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="non-empty-vectors-vec1"><a class="header" href="#non-empty-vectors-vec1">Non-empty vectors (<code>vec1</code>)</a></h1>
+<p>See the <a href="https://docs.rs/vec1/latest/vec1/">official docs</a> for more info.</p>
+<p>Why do we use <code>Vec1</code> instead of <code>Vec</code>? Can't we just assume that all our vectors
+are not empty? Well, we could, but then:</p>
+<ol>
+<li>
+<p>We'd probably be wrong at some point in the future;</p>
+</li>
+<li>
+<p>We're making the code inject panic code somewhere it probably doesn't need to; and</p>
+</li>
+<li>
+<p>We can do better than this.</p>
+</li>
+</ol>
+<p><a href="https://lexi-lambda.github.io/blog/2019/11/05/parse-don-t-validate/">This
+article</a>,
+although catered for Haskell, presents the case well. Put simply, if we require
+something to be non-empty, then we can express that with a type, and this means
+we don't need to re-validate its non-empty-ness after its creation.</p>
+<p>We can also avoid using <code>Vec</code> by using <code>Option&lt;Vec1&gt;</code>; we still need to check
+whether we have <code>Some</code> or <code>None</code>, but doing so is better than assuming a <code>Vec</code>
+is non-empty.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid.min.js"></script>
+        <script src="mermaid-init.js"></script>
+
+        <script>
+        window.addEventListener('load', function() {
+            MathJax.Hub.Register.StartupHook('End', function() {
+                window.setTimeout(window.print, 100);
+            });
+        });
+        </script>
+
+    </div>
+    </body>
+</html>
