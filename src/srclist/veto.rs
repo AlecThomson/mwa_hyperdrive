@@ -56,6 +56,7 @@ pub(crate) fn veto_sources(
 ) -> Result<(), ReadSourceListError> {
     let dist_cutoff = source_dist_cutoff_deg.to_radians();
     let beam_time = epoch.map(|epoch| BeamTime { epoch, lst_rad });
+    let beam = beam.veto_beam().unwrap_or(beam);
 
     // TODO: This step is relatively expensive!
     let (vetoed_sources, not_vetoed_sources): (Vec<Result<String, ReadSourceListError>>, BTreeMap<String, f64>) = source_list
