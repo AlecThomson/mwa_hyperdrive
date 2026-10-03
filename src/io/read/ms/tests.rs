@@ -848,8 +848,7 @@ fn copy_dir(src: &Path, dst: &Path) {
     }
 }
 
-/// Some measurement sets (e.g. from SKA-Low's correlator) have ANTENNA1 >
-/// ANTENNA2. Such a baseline's visibilities are the conjugate transpose (and
+/// Some measurement sets have ANTENNA1 > ANTENNA2. Such a baseline's visibilities are the conjugate transpose (and
 /// UVWs the negative) of the same baseline with ANTENNA1 < ANTENNA2, and must
 /// be read identically.
 #[test]

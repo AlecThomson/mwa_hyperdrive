@@ -33,16 +33,15 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 - `solutions-plot` now plots the instrumental gains, i.e. the inverse of the
   stored solutions (which are corrections). `--corrections` plots the stored
   values, as before, with a `_corrections` filename suffix.
-- Measurement sets with baselines stored as ANTENNA1 > ANTENNA2 (e.g. from
-  SKA-Low's correlator) are now read; previously these baselines were silently
-  skipped.
-- Contiguous channels with a fractional channel width (e.g. SKA-Low's) are no
-  longer mistaken for "picket fence" data.
+- Measurement sets with baselines stored as ANTENNA1 > ANTENNA2 are now read;
+  previously these baselines were silently skipped.
+- Contiguous channels with a non-integer channel width (in Hz) are no longer
+  mistaken for "picket fence" data.
 - A fully-flagged timestep in the middle of a measurement set no longer causes
   all later timesteps to be ignored.
 - Timesteps are no longer silently dropped when the time resolution isn't a
-  whole number of the timestamp rounding (10 us), e.g. SKA-Low's ~0.849 s;
-  without time averaging, only the first timestep was used.
+  whole number of the timestamp rounding (10 us); without time averaging,
+  only the first timestep was used.
 - Beam calculations can now be given the time (`BeamTime`), which is needed by
   EveryBeam.
 - Tile de-duplication for beam calculations is now decided by the beam code

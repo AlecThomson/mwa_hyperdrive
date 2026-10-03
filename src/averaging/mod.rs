@@ -220,9 +220,9 @@ pub(super) fn timesteps_to_timeblocks(
         }
 
         // Timestamps are rounded, so they may not be exactly a multiple of the
-        // time resolution from the first timestamp (e.g. SKA-Low's resolution
-        // isn't a whole number of the rounding unit). Allow half a timestep
-        // either side; these windows tile time without overlapping.
+        // time resolution from the first timestamp (when the resolution isn't
+        // a whole number of the rounding unit). Allow half a timestep either
+        // side; these windows tile time without overlapping.
         let window = (timeblock_start - half_a_timestep)..(timeblock_end + half_a_timestep);
         let (timeblock_timestamps, timeblock_timesteps): (Vec<Epoch>, Vec<usize>) =
             timestamps_to_use

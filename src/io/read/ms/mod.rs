@@ -1015,9 +1015,9 @@ impl MsReader {
 
                 // Read this row if the baseline is unflagged.
                 // Baselines are stored with the lower-numbered tile first, but
-                // some measurement sets (e.g. from SKA-Low's correlator) have
-                // ANTENNA1 > ANTENNA2. The visibilities of such a baseline are
-                // the conjugate transpose of what we want.
+                // some measurement sets have ANTENNA1 > ANTENNA2. The
+                // visibilities of such a baseline are the conjugate transpose
+                // of what we want.
                 let swapped = ant1 > ant2;
                 let (ant1, ant2) = if swapped { (ant2, ant1) } else { (ant1, ant2) };
 

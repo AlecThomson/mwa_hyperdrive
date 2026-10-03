@@ -864,10 +864,9 @@ fn test_vis_average_weights_non_zero_half_flagged() {
 
 #[test]
 fn test_channels_to_chanblocks_fractional_resolution() {
-    // A non-integer channel width (about that of an SKA-Low measurement set
-    // this was found with: ~5.425 kHz). Rounded to integer Hz, the frequencies
-    // of contiguous channels differ by 5425 or 5426 Hz, which must not be
-    // treated as a "picket fence".
+    // A non-integer channel width [Hz]. Rounded to integer Hz, the
+    // frequencies of contiguous channels differ by 5425 or 5426 Hz, which must
+    // not be treated as a "picket fence".
     let freq_res = 5425.35;
     let all_channel_freqs: Vec<u64> = (0..288)
         .map(|i| (150e6 + i as f64 * freq_res).round() as u64)
@@ -902,8 +901,8 @@ fn test_channels_to_chanblocks_fractional_resolution() {
 
 #[test]
 fn test_timesteps_to_timeblocks_rounded_timestamps() {
-    // SKA-Low's time resolution (~0.849 s) isn't a whole number of the 10 us
-    // that timestamps are rounded to; every timestep must still be used.
+    // A time resolution that isn't a whole number of the 10 us that
+    // timestamps are rounded to; every timestep must still be used.
     let time_res = Duration::from_total_nanoseconds(849_346_160);
     let first = Epoch::from_gpst_seconds(1464696697.6);
     let timestamps = Vec1::try_from_vec(
