@@ -31,15 +31,26 @@ LAT_DEG = -26.82472208
 HEIGHT_M = 377.8
 
 # Station centres (east, north) [m] relative to the array centre.
-STATION_EN = [(0.0, 0.0), (100.0, 30.0), (-60.0, 90.0)]
+# The first three stations are close together; the rest make baselines long
+# enough for calibration (hyperdrive's default minimum baseline is 50 lambda).
+STATION_EN = [
+    (0.0, 0.0),
+    (100.0, 30.0),
+    (-60.0, 90.0),
+    (450.0, -120.0),
+    (-380.0, -400.0),
+    (820.0, 610.0),
+    (-1150.0, 300.0),
+    (200.0, -1400.0),
+]
 # Rigid rotation of each station (anticlockwise from East, viewed from above)
 # [degrees].
-STATION_ROTATIONS_DEG = [0.0, 30.0, 75.0]
+STATION_ROTATIONS_DEG = [0.0, 30.0, 75.0, 15.0, 60.0, 105.0, 140.0, 45.0]
 # Elements per side of each (square) station, and their spacing [m].
 ELEMENTS_PER_SIDE = 4
 ELEMENT_SPACING_M = 1.5
 
-FREQS_HZ = np.array([100e6, 110e6, 120e6])
+FREQS_HZ = np.array([100e6, 101e6, 102e6])
 CHAN_WIDTH_HZ = 1e6
 # UTC MJD seconds of the first timestep.
 START_MJD_S = 60000.5 * 86400.0

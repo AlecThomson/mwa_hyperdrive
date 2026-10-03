@@ -3,9 +3,9 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 //! Tests for EveryBeam beam responses. These use a small synthetic SKA-Low
-//! measurement set (see `test_files/everybeam/make_skalow_ms.py`), whose
-//! stations are rigidly rotated by 0, 30 and 75 degrees, and whose third
-//! station has some flagged X elements.
+//! measurement set (see `test_files/everybeam/make_skalow_ms.py`) with 8
+//! stations. The first three stations are rigidly rotated by 0, 30 and 75
+//! degrees, and the third station has some flagged X elements.
 
 use std::collections::HashSet;
 
@@ -21,7 +21,7 @@ const MS: &str = "test_files/everybeam/skalow_mini.ms";
 fn get_beam(normalisation: &str) -> EveryBeam {
     EveryBeam::new(
         Path::new(MS),
-        Some(3),
+        Some(8),
         EveryBeamOptions {
             beam_normalisation_mode: Some(normalisation.to_string()),
             ..Default::default()
@@ -81,7 +81,7 @@ fn check_against_reference(normalisation: &str, reference: &[[[[[f64; 2]; 4]; 3]
 #[test]
 fn test_load_and_station_count() {
     let beam = get_beam("amplitude");
-    assert_eq!(beam.get_num_tiles(), 3);
+    assert_eq!(beam.get_num_tiles(), 8);
     assert!(matches!(beam.get_beam_type(), BeamType::EveryBeam));
     assert_eq!(beam.get_beam_file(), Some(Path::new(MS)));
     assert!(beam.get_dipole_delays().is_none());
@@ -94,7 +94,7 @@ fn test_station_count_mismatch() {
     let result = EveryBeam::new(Path::new(MS), Some(4), EveryBeamOptions::default());
     assert!(matches!(
         result,
-        Err(BeamError::StationCountMismatch { ms: 3, tiles: 4 })
+        Err(BeamError::StationCountMismatch { ms: 8, tiles: 4 })
     ));
 }
 
@@ -223,13 +223,13 @@ fn test_bad_station_index() {
     let result = beam.calc_jones(
         AzEl::from_degrees(0.0, 80.0),
         110e6,
-        Some(3),
+        Some(8),
         -0.4682,
         Some(time),
     );
     assert!(matches!(
         result,
-        Err(BeamError::BadTileIndex { got: 3, max: 2 })
+        Err(BeamError::BadTileIndex { got: 8, max: 7 })
     ));
 }
 

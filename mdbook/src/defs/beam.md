@@ -39,6 +39,13 @@ pointing) from a measurement set:
 The number of stations in the measurement set must match the number of tiles
 in the input data, and the station order is assumed to be the same.
 
+~~~admonish warning title="Measurement sets written by hyperdrive"
+Measurement sets written by `hyperdrive` (e.g. by `vis-subtract` or
+`solutions-apply`) don't describe non-MWA telescopes, so EveryBeam can't load
+the telescope from them. When processing such outputs, point `--beam-ms` at the
+original measurement set.
+~~~
+
 ```shell
 hyperdrive di-calibrate -d obs.ms -s srclist.yaml --beam-type everybeam
 ```
