@@ -56,11 +56,13 @@ pub(crate) struct EveryBeamArgs {
     pub(crate) everybeam_mode: Option<String>,
 
     /// The EveryBeam beam normalisation mode: none, amplitude, full,
-    /// preapplied or preapplied_or_full. 'amplitude' scales the beam to unit
-    /// amplitude at the beam centre, keeping each station's feed basis. 'full'
-    /// normalises the beam to the identity at the beam centre, which is only
+    /// preapplied or preapplied_or_full. 'none' uses the unnormalised station
+    /// response. 'amplitude' scales each station's response (at each time and
+    /// frequency) to unit amplitude in the measurement set's FIELD
+    /// REFERENCE_DIR, keeping each station's feed basis. 'full' multiplies the
+    /// response by the inverse of the response in REFERENCE_DIR, which is only
     /// appropriate for data that have had a beam correction applied. Default:
-    /// amplitude
+    /// none
     #[clap(long, help_heading = "BEAM (EVERYBEAM)")]
     pub(crate) everybeam_normalisation: Option<String>,
 
@@ -133,7 +135,7 @@ impl EveryBeamArgs {
                 element_response_model: everybeam_element_model,
                 beam_mode: everybeam_mode,
                 beam_normalisation_mode: Some(
-                    everybeam_normalisation.unwrap_or_else(|| "amplitude".to_string()),
+                    everybeam_normalisation.unwrap_or_else(|| "none".to_string()),
                 ),
                 coeff_path: everybeam_coeff_path,
                 data_column_name: everybeam_data_column,

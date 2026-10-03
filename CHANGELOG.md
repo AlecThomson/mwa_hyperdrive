@@ -18,12 +18,21 @@ Versioning](https://semver.org/spec/v2.0.0.html).
     links EveryBeam and casacore, so they don't need to be installed.
   - The `everybeam` cargo feature uses installed copies instead.
   - The FFI lives in a new crate, `crates/everybeam-sys`.
+  - `--everybeam-normalisation` defaults to `none` (EveryBeam's default), so
+    calibration solutions don't contain the beam's spectral response.
   - Releases include portable `-everybeam` Linux tarballs (glibc >= 2.28).
     These are GPL-3.0, because of EveryBeam; the other release tarballs are
     unaffected.
+- `solutions-plot --invert` plots the inverse of the solutions, i.e. the
+  instrumental gains rather than the corrections.
 
 ### Changed
 
+- Measurement sets with baselines stored as ANTENNA1 > ANTENNA2 (e.g. from
+  SKA-Low's correlator) are now read; previously these baselines were silently
+  skipped.
+- Contiguous channels with a fractional channel width (e.g. SKA-Low's) are no
+  longer mistaken for "picket fence" data.
 - Beam calculations can now be given the time (`BeamTime`), which is needed by
   EveryBeam.
 - Tile de-duplication for beam calculations is now decided by the beam code

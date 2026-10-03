@@ -23,17 +23,17 @@
 //!
 //! The rows are left alone, so that they continue to match the basis of the
 //! visibilities:
-//! - With "none" or "amplitude" (scalar) normalisation, the rows are each
-//!   station's own feeds, in the station's (possibly rotated) frame, as
-//!   described by the measurement set (e.g. SKA-Low stations are rigidly
+//! - With "none" (the default) or "amplitude" (scalar) normalisation, the rows
+//!   are each station's own feeds, in the station's (possibly rotated) frame,
+//!   as described by the measurement set (e.g. SKA-Low stations are rigidly
 //!   rotated with respect to each other, and this is described by the
 //!   PHASED_ARRAY table). This is appropriate for data that have not had a beam
-//!   correction applied, and "amplitude" is the default.
+//!   correction applied.
 //! - With "full" (or "preapplied") normalisation, EveryBeam left-multiplies the
-//!   response by the inverse of the response at the beam centre, so the rows
-//!   are in the (North, East) sky basis (i.e. the IAU order). This is only
-//!   appropriate for data that have had the beam at the phase centre corrected
-//!   (e.g. by DP3's applybeam).
+//!   response by the inverse of the response in the FIELD table's
+//!   REFERENCE_DIR, so the rows are in the (North, East) sky basis (i.e. the
+//!   IAU order). This is only appropriate for data that have had the beam at
+//!   the phase centre corrected (e.g. by DP3's applybeam).
 
 #[cfg(test)]
 mod reference;
