@@ -3,8 +3,9 @@
 Jones matrices are stored in a `fits` file as an "image" with 4 dimensions
 (timeblock, tile, chanblock, float, in that order) in the "SOLUTIONS" HDU (which
 is the second HDU). An element of the solutions is a 64-bit float (a.k.a.
-double-precision float). The last dimension always has a length of 8; these
-correspond to the complex gains of the X dipoles (\\( g_x \\)), the leakage of
+double-precision float). The solutions are corrections, i.e. they take the data
+to the model; their inverses are the instrumental gains. The last dimension
+always has a length of 8; these correspond to the complex gains of the X dipoles (\\( g_x \\)), the leakage of
 the X dipoles (\\( D_x \\)), then the leakage of the Y dipoles (\\( D_y \\)) and
 the gains of the Y dipoles (\\( g_y \\)); these form a complex 2x2 Jones matrix:
 

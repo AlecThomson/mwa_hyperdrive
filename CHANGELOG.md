@@ -25,11 +25,12 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   - Releases include portable `-everybeam` Linux tarballs (glibc >= 2.28).
     These are GPL-3.0, because of EveryBeam; the other release tarballs are
     unaffected.
-- `solutions-plot --invert` plots the inverse of the solutions, i.e. the
-  instrumental gains rather than the corrections.
 
 ### Changed
 
+- `solutions-plot` now plots the instrumental gains, i.e. the inverse of the
+  stored solutions (which are corrections). `--corrections` plots the stored
+  values, as before, with a `_corrections` filename suffix.
 - Measurement sets with baselines stored as ANTENNA1 > ANTENNA2 (e.g. from
   SKA-Low's correlator) are now read; previously these baselines were silently
   skipped.

@@ -33,11 +33,11 @@ pub(crate) struct SolutionsPlotArgs {
     #[clap(long)]
     ignore_cross_pols: bool,
 
-    /// Plot the inverse of the solutions. hyperdrive (and AO-style) solutions
-    /// are corrections, i.e. they take the data to the model; their inverses
-    /// are the instrumental gains. The plot filenames get a "_gains" suffix.
+    /// Plot the solutions as they are stored, i.e. as corrections (which take
+    /// the data to the model), rather than as instrumental gains (their
+    /// inverses, the default). The plot filenames get a "_corrections" suffix.
     #[clap(long)]
-    invert: bool,
+    corrections: bool,
 
     /// The minimum y-range value on the amplitude gain plots.
     #[clap(long)]
@@ -126,7 +126,7 @@ mod plotting {
             ref_tile,
             no_ref_tile,
             ignore_cross_pols,
-            invert,
+            corrections,
             min_amp,
             max_amp,
             num_rows,
@@ -200,8 +200,8 @@ mod plotting {
             } else {
                 base.to_string()
             };
-            let base = if invert {
-                format!("{base}_gains")
+            let base = if corrections {
+                format!("{base}_corrections")
             } else {
                 base
             };
@@ -210,7 +210,8 @@ mod plotting {
                 CalSolutionType::Fits => hyperdrive::read(&solutions_file)?,
                 CalSolutionType::Bin => ao::read(&solutions_file)?,
             };
-            if invert {
+            if !corrections {
+                // Plot the gains, i.e. the inverse of the stored corrections.
                 // Flagged (NaN) solutions stay NaN.
                 sols.di_jones.mapv_inplace(|j| j.inv());
             }
