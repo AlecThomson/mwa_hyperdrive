@@ -41,6 +41,20 @@ pub enum BeamError {
     #[error("hyperbeam init error: {0}")]
     HyperbeamInit(#[from] mwa_hyperbeam::fee::InitFEEBeamError),
 
+    #[error("EveryBeam error: {0}")]
+    EveryBeam(String),
+
+    #[error("The EveryBeam beam requires a measurement set to describe the telescope, but the input data isn't a measurement set; please supply one with --beam-ms")]
+    NeedsBeamMs,
+
+    #[error("This beam requires the time of the beam-response calculation, but it wasn't supplied; this is a hyperdrive bug or an unsupported beam for this feature")]
+    NeedsTime,
+
+    #[error(
+        "The beam's measurement set describes {ms} stations, but the input data has {tiles} tiles"
+    )]
+    StationCountMismatch { ms: usize, tiles: usize },
+
     #[cfg(any(feature = "cuda", feature = "hip"))]
     #[error(transparent)]
     Gpu(#[from] crate::gpu::GpuError),

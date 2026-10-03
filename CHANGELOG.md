@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Optional EveryBeam support, enabling beam models for telescopes other than
+  the MWA (e.g. SKA-Low, LOFAR). Use it with `--beam-type everybeam`; the
+  telescope is described by the input measurement set or `--beam-ms`, and the
+  new `--everybeam-*` options control EveryBeam.
+  - The `everybeam-vendored` cargo feature downloads, builds and statically
+    links EveryBeam and casacore, so they don't need to be installed.
+  - The `everybeam` cargo feature uses installed copies instead.
+  - The FFI lives in a new crate, `crates/everybeam-sys`.
+  - Releases include portable `-everybeam` Linux tarballs (glibc >= 2.28).
+    These are GPL-3.0, because of EveryBeam; the other release tarballs are
+    unaffected.
+
+### Changed
+
+- Beam calculations can now be given the time (`BeamTime`), which is needed by
+  EveryBeam.
+- Tile de-duplication for beam calculations is now decided by the beam code
+  (`Beam::get_unique_tiles`), rather than always using MWA dipole delays and
+  gains.
+
 ## [0.8.1] - 2026-09-10
 
 ### Fixed

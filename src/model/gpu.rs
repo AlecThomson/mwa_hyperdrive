@@ -17,7 +17,7 @@ use ndarray::prelude::*;
 
 use super::{mask_pols, shapelets, ModelError, SkyModeller};
 use crate::{
-    beam::{Beam, BeamGpu},
+    beam::{Beam, BeamGpu, BeamTime},
     context::Polarisations,
     gpu::{self, gpu_kernel_call, DevicePointer, GpuError, GpuFloat, GpuJones},
     srclist::{
@@ -874,6 +874,7 @@ impl<'a> SkyModellerGpu<'a> {
         &self,
         lst_rad: f64,
         array_latitude_rad: f64,
+        timestamp: Option<Epoch>,
         d_uvws: &DevicePointer<gpu::UVW>,
         d_beam_jones: &mut DevicePointer<GpuJones>,
         d_vis_fb: &mut DevicePointer<Jones<f32>>,
@@ -906,6 +907,7 @@ impl<'a> SkyModellerGpu<'a> {
                 &azs,
                 &zas,
                 array_latitude_rad,
+                timestamp.map(|epoch| BeamTime { epoch, lst_rad }),
                 d_beam_jones.get_mut().cast(),
             )?;
         }
@@ -961,6 +963,7 @@ impl<'a> SkyModellerGpu<'a> {
         &self,
         lst_rad: f64,
         array_latitude_rad: f64,
+        timestamp: Option<Epoch>,
         d_uvws: &DevicePointer<gpu::UVW>,
         d_beam_jones: &mut DevicePointer<GpuJones>,
         d_vis_fb: &mut DevicePointer<Jones<f32>>,
@@ -993,6 +996,7 @@ impl<'a> SkyModellerGpu<'a> {
                 &azs,
                 &zas,
                 array_latitude_rad,
+                timestamp.map(|epoch| BeamTime { epoch, lst_rad }),
                 d_beam_jones.get_mut().cast(),
             )?;
         }
@@ -1051,6 +1055,7 @@ impl<'a> SkyModellerGpu<'a> {
         &self,
         lst_rad: f64,
         array_latitude_rad: f64,
+        timestamp: Option<Epoch>,
         d_uvws: &DevicePointer<gpu::UVW>,
         d_beam_jones: &mut DevicePointer<GpuJones>,
         d_vis_fb: &mut DevicePointer<Jones<f32>>,
@@ -1083,6 +1088,7 @@ impl<'a> SkyModellerGpu<'a> {
                 &azs,
                 &zas,
                 array_latitude_rad,
+                timestamp.map(|epoch| BeamTime { epoch, lst_rad }),
                 d_beam_jones.get_mut().cast(),
             )?
         };
@@ -1153,14 +1159,36 @@ impl<'a> SkyModellerGpu<'a> {
         &self,
         lst_rad: f64,
         array_latitude_rad: f64,
+        timestamp: Option<Epoch>,
         d_uvws: &DevicePointer<gpu::UVW>,
         d_beam_jones: &mut DevicePointer<GpuJones>,
         d_vis_fb: &mut DevicePointer<Jones<f32>>,
     ) -> Result<(), ModelError> {
         unsafe {
-            self.model_points(lst_rad, array_latitude_rad, d_uvws, d_beam_jones, d_vis_fb)?;
-            self.model_gaussians(lst_rad, array_latitude_rad, d_uvws, d_beam_jones, d_vis_fb)?;
-            self.model_shapelets(lst_rad, array_latitude_rad, d_uvws, d_beam_jones, d_vis_fb)?;
+            self.model_points(
+                lst_rad,
+                array_latitude_rad,
+                timestamp,
+                d_uvws,
+                d_beam_jones,
+                d_vis_fb,
+            )?;
+            self.model_gaussians(
+                lst_rad,
+                array_latitude_rad,
+                timestamp,
+                d_uvws,
+                d_beam_jones,
+                d_vis_fb,
+            )?;
+            self.model_shapelets(
+                lst_rad,
+                array_latitude_rad,
+                timestamp,
+                d_uvws,
+                d_beam_jones,
+                d_vis_fb,
+            )?;
         }
         Ok(())
     }
@@ -1173,6 +1201,7 @@ impl<'a> SkyModellerGpu<'a> {
         &self,
         lst_rad: f64,
         array_latitude_rad: f64,
+        timestamp: Option<Epoch>,
         d_beam_jones: &mut DevicePointer<GpuJones>,
         d_vis_fb: &mut DevicePointer<Jones<f32>>,
     ) -> Result<(), ModelError> {
@@ -1229,6 +1258,7 @@ impl<'a> SkyModellerGpu<'a> {
                 &azs,
                 &zas,
                 array_latitude_rad,
+                timestamp.map(|epoch| BeamTime { epoch, lst_rad }),
                 d_beam_jones.get_mut().cast(),
             )?;
         }
@@ -1467,7 +1497,14 @@ impl<'a> SkyModeller<'a> for SkyModellerGpu<'a> {
             DevicePointer::copy_to_device(vis_fb.as_slice().expect("is contiguous"))?;
         let mut d_beam_jones = DevicePointer::default();
 
-        self.model_timestep_with(lst, latitude, &d_uvws, &mut d_beam_jones, &mut d_vis_fb)?;
+        self.model_timestep_with(
+            lst,
+            latitude,
+            Some(timestamp),
+            &d_uvws,
+            &mut d_beam_jones,
+            &mut d_vis_fb,
+        )?;
         d_vis_fb.copy_from_device(vis_fb.as_slice_mut().expect("is contiguous"))?;
 
         Ok((vis_fb, uvws))
@@ -1486,7 +1523,14 @@ impl<'a> SkyModeller<'a> for SkyModellerGpu<'a> {
             DevicePointer::copy_to_device(vis_fb.as_slice().expect("is contiguous"))?;
         let mut d_beam_jones = DevicePointer::default();
 
-        self.model_timestep_with(lst, latitude, &d_uvws, &mut d_beam_jones, &mut d_vis_fb)?;
+        self.model_timestep_with(
+            lst,
+            latitude,
+            Some(timestamp),
+            &d_uvws,
+            &mut d_beam_jones,
+            &mut d_vis_fb,
+        )?;
         d_vis_fb.copy_from_device(vis_fb.as_slice_mut().expect("is contiguous"))?;
 
         // Mask any unavailable polarisations.
@@ -1516,7 +1560,13 @@ impl<'a> SkyModeller<'a> for SkyModellerGpu<'a> {
             DevicePointer::copy_to_device(vis_fb.as_slice().expect("is contiguous"))?;
         let mut d_beam_jones = DevicePointer::default();
 
-        self.model_timestep_autos_with_inner(lst, latitude, &mut d_beam_jones, &mut d_vis_fb)?;
+        self.model_timestep_autos_with_inner(
+            lst,
+            latitude,
+            Some(timestamp),
+            &mut d_beam_jones,
+            &mut d_vis_fb,
+        )?;
         d_vis_fb.copy_from_device(vis_fb.as_slice_mut().expect("is contiguous"))?;
 
         // Mask any unavailable polarisations.

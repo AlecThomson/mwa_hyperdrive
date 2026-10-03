@@ -13,6 +13,8 @@ env:
 
 jobs:
   build:
+    # The images are pushed to the main repository's Docker Hub; skip on forks.
+    if: ${{ github.repository == 'MWATelescope/mwa_hyperdrive' }}
     runs-on: ${{ matrix.os }}
     environment: CI
     strategy:
@@ -81,6 +83,7 @@ jobs:
       #       cargo test --release"
 
   merge:
+    if: ${{ github.repository == 'MWATelescope/mwa_hyperdrive' }}
     runs-on: ubuntu-latest
     needs:
       - build

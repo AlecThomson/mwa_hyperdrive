@@ -8,6 +8,8 @@
 //! https://matklad.github.io/2021/02/27/delete-cargo-integration-tests.html
 
 mod di_calibrate;
+#[cfg(feature = "everybeam")]
+mod everybeam;
 mod no_stderr;
 mod peel;
 mod solutions_apply;

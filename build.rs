@@ -16,6 +16,17 @@ fn main() {
 
     #[cfg(any(feature = "cuda", feature = "hip"))]
     gpu::build_and_link();
+
+    // everybeam-sys can't add an rpath to our binaries itself, so it tells us
+    // where an installed EveryBeam's libraries are.
+    #[cfg(feature = "everybeam")]
+    if let Ok(rpath) = std::env::var("DEP_EVERYBEAM_RPATH") {
+        for dir in std::env::split_paths(&rpath) {
+            if !dir.as_os_str().is_empty() {
+                println!("cargo:rustc-link-arg=-Wl,-rpath,{}", dir.display());
+            }
+        }
+    }
 }
 
 #[cfg(any(feature = "cuda", feature = "hip"))]

@@ -10,7 +10,7 @@ use log::debug;
 use marlu::{AzEl, Jones};
 use ndarray::prelude::*;
 
-use super::{partial_to_full, validate_delays, Beam, BeamError, BeamType, Delays};
+use super::{partial_to_full, validate_delays, Beam, BeamError, BeamTime, BeamType, Delays};
 
 #[cfg(any(feature = "cuda", feature = "hip"))]
 use super::{BeamGpu, DevicePointer, GpuFloat};
@@ -187,6 +187,7 @@ impl Beam for FEEBeam {
         freq_hz: f64,
         tile_index: Option<usize>,
         latitude_rad: f64,
+        _time: Option<BeamTime>,
     ) -> Result<Jones<f64>, BeamError> {
         // The FEE beam is defined only at specific frequencies. For this
         // reason, rather than making a unique hash for every single different
@@ -224,6 +225,7 @@ impl Beam for FEEBeam {
         freq_hz: f64,
         tile_index: Option<usize>,
         latitude_rad: f64,
+        _time: Option<BeamTime>,
     ) -> Result<Vec<Jones<f64>>, BeamError> {
         // The FEE beam is defined only at specific frequencies. For this
         // reason, rather than making a unique hash for every single different
@@ -261,6 +263,7 @@ impl Beam for FEEBeam {
         freq_hz: f64,
         tile_index: Option<usize>,
         latitude_rad: f64,
+        _time: Option<BeamTime>,
         results: &mut [Jones<f64>],
     ) -> Result<(), BeamError> {
         // The FEE beam is defined only at specific frequencies. For this
@@ -331,6 +334,7 @@ impl BeamGpu for FEEBeamGpu {
         az_rad: &[GpuFloat],
         za_rad: &[GpuFloat],
         latitude_rad: f64,
+        _time: Option<BeamTime>,
         d_jones: *mut std::ffi::c_void,
     ) -> Result<(), BeamError> {
         let d_az_rad = DevicePointer::copy_to_device(az_rad)?;

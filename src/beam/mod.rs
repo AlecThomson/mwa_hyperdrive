@@ -13,19 +13,31 @@
 //! be correct when at zenith.
 
 mod error;
+#[cfg(feature = "everybeam")]
+mod everybeam;
 mod fee;
 #[cfg(test)]
 mod tests;
 
 pub(crate) use error::BeamError;
+#[cfg(feature = "everybeam")]
+pub(crate) use everybeam::EveryBeam;
+#[cfg(feature = "everybeam")]
+pub use everybeam::{use_bundled_casacore_data, EveryBeamOptions};
 pub(crate) use fee::FEEBeam;
 
-use std::{path::Path, str::FromStr};
+use std::{
+    collections::{hash_map::DefaultHasher, HashSet},
+    hash::{Hash, Hasher},
+    path::Path,
+    str::FromStr,
+};
 
+use hifitime::Epoch;
 use itertools::Itertools;
 use log::debug;
 use marlu::{AzEl, Jones};
-use ndarray::prelude::*;
+use ndarray::{prelude::*, ArcArray2};
 use strum::IntoEnumIterator;
 
 #[cfg(any(feature = "cuda", feature = "hip"))]
@@ -53,10 +65,34 @@ pub enum BeamType {
     /// a.k.a. [`NoBeam`]. Only returns identity matrices.
     #[strum(serialize = "none")]
     None,
+
+    /// Any beam supported by EveryBeam (e.g. SKA-Low, LOFAR), using a
+    /// measurement set to describe the telescope.
+    #[cfg(feature = "everybeam")]
+    #[strum(serialize = "everybeam")]
+    EveryBeam,
 }
 
 lazy_static::lazy_static! {
     pub(crate) static ref BEAM_TYPES_COMMA_SEPARATED: String = BeamType::iter().map(|s| s.to_string().to_lowercase()).join(", ");
+}
+
+/// Time information associated with beam-response calculations.
+///
+/// The MWA FEE beam only needs a direction relative to the local horizon
+/// ([`AzEl`]), but other beam codes (e.g. EveryBeam) need to know the absolute
+/// time to (for example) convert a direction into the station frame. Callers
+/// that know the time should supply this; `lst_rad` must be the same LST that
+/// was used (together with the latitude) to generate the [`AzEl`]s passed to
+/// the beam, so that the original (RA, Dec) of each direction can be recovered.
+#[derive(Debug, Clone, Copy)]
+pub struct BeamTime {
+    /// The time of the beam-response calculation.
+    pub epoch: Epoch,
+
+    /// The local sidereal time used to generate the [`AzEl`] directions
+    /// \[radians\].
+    pub lst_rad: f64,
 }
 
 /// A trait abstracting beam code functions.
@@ -85,13 +121,15 @@ pub trait Beam: Sync + Send {
     /// Calculate the beam-response Jones matrix for an [`AzEl`] direction. The
     /// delays and gains that will used depend on `tile_index`; if not supplied,
     /// ideal dipole delays and gains are used, otherwise `tile_index` accesses
-    /// the information provided when this [`Beam`] was created.
+    /// the information provided when this [`Beam`] was created. `time` must be
+    /// supplied for beams that depend on the absolute time (e.g. EveryBeam).
     fn calc_jones(
         &self,
         azel: AzEl,
         freq_hz: f64,
         tile_index: Option<usize>,
         latitude_rad: f64,
+        time: Option<BeamTime>,
     ) -> Result<Jones<f64>, BeamError>;
 
     /// Calculate the beam-response Jones matrices for multiple [`AzEl`]
@@ -105,6 +143,7 @@ pub trait Beam: Sync + Send {
         freq_hz: f64,
         tile_index: Option<usize>,
         latitude_rad: f64,
+        time: Option<BeamTime>,
     ) -> Result<Vec<Jones<f64>>, BeamError>;
 
     /// Calculate the beam-response Jones matrices for multiple [`AzEl`]
@@ -119,8 +158,43 @@ pub trait Beam: Sync + Send {
         freq_hz: f64,
         tile_index: Option<usize>,
         latitude_rad: f64,
+        time: Option<BeamTime>,
         results: &mut [Jones<f64>],
     ) -> Result<(), BeamError>;
+
+    /// Calculate the beam-response Jones matrices for multiple [`AzEl`]
+    /// directions, frequencies and tiles, saving the results into `results`,
+    /// which must have dimensions (`tile_indices.len()`, `freqs_hz.len()`,
+    /// `azels.len()`). By default, this calls
+    /// [`Beam::calc_jones_array_inner`] for each tile and frequency, but some
+    /// beam codes can do this more efficiently.
+    fn calc_jones_tiles_freqs(
+        &self,
+        azels: &[AzEl],
+        freqs_hz: &[f64],
+        tile_indices: &[usize],
+        latitude_rad: f64,
+        time: Option<BeamTime>,
+        mut results: ArrayViewMut3<Jones<f64>>,
+    ) -> Result<(), BeamError> {
+        assert_eq!(
+            results.dim(),
+            (tile_indices.len(), freqs_hz.len(), azels.len())
+        );
+        for (mut results, &i_tile) in results.outer_iter_mut().zip(tile_indices) {
+            for (mut results, &freq) in results.outer_iter_mut().zip(freqs_hz) {
+                self.calc_jones_array_inner(
+                    azels,
+                    freq,
+                    Some(i_tile),
+                    latitude_rad,
+                    time,
+                    results.as_slice_mut().expect("is contiguous"),
+                )?;
+            }
+        }
+        Ok(())
+    }
 
     /// Given a frequency in Hz, find the closest frequency that the beam code
     /// is defined for. An example of when this is important is with the FEE
@@ -130,6 +204,28 @@ pub trait Beam: Sync + Send {
 
     /// If this [`Beam`] supports it, empty the coefficient cache.
     fn empty_coeff_cache(&self);
+
+    /// Work out which tiles have unique beam responses, so that beam work can
+    /// be de-duplicated. The first returned vector contains the tile indices
+    /// (suitable as `tile_index` for beam calculations) of each unique tile.
+    /// The second vector maps every tile index (flagged or not) to an index
+    /// into the first vector; flagged tiles map to 0.
+    ///
+    /// The default implementation de-duplicates tiles based on their MWA
+    /// dipole delays and gains. Beams without such information (e.g.
+    /// [`NoBeam`]) treat all tiles as having the same response.
+    fn get_unique_tiles(
+        &self,
+        total_num_tiles: usize,
+        flagged_tiles: &HashSet<usize>,
+    ) -> (Vec<usize>, Vec<usize>) {
+        dedup_tiles_by_dipoles(
+            self.get_dipole_gains(),
+            self.get_dipole_delays(),
+            total_num_tiles,
+            flagged_tiles,
+        )
+    }
 
     #[cfg(any(feature = "cuda", feature = "hip"))]
     /// Using the tile information from this [`Beam`] and frequencies to be
@@ -154,6 +250,7 @@ pub trait BeamGpu {
         az_rad: &[GpuFloat],
         za_rad: &[GpuFloat],
         latitude_rad: f64,
+        time: Option<BeamTime>,
         d_jones: *mut std::ffi::c_void,
     ) -> Result<(), BeamError>;
 
@@ -287,6 +384,7 @@ impl Beam for NoBeam {
         _freq_hz: f64,
         _tile_index: Option<usize>,
         _latitude_rad: f64,
+        _time: Option<BeamTime>,
     ) -> Result<Jones<f64>, BeamError> {
         Ok(Jones::identity())
     }
@@ -297,6 +395,7 @@ impl Beam for NoBeam {
         _freq_hz: f64,
         _tile_index: Option<usize>,
         _latitude_rad: f64,
+        _time: Option<BeamTime>,
     ) -> Result<Vec<Jones<f64>>, BeamError> {
         Ok(vec![Jones::identity(); azels.len()])
     }
@@ -307,6 +406,7 @@ impl Beam for NoBeam {
         _freq_hz: f64,
         _tile_index: Option<usize>,
         _latitude_rad: f64,
+        _time: Option<BeamTime>,
         results: &mut [Jones<f64>],
     ) -> Result<(), BeamError> {
         results.fill(Jones::identity());
@@ -344,6 +444,7 @@ impl BeamGpu for NoBeamGpu {
         az_rad: &[GpuFloat],
         _za_rad: &[GpuFloat],
         _latitude_rad: f64,
+        _time: Option<BeamTime>,
         d_jones: *mut std::ffi::c_void,
     ) -> Result<(), BeamError> {
         #[cfg(feature = "cuda")]
@@ -421,7 +522,24 @@ pub fn create_beam_object(
                 None,
             )?))
         }
+
+        // EveryBeam needs a measurement set; see `create_everybeam_object`.
+        #[cfg(feature = "everybeam")]
+        BeamType::EveryBeam => Err(BeamError::NeedsBeamMs),
     }
+}
+
+/// Create an EveryBeam beam object from a measurement set describing the
+/// telescope. If `num_tiles` is supplied, it must match the number of stations
+/// in the measurement set.
+#[cfg(feature = "everybeam")]
+pub fn create_everybeam_object(
+    ms: &Path,
+    num_tiles: Option<usize>,
+    options: EveryBeamOptions,
+) -> Result<Box<dyn Beam>, BeamError> {
+    debug!("Setting up an EveryBeam object");
+    Ok(Box::new(EveryBeam::new(ms, num_tiles, options)?))
 }
 
 /// Assume that the dipole delays for all tiles is the same as the delays for
@@ -457,4 +575,80 @@ fn validate_delays(delays: &Delays, num_tiles: usize) -> Result<(), BeamError> {
     }
 
     Ok(())
+}
+/// De-duplicate tiles based on their MWA dipole delays and gains. See
+/// [`Beam::get_unique_tiles`].
+fn dedup_tiles_by_dipoles(
+    gains: Option<ArcArray2<f64>>,
+    delays: Option<ArcArray2<u32>>,
+    total_num_tiles: usize,
+    flagged_tiles: &HashSet<usize>,
+) -> (Vec<usize>, Vec<usize>) {
+    // When there are no beam gains or delays, there's a way to cheaply
+    // generate the tile map, but I'm lazy right now.
+    let gains = gains.unwrap_or(ArcArray2::ones((total_num_tiles, 16)));
+    let delays = delays.unwrap_or(ArcArray2::zeros((total_num_tiles, 16)));
+    let mut unique_hashes = vec![];
+    let mut unique_tiles = vec![];
+    let mut tile_index_to_array_index_map = Vec::with_capacity(total_num_tiles);
+
+    let mut i_array_tile = 0;
+    for (i_tile, (gains, delays)) in gains.outer_iter().zip(delays.outer_iter()).enumerate() {
+        if flagged_tiles.contains(&i_tile) {
+            tile_index_to_array_index_map.push(0);
+            continue;
+        }
+
+        let (gains, delays) = fix_amps_ndarray(gains, delays);
+
+        let mut unique_tile_hasher = DefaultHasher::new();
+        delays.hash(&mut unique_tile_hasher);
+        // We can't hash f64 values, but we can hash their bits.
+        for gain in gains {
+            gain.to_bits().hash(&mut unique_tile_hasher);
+        }
+        let unique_tile_hash = unique_tile_hasher.finish();
+        let index = if let Some((_, index)) = unique_hashes
+            .iter()
+            .find(|(unique_hash, _)| *unique_hash == unique_tile_hash)
+        {
+            *index
+        } else {
+            unique_hashes.push((unique_tile_hash, i_array_tile));
+            unique_tiles.push(i_tile);
+            i_array_tile += 1;
+            i_array_tile - 1
+        };
+        tile_index_to_array_index_map.push(index);
+    }
+
+    (unique_tiles, tile_index_to_array_index_map)
+}
+
+/// Ensure that any delays of 32 have an amplitude (dipole gain) of 0. The
+/// results are bad otherwise! Also ensure that we have 32 dipole gains (amps)
+/// here. Also return a Rust array of delays for convenience.
+///
+/// TODO: This is copy+pasted from `hyperbeam`; make that function public and
+/// use it instead.
+fn fix_amps_ndarray(amps: ArrayView1<f64>, delays: ArrayView1<u32>) -> ([f64; 32], [u32; 16]) {
+    let mut full_amps: [f64; 32] = [1.0; 32];
+    full_amps
+        .iter_mut()
+        .zip(amps.iter().cycle())
+        .zip(delays.iter().cycle())
+        .for_each(|((out_amp, &in_amp), &delay)| {
+            if delay == 32 {
+                *out_amp = 0.0;
+            } else {
+                *out_amp = in_amp;
+            }
+        });
+
+    // So that we don't have to do .as_slice().unwrap() on our ndarrays outside
+    // of this function, return a Rust array of delays here.
+    let mut delays_a: [u32; 16] = [0; 16];
+    delays_a.iter_mut().zip(delays).for_each(|(da, d)| *da = *d);
+
+    (full_amps, delays_a)
 }

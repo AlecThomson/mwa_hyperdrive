@@ -469,7 +469,11 @@ impl From<BeamError> for HyperdriveError {
             BeamError::Unrecognised(_)
             | BeamError::BadTileIndex { .. }
             | BeamError::Hyperbeam(_)
-            | BeamError::HyperbeamInit(_) => Self::Beam(s),
+            | BeamError::HyperbeamInit(_)
+            | BeamError::EveryBeam(_)
+            | BeamError::NeedsBeamMs
+            | BeamError::NeedsTime
+            | BeamError::StationCountMismatch { .. } => Self::Beam(s),
             #[cfg(any(feature = "cuda", feature = "hip"))]
             BeamError::Gpu(_) => Self::Beam(s),
         }

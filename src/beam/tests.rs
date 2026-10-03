@@ -19,7 +19,9 @@ fn no_beam_means_no_beam() {
     ];
     let beam = NoBeam { num_tiles: 1 };
     for azel in azels {
-        let j = beam.calc_jones(azel, 150e6, None, MWA_LAT_RAD).unwrap();
+        let j = beam
+            .calc_jones(azel, 150e6, None, MWA_LAT_RAD, None)
+            .unwrap();
 
         let expected = Jones::identity();
         assert_abs_diff_eq!(j, expected);
@@ -64,7 +66,7 @@ fn fee_beam_values_are_sensible() {
         .iter()
         .map(|&azel| {
             hyperdrive
-                .calc_jones(azel, freq, None, MWA_LAT_RAD)
+                .calc_jones(azel, freq, None, MWA_LAT_RAD, None)
                 .unwrap()
         })
         .collect();
@@ -114,6 +116,7 @@ fn fee_gpu_beam_values_are_sensible() {
                 &azs,
                 &zas,
                 MWA_LAT_RAD,
+                None,
                 hyperdrive_values_device.get_mut().cast(),
             )
             .unwrap();

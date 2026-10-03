@@ -73,6 +73,8 @@ jobs:
           cargo llvm-cov --workspace --release --lcov --output-path lcov.info
 
       - name: Upload reports to codecov.io
+        # Codecov is set up for the main repository; skip on forks.
+        if: ${{ github.repository == 'MWATelescope/mwa_hyperdrive' }}
         uses: codecov/codecov-action@v6
         with:
           files: lcov.info

@@ -442,7 +442,12 @@ pub(crate) fn peel_gpu(
                 high_res_modeller.update_with_a_source(source, source_pos)?;
                 // Clear the old memory before reusing the buffer.
                 d_high_res_model_tfb.clear();
-                for (i_time, (lmst, latitude)) in lmsts.iter().zip(latitudes.iter()).enumerate() {
+                for (i_time, ((lmst, latitude), timestamp)) in lmsts
+                    .iter()
+                    .zip(latitudes.iter())
+                    .zip(timestamps.iter())
+                    .enumerate()
+                {
                     let original_model_ptr = d_high_res_model_tfb.ptr;
                     d_high_res_model_tfb.ptr = d_high_res_model_tfb
                         .ptr
@@ -452,6 +457,7 @@ pub(crate) fn peel_gpu(
                     high_res_modeller.model_timestep_with(
                         *lmst,
                         *latitude,
+                        Some(*timestamp),
                         &d_uvws_to,
                         &mut d_beam_jones,
                         &mut d_high_res_model_tfb,

@@ -7,6 +7,11 @@
 use clap::Parser;
 
 fn main() {
+    // Pre-compiled EveryBeam releases bundle casacore's measures data; this
+    // must happen before any threads are started.
+    #[cfg(feature = "everybeam")]
+    mwa_hyperdrive::use_bundled_casacore_data();
+
     // Run hyperdrive, only performing extra steps if it returns an error.
     //
     // Stolen from BurntSushi. We don't return Result from main because it
