@@ -455,6 +455,23 @@ mod vendored {
         }
     }
 
+    /// The directory containing the Fortran runtime library (libgfortran).
+    fn fortran_runtime_dir() -> Option<PathBuf> {
+        println!("cargo:rerun-if-env-changed=FC");
+        let fc = env::var("FC").unwrap_or_else(|_| "gfortran".to_string());
+        let out = Command::new(fc)
+            .arg("-print-file-name=libgfortran.so")
+            .output()
+            .ok()?;
+        let path = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+        // If the library isn't found, the bare file name is printed.
+        if path.is_absolute() && path.exists() {
+            path.parent().map(|p| p.to_path_buf())
+        } else {
+            None
+        }
+    }
+
     /// Find HDF5's include directory and library directory.
     fn find_hdf5() -> (Vec<PathBuf>, Vec<PathBuf>) {
         println!("cargo:rerun-if-env-changed=HDF5_DIR");
@@ -718,6 +735,12 @@ mod vendored {
             if Path::new(dir).exists() {
                 println!("cargo:rustc-link-search=native={dir}");
             }
+        }
+        // casacore's Fortran code needs the Fortran runtime. Ask the Fortran
+        // compiler where it is, because it isn't always on the linker's
+        // default search path (e.g. with versioned compilers like gfortran-10).
+        if let Some(dir) = fortran_runtime_dir() {
+            println!("cargo:rustc-link-search=native={}", dir.display());
         }
         // GSL is used by casacore's Dysco storage manager, which is needed to
         // open Dysco-compressed measurement sets.

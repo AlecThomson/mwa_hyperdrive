@@ -40,7 +40,10 @@ packages:
 | Debian/Ubuntu | `build-essential cmake curl git gfortran flex bison libboost-dev libhdf5-dev libfftw3-dev libgsl-dev libblas-dev liblapack-dev casacore-data` |
 | Fedora/RHEL | `gcc-c++ gcc-gfortran cmake curl git flex bison boost-devel hdf5-devel fftw-devel gsl-devel blas-devel lapack-devel` |
 
-(plus `hyperdrive`'s usual [dependencies](from_source.md)). Then:
+(plus `hyperdrive`'s usual [dependencies](from_source.md)). On RHEL-like
+systems, `hdf5-devel` comes from EPEL and the BLAS/LAPACK packages from the
+PowerTools/CRB repository, and a newer GCC (e.g. `gcc-toolset-13`) is needed on
+RHEL 8, because EveryBeam needs a C++20 compiler (GCC 10 or later). Then:
 
 ```shell
 # From a clone of the hyperdrive repo:
@@ -50,7 +53,8 @@ cargo install --path . --locked --features everybeam-vendored
 ~~~admonish info title="Build time"
 The first build compiles casacore and EveryBeam, which adds a few minutes (on
 the order of 5-10 minutes on 4 cores; less with more cores). These are built
-inside cargo's target directory, so later `cargo build`s don't rebuild them.
+inside cargo's target directory (using about 2.5 GB of disk space), so later
+`cargo build`s don't rebuild them.
 To avoid rebuilding them for every `cargo install`:
 - use a persistent target directory, e.g.
   `CARGO_TARGET_DIR=~/.cache/hyperdrive-target cargo install ...`; and/or
