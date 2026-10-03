@@ -11,6 +11,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include <EveryBeam/beammode.h>
@@ -37,7 +38,17 @@ void write_error(const char *msg, char *err, size_t err_len) {
 
 bool is_set(const char *s) { return s != nullptr && s[0] != '\0'; }
 
+std::mutex data_dir_mutex;
+std::string data_dir;
+
 } // namespace
+
+// When EveryBeam is vendored, its GetDataDirectory() is patched to call this
+// first; a null return falls back to EveryBeam's usual logic.
+extern "C" const char *hyperdrive_everybeam_data_dir() {
+    std::lock_guard<std::mutex> lock(data_dir_mutex);
+    return data_dir.empty() ? nullptr : data_dir.c_str();
+}
 
 extern "C" {
 
@@ -78,6 +89,11 @@ eb_telescope *eb_load(const char *ms_path, const eb_options *options, char *err,
         write_error("Unknown C++ exception when loading EveryBeam telescope", err, err_len);
     }
     return nullptr;
+}
+
+void eb_set_data_dir(const char *dir) {
+    std::lock_guard<std::mutex> lock(data_dir_mutex);
+    data_dir = dir == nullptr ? "" : dir;
 }
 
 void eb_free(eb_telescope *telescope) { delete telescope; }

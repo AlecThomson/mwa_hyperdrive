@@ -139,15 +139,126 @@ jobs:
           path: "*.tar.gz"
           if-no-files-found: error
 
+  build-linux-everybeam-release:
+    name: Build release for Linux with EveryBeam
+    runs-on: ubuntu-24.04
+    # Build against an old glibc (2.28), so that the binaries run on most
+    # Linux systems (e.g. RHEL/Rocky 8+, Ubuntu 20.04+). This is the same base
+    # as the manylinux_2_28 images.
+    container: almalinux:8
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          dnf install -y epel-release dnf-plugins-core
+          dnf config-manager --set-enabled powertools
+          # EveryBeam needs C++20, so use a newer GCC than the system's.
+          dnf install -y \
+            gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-gcc-gfortran \
+            cmake make perl patchelf flex bison curl git tar gzip autoconf automake libtool \
+            boost-devel hdf5-devel fftw-devel gsl-devel blas-devel lapack-devel \
+            ;
+          echo "/opt/rh/gcc-toolset-13/root/usr/bin" >> "$GITHUB_PATH"
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Get casacore measures data
+        run: |
+          mkdir -p measures
+          curl -fL https://www.astron.nl/iers/WSRT_Measures.ztar -o WSRT_Measures.ztar
+          tar -xf WSRT_Measures.ztar -C measures
+          ls measures
+
+      - name: Build and bundle
+        run: |
+          # Don't build against the host CPU
+          [ -f .cargo/config.toml ] && rm .cargo/config.toml
+          perl -0777 -pe 's/let dirty = .*\n.*\n.*\n.*/let dirty = "";/' -i src/cli/mod.rs
+          VERSION=$(git describe --tags)
+
+          for ARCH in {2,3}; do
+            echo "Building x86-64-v${ARCH}"
+            export CFLAGS="-march=x86-64-v${ARCH}"
+            export CXXFLAGS="-march=x86-64-v${ARCH}"
+            export RUSTFLAGS="-C target-cpu=x86-64-v${ARCH}"
+
+            # Plotting is too hard to make portable. HDF5 comes from the
+            # system (EveryBeam needs its C++ library) and is bundled.
+            cargo build --profile production --locked --no-default-features \
+              --features=everybeam-vendored,cfitsio-static
+
+            DIR="mwa_hyperdrive-${VERSION}-Linux-x86-64-v${ARCH}-everybeam"
+            rm -rf "$DIR"
+            .github/workflows/bundle_libs.sh target/production/hyperdrive "$DIR"
+            mkdir -p "$DIR/share/casacore"
+            cp -r measures "$DIR/share/casacore/data"
+
+            # Licenses. EveryBeam (GPL-3.0) makes this binary a GPL-3.0 work.
+            SRC=$(ls -d target/production/build/everybeam-sys-*/out/src | head -1)
+            cp LICENSE "$DIR/LICENSE-hyperdrive"
+            cp "$SRC/everybeam-0.9.0/LICENSE" "$DIR/LICENSE-EveryBeam"
+            cp "$SRC/casacore-3.8.2/COPYING" "$DIR/LICENSE-casacore"
+            cp "$SRC/aocommon/LICENSE" "$DIR/LICENSE-aocommon"
+            cp .github/workflows/releases-readme-everybeam.md "$DIR/README.md"
+            tar -acvf "$DIR.tar.gz" "$DIR"
+          done
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-everybeam.tar.gz
+          path: "*-everybeam.tar.gz"
+          if-no-files-found: error
+
+  test-linux-everybeam-release:
+    name: Smoke test the EveryBeam release on an old distro
+    runs-on: ubuntu-24.04
+    needs: build-linux-everybeam-release
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+
+      - name: Download artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-everybeam.tar.gz
+
+      - name: Run on Ubuntu 20.04
+        run: |
+          TARBALL=$(ls *-x86-64-v2-everybeam.tar.gz)
+          docker run --rm -v "$PWD:/work" -w /work ubuntu:20.04 bash -c "
+            set -ex
+            tar -xf $TARBALL
+            HYP=\$(ls -d *-everybeam)/bin/hyperdrive
+            \$HYP --version
+            sed 's/        i: /        i: -/' test_files/everybeam/skalow_mini_srclist.yaml > neg.yaml
+            \$HYP vis-subtract -d test_files/everybeam/skalow_mini.ms -s neg.yaml \
+              --beam-type everybeam --everybeam-element-model skala40_wave \
+              --named-sources zenith_source src_n src_s src_e src_w src_ne -o sim.ms
+            \$HYP di-calibrate -d sim.ms -s test_files/everybeam/skalow_mini_srclist.yaml \
+              --beam-type everybeam --everybeam-element-model skala40_wave \
+              --beam-ms test_files/everybeam/skalow_mini.ms -o sols.fits
+          "
+
   create-github-release:
     name: Create a new release
     runs-on: ubuntu-latest
-    needs: build-linux-release
+    needs: [build-linux-release, test-linux-everybeam-release]
     steps:
       - name: Download Linux artifact
         uses: actions/download-artifact@v8
         with:
           name: linux.tar.gz
+
+      - name: Download Linux EveryBeam artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-everybeam.tar.gz
 
       - name: Provide new release asset
         uses: marvinpinto/action-automatic-releases@latest

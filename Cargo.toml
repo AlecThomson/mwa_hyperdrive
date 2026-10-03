@@ -16,6 +16,9 @@ homepage = "https://mwatelescope.github.io/mwa_hyperdrive"
 exclude = [".github/*", "test_files/*", "examples/*", "mdbook/*"]
 resolver = "3"
 
+[workspace]
+members = ["crates/everybeam-sys"]
+
 [profile.release]
 panic = "abort"
 codegen-units = 256
@@ -44,10 +47,14 @@ gpu-single = ["mwa_hyperbeam/gpu-single"]
 # Enable plotting.
 plotting = ["plotters"]
 
-# Use EveryBeam (https://git.astron.nl/RD/EveryBeam) for beam responses. This
-# requires EveryBeam (>= 0.9) and casacore to be installed; see the
-# `EVERYBEAM_DIR` and `CASACORE_DIR` environment variables in build.rs.
-everybeam = ["cc"]
+# Use EveryBeam (https://git.astron.nl/RD/EveryBeam) for beam responses, with
+# an installed EveryBeam (>= 0.9) and casacore; see the `EVERYBEAM_DIR` and
+# `CASACORE_DIR` environment variables in crates/everybeam-sys/build.rs.
+everybeam = ["dep:everybeam-sys"]
+
+# Like "everybeam", but download, build and statically link EveryBeam and
+# casacore, so that they don't need to be installed.
+everybeam-vendored = ["everybeam", "everybeam-sys/vendored"]
 
 # Use dlopen to find libfontconfig at runtime.
 fontconfig-dlopen = ["plotters/fontconfig-dlopen"]
@@ -104,6 +111,9 @@ strum_macros = "0.28.0"
 thiserror = "2.0"
 toml = "1.1.2"
 vec1 = { version = "~1.12.0", features = ["serde"] }
+
+# "everybeam" feature
+everybeam-sys = { version = "0.1.0", path = "crates/everybeam-sys", optional = true }
 
 # "cuda" feature
 cuda-runtime-sys = { version = "0.3.0-alpha.1", optional = true }

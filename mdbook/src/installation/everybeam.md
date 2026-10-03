@@ -3,146 +3,144 @@
 `hyperdrive` can optionally use
 [EveryBeam](https://git.astron.nl/RD/EveryBeam) for beam responses. This
 allows beam models other than the MWA FEE beam to be used, e.g. SKA-Low,
-LOFAR, and OSKAR-simulated arrays. EveryBeam support is enabled with the
-`everybeam` cargo feature, and is not included in the pre-compiled binaries.
+LOFAR and OSKAR-simulated arrays; see [EveryBeam beam
+responses](../defs/beam.md#everybeam) for usage.
 
-EveryBeam is a C++ library, and it depends on
-[casacore](https://github.com/casacore/casacore). The instructions below build
-both from source and install them under `/opt`; adjust the prefixes to suit.
-They were written for Ubuntu 24.04, but other distributions work similarly.
+There are three ways to get EveryBeam support:
 
-~~~admonish warning title="Versions"
-- EveryBeam **0.9 or later** is required.
-- EveryBeam >= 0.6.2 requires casacore **3.6 or later**. At the time of
-  writing, Ubuntu and Debian only package casacore 3.5, so casacore must be
-  built from source.
-- A C++20 compiler is required (e.g. GCC 10 or later).
+1. [Pre-compiled binaries](#pre-compiled-binaries) (Linux x86-64; easiest);
+2. [Building from source with a vendored EveryBeam](#from-source-vendored-everybeam)
+   (recommended if building from source); or
+3. [Building from source against an installed EveryBeam](#from-source-installed-everybeam).
+
+~~~admonish warning title="Licensing"
+EveryBeam is licensed under the GPL-3.0, whereas `hyperdrive` is licensed under
+the MPL-2.0. `hyperdrive` binaries that include EveryBeam are therefore subject
+to the GPL-3.0. Binaries without EveryBeam (the default) are unaffected.
 ~~~
 
-## 1. System dependencies
+## Pre-compiled binaries
+
+Each `hyperdrive` [release](https://github.com/MWATelescope/mwa_hyperdrive/releases)
+includes `...-everybeam.tar.gz` tarballs. These contain a `hyperdrive`
+binary with EveryBeam and casacore statically linked, the other libraries it
+needs (in `lib/`), and casacore's measures data (in `share/`). They run on any
+x86-64 Linux with glibc 2.28 or newer (e.g. RHEL/Rocky 8+, Ubuntu 20.04+).
+Extract the tarball and run `bin/hyperdrive`; no other setup is required.
+
+## From source: vendored EveryBeam
+
+With the `everybeam-vendored` feature, the build downloads EveryBeam and
+casacore (and some header-only dependencies), verifies them, builds them and
+links them statically. Nothing needs to be installed except some common system
+packages:
+
+| Distribution | Packages |
+| ------------ | -------- |
+| Debian/Ubuntu | `build-essential cmake curl git gfortran flex bison libboost-dev libhdf5-dev libfftw3-dev libgsl-dev libblas-dev liblapack-dev casacore-data` |
+| Fedora/RHEL | `gcc-c++ gcc-gfortran cmake curl git flex bison boost-devel hdf5-devel fftw-devel gsl-devel blas-devel lapack-devel` |
+
+(plus `hyperdrive`'s usual [dependencies](from_source.md)). Then:
+
+```shell
+# From a clone of the hyperdrive repo:
+cargo install --path . --locked --features everybeam-vendored
+```
+
+~~~admonish info title="Build time"
+The first build compiles casacore and EveryBeam, which adds a few minutes (on
+the order of 5-10 minutes on 4 cores; less with more cores). These are built
+inside cargo's target directory, so later `cargo build`s don't rebuild them.
+To avoid rebuilding them for every `cargo install`:
+- use a persistent target directory, e.g.
+  `CARGO_TARGET_DIR=~/.cache/hyperdrive-target cargo install ...`; and/or
+- use a compiler cache: `export CMAKE_C_COMPILER_LAUNCHER=sccache
+  CMAKE_CXX_COMPILER_LAUNCHER=sccache` (or `ccache`) before building.
+~~~
+
+For offline builds (or mirrors), any of the downloaded sources can instead be
+supplied as an extracted directory with `EVERYBEAM_SYS_<NAME>_SRC`, where
+`<NAME>` is one of `CASACORE`, `EVERYBEAM`, `AOCOMMON`, `SKA_SDP_FUNC`, `XTL`,
+`XTENSOR` or `EIGEN`; see `crates/everybeam-sys/build.rs` for the versions.
+
+EveryBeam's element-response coefficients (e.g. for SKA-Low and LOFAR element
+models) are embedded in the binary, and are used automatically.
+
+## From source: installed EveryBeam
+
+If EveryBeam (>= 0.9) and casacore (>= 3.6) are already installed, use the
+`everybeam` feature:
+
+```shell
+# Only needed if they aren't in $CONDA_PREFIX, /opt/everybeam, /opt/casacore,
+# /usr/local or /usr:
+export EVERYBEAM_DIR=/path/to/everybeam/prefix
+export CASACORE_DIR=/path/to/casacore/prefix
+
+cargo install --path . --locked --features everybeam
+```
+
+The binary records where the libraries are (an rpath), so `LD_LIBRARY_PATH`
+isn't needed. Other build-time environment variables are `EVERYBEAM_CXXFLAGS`
+(extra C++ compiler flags) and `EVERYBEAM_LIBS` (extra libraries to link).
+
+<details>
+<summary>Installing casacore and EveryBeam from source</summary>
+
+At the time of writing, Ubuntu and Debian only package casacore 3.5, so
+casacore must be built from source. EveryBeam needs a C++20 compiler (e.g.
+GCC 10 or later).
 
 ```shell
 sudo apt install -y build-essential cmake git wget gfortran flex bison \
     libboost-all-dev libhdf5-dev libfftw3-dev libblas-dev liblapack-dev \
-    libcfitsio-dev wcslib-dev libgsl-dev libreadline-dev \
-    casacore-data
-```
+    libcfitsio-dev wcslib-dev libgsl-dev casacore-data
 
-`casacore-data` provides the measures data (leap seconds, Earth orientation
-tables, etc.) that casacore needs at runtime; see [step 5](#5-runtime-setup).
-
-## 2. Build casacore (>= 3.6)
-
-Only the modules that EveryBeam needs are built here.
-
-```shell
-git clone --depth 1 --branch v3.6.1 https://github.com/casacore/casacore.git
+git clone --depth 1 --branch v3.8.2 https://github.com/casacore/casacore.git
 mkdir casacore/build && cd casacore/build
-cmake .. \
-    -DCMAKE_INSTALL_PREFIX=/opt/casacore \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DMODULE=ms \
-    -DBUILD_PYTHON=OFF -DBUILD_PYTHON3=OFF \
-    -DBUILD_TESTING=OFF \
-    -DUSE_OPENMP=ON \
-    -DDATA_DIR=/usr/share/casacore/data
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/casacore -DCMAKE_BUILD_TYPE=Release \
+    -DMODULE=ms -DBUILD_PYTHON=OFF -DBUILD_PYTHON3=OFF -DBUILD_TESTING=OFF \
+    -DBUILD_SISCO=OFF -DDATA_DIR=/usr/share/casacore/data
 make -j"$(nproc)" install
 cd ../..
-```
 
-## 3. Build EveryBeam (>= 0.9)
-
-EveryBeam has git submodules, so it must be cloned recursively.
-
-```shell
 git clone --recursive --branch v0.9.0 https://git.astron.nl/RD/EveryBeam.git
 mkdir EveryBeam/build && cd EveryBeam/build
-cmake .. \
-    -DCMAKE_INSTALL_PREFIX=/opt/everybeam \
-    -DCMAKE_BUILD_TYPE=Release \
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/everybeam -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_PREFIX_PATH=/opt/casacore
 make -j"$(nproc)" install
-cd ../..
 ```
 
-If the binaries will run on a different CPU to the one they're compiled on,
-add `-DPORTABLE=ON`. For LOFAR's LOBEs element model, add
-`-DDOWNLOAD_LOBES=ON`. See [EveryBeam's build
+See [EveryBeam's build
 instructions](https://everybeam.readthedocs.io/en/latest/build-instructions.html)
-for more options.
+for more options. Don't build against the `everybeam` Python wheels on PyPI;
+they contain no headers and use a renamed casacore namespace.
+</details>
 
-This installs the headers in `/opt/everybeam/include/EveryBeam`, the libraries
-in `/opt/everybeam/lib` and the element-response coefficients in
-`/opt/everybeam/share/everybeam`.
+## Runtime: casacore's measures data
 
-## 4. Build `hyperdrive`
-
-Tell the build where EveryBeam and casacore are, and enable the `everybeam`
-feature (it can be combined with other features, e.g. `cuda`):
-
-```shell
-export EVERYBEAM_DIR=/opt/everybeam
-export CASACORE_DIR=/opt/casacore
-
-# From a clone of the hyperdrive repo:
-cargo install --path . --locked --features everybeam
-```
-
-To avoid needing `LD_LIBRARY_PATH` at runtime (see below), the library paths
-can be baked into the binary:
+casacore needs its "measures" data (leap seconds, Earth-orientation tables) to
+convert coordinates. The pre-compiled binaries include it. Otherwise, install it
+(e.g. `casacore-data` on Debian/Ubuntu) and, if casacore can't find it (errors
+mentioning `TAI_UTC` or `IERS`), tell casacore where it is:
 
 ```shell
-RUSTFLAGS="-C link-args=-Wl,-rpath,/opt/everybeam/lib:/opt/casacore/lib" \
-    cargo install --path . --locked --features everybeam
+echo "measures.directory: /usr/share/casacore/data" >> ~/.casarc
 ```
 
-The build is controlled by these environment variables:
+The data can also be downloaded from ASTRON
+(`ftp://ftp.astron.nl/outgoing/Measures/WSRT_Measures.ztar`).
 
-| Variable             | Description                                                                                              | Default            |
-| -------------------- | -------------------------------------------------------------------------------------------------------- | ------------------ |
-| `EVERYBEAM_DIR`      | EveryBeam install prefix(es), `:`-separated. Headers in `include` and `include/EveryBeam`, libs in `lib` or `lib64`. | `/usr/local:/usr` |
-| `CASACORE_DIR`       | casacore install prefix(es), `:`-separated.                                                              | `/usr/local:/usr` |
-| `EVERYBEAM_CXXFLAGS` | Extra flags for the C++ compiler, whitespace separated.                                                  |                    |
-| `EVERYBEAM_LIBS`     | Extra libraries to link, whitespace separated.                                                           |                    |
-
-~~~admonish tip title="Don't link against the EveryBeam Python wheel"
-The `everybeam` wheels on PyPI contain a copy of `libeverybeam.so` but no
-headers. They also rename casacore's namespace. Building against them is not
-supported; use a proper installation as described above.
-~~~
-
-## 5. Runtime setup
-
-- The EveryBeam and casacore libraries must be found at runtime, unless an
-  rpath was used above:
-
-  ```shell
-  export LD_LIBRARY_PATH=/opt/everybeam/lib:/opt/casacore/lib:$LD_LIBRARY_PATH
-  ```
-
-- EveryBeam looks for its coefficient files in the data directory set at
-  compile time (`/opt/everybeam/share/everybeam` above). If EveryBeam has been
-  moved, set `EVERYBEAM_DATADIR`.
-
-- casacore needs its measures data for coordinate conversions. If you see
-  errors about `TAI_UTC` or `IERS` tables, make sure `casacore-data` is
-  installed and point casacore at it, e.g.
-
-  ```shell
-  echo "measures.directory: /usr/share/casacore/data" >> ~/.casarc
-  ```
-
-## 6. Check that it worked
+## Check that it worked
 
 ```shell
 hyperdrive di-calibrate --help | grep -i everybeam
 ```
 
 should list `everybeam` as a beam type, along with the `BEAM (EVERYBEAM)`
-options. See [EveryBeam beam responses](../defs/beam.md#everybeam) for usage.
-
-To run `hyperdrive`'s EveryBeam tests from a clone of the repo:
+options. From a clone of the repo, the EveryBeam tests can be run with e.g.
 
 ```shell
-cargo test --features everybeam --lib beam::everybeam
+cargo test --features everybeam-vendored --lib beam::everybeam
+cargo test --features everybeam-vendored --test integration_tests everybeam
 ```

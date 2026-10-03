@@ -17,86 +17,13 @@ fn main() {
     #[cfg(any(feature = "cuda", feature = "hip"))]
     gpu::build_and_link();
 
+    // everybeam-sys can't add an rpath to our binaries itself, so it tells us
+    // where an installed EveryBeam's libraries are.
     #[cfg(feature = "everybeam")]
-    everybeam::build_and_link();
-}
-
-#[cfg(feature = "everybeam")]
-mod everybeam {
-    use std::{env, path::PathBuf};
-
-    /// Get installation prefixes from an environment variable (colon
-    /// separated), falling back to the supplied defaults.
-    fn get_prefixes(var: &str, defaults: &[&str]) -> Vec<PathBuf> {
-        println!("cargo:rerun-if-env-changed={var}");
-        match env::var(var) {
-            Ok(v) if !v.is_empty() => env::split_paths(&v).collect(),
-            _ => defaults.iter().map(PathBuf::from).collect(),
-        }
-    }
-
-    /// Compile the C++ shim around EveryBeam and link against EveryBeam.
-    ///
-    /// The following environment variables can be used to help find
-    /// EveryBeam and its dependencies:
-    /// - `EVERYBEAM_DIR`: The installation prefix(es) of EveryBeam (e.g.
-    ///   `/usr/local`). Headers are expected in `$EVERYBEAM_DIR/include` and
-    ///   `$EVERYBEAM_DIR/include/EveryBeam`, libraries in `$EVERYBEAM_DIR/lib`
-    ///   or `$EVERYBEAM_DIR/lib64`.
-    /// - `CASACORE_DIR`: The installation prefix(es) of casacore.
-    /// - `EVERYBEAM_CXXFLAGS`: Extra (whitespace-separated) flags for the C++
-    ///   compiler.
-    /// - `EVERYBEAM_LIBS`: Extra (whitespace-separated) libraries to link.
-    pub(super) fn build_and_link() {
-        println!("cargo:rerun-if-changed=src/beam/everybeam/shim.cpp");
-        println!("cargo:rerun-if-changed=src/beam/everybeam/shim.h");
-
-        let everybeam_prefixes = get_prefixes("EVERYBEAM_DIR", &["/usr/local", "/usr"]);
-        let casacore_prefixes = get_prefixes("CASACORE_DIR", &["/usr/local", "/usr"]);
-
-        let mut build = cc::Build::new();
-        // EveryBeam's headers use C++20 features (e.g. std::span).
-        build
-            .cpp(true)
-            .std("c++20")
-            .file("src/beam/everybeam/shim.cpp");
-        // Use -isystem so that warnings from EveryBeam's headers are ignored.
-        let mut add_include = |dir: PathBuf| {
-            if dir.exists() {
-                build
-                    .flag("-isystem")
-                    .flag(dir.to_str().expect("path is UTF-8"));
-            }
-        };
-        for prefix in &everybeam_prefixes {
-            add_include(prefix.join("include"));
-            add_include(prefix.join("include").join("EveryBeam"));
-        }
-        for prefix in &casacore_prefixes {
-            add_include(prefix.join("include"));
-            add_include(prefix.join("include").join("casacore"));
-        }
-        println!("cargo:rerun-if-env-changed=EVERYBEAM_CXXFLAGS");
-        if let Ok(flags) = env::var("EVERYBEAM_CXXFLAGS") {
-            for flag in flags.split_whitespace() {
-                build.flag(flag);
-            }
-        }
-        build.compile("hyperdrive_everybeam");
-
-        for prefix in everybeam_prefixes.iter().chain(casacore_prefixes.iter()) {
-            for lib_dir in ["lib", "lib64"] {
-                let dir = prefix.join(lib_dir);
-                if dir.exists() {
-                    println!("cargo:rustc-link-search=native={}", dir.display());
-                }
-            }
-        }
-        println!("cargo:rustc-link-lib=dylib=everybeam");
-        println!("cargo:rerun-if-env-changed=EVERYBEAM_LIBS");
-        if let Ok(libs) = env::var("EVERYBEAM_LIBS") {
-            for lib in libs.split_whitespace() {
-                println!("cargo:rustc-link-lib={lib}");
+    if let Ok(rpath) = std::env::var("DEP_EVERYBEAM_RPATH") {
+        for dir in std::env::split_paths(&rpath) {
+            if !dir.as_os_str().is_empty() {
+                println!("cargo:rustc-link-arg=-Wl,-rpath,{}", dir.display());
             }
         }
     }

@@ -23,7 +23,7 @@ pub(crate) use error::BeamError;
 #[cfg(feature = "everybeam")]
 pub(crate) use everybeam::EveryBeam;
 #[cfg(feature = "everybeam")]
-pub use everybeam::EveryBeamOptions;
+pub use everybeam::{use_bundled_casacore_data, EveryBeamOptions};
 pub(crate) use fee::FEEBeam;
 
 use std::{

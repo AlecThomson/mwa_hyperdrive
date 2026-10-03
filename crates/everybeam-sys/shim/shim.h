@@ -40,6 +40,11 @@ typedef struct eb_options {
 // NULL is returned and an error message is written into `err`.
 eb_telescope *eb_load(const char *ms_path, const eb_options *options, char *err, size_t err_len);
 
+// Set the directory that a vendored EveryBeam uses for its data files
+// (element-response coefficients). The string is copied. This has no effect
+// for a system EveryBeam.
+void eb_set_data_dir(const char *dir);
+
 // Free a telescope created by `eb_load`.
 void eb_free(eb_telescope *telescope);
 

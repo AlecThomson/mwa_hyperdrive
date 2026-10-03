@@ -10,11 +10,17 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Optional EveryBeam support (`everybeam` cargo feature), enabling beam models
-  for telescopes other than the MWA (e.g. SKA-Low, LOFAR). Use it with
-  `--beam-type everybeam`; the telescope is described by the input measurement
-  set or `--beam-ms`. New `--everybeam-*` options control EveryBeam. See the
-  mdbook for installation instructions.
+- Optional EveryBeam support, enabling beam models for telescopes other than
+  the MWA (e.g. SKA-Low, LOFAR). Use it with `--beam-type everybeam`; the
+  telescope is described by the input measurement set or `--beam-ms`, and the
+  new `--everybeam-*` options control EveryBeam.
+  - The `everybeam-vendored` cargo feature downloads, builds and statically
+    links EveryBeam and casacore, so they don't need to be installed.
+  - The `everybeam` cargo feature uses installed copies instead.
+  - The FFI lives in a new workspace crate, `everybeam-sys`.
+  - Releases include portable `-everybeam` Linux tarballs (glibc >= 2.28).
+    These are GPL-3.0, because of EveryBeam; the other release tarballs are
+    unaffected.
 
 ### Changed
 

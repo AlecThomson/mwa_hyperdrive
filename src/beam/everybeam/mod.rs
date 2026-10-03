@@ -35,7 +35,6 @@
 //!   appropriate for data that have had the beam at the phase centre corrected
 //!   (e.g. by DP3's applybeam).
 
-mod ffi;
 #[cfg(test)]
 mod reference;
 #[cfg(test)]
@@ -54,6 +53,8 @@ use marlu::{AzEl, Jones, RADec};
 use ndarray::prelude::*;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+
+use everybeam_sys as ffi;
 
 use super::{Beam, BeamError, BeamTime, BeamType};
 
@@ -145,6 +146,119 @@ fn err_to_string(err: &[c_char]) -> String {
         .into_owned()
 }
 
+/// A suffix to make shared temporary files user-specific.
+fn user_suffix() -> String {
+    match std::env::var("USER") {
+        Ok(user) if !user.is_empty() => format!("-{user}"),
+        _ => String::new(),
+    }
+}
+
+/// If casacore's measures data are bundled next to this executable (as in the
+/// pre-compiled EveryBeam releases, at `../share/casacore/data`), and the user
+/// hasn't configured casacore themselves (with `CASARCFILES` or a
+/// `measures.directory` in `~/.casarc`), point casacore at the bundled data.
+///
+/// This sets an environment variable, so it must be called before any other
+/// threads are started (e.g. at the start of `main`).
+pub fn use_bundled_casacore_data() {
+    if std::env::var_os("CASARCFILES").is_some() {
+        return;
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        let casarc = Path::new(&home).join(".casarc");
+        if std::fs::read_to_string(casarc)
+            .map(|s| s.contains("measures.directory"))
+            .unwrap_or(false)
+        {
+            return;
+        }
+    }
+    let Some(data_dir) = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.canonicalize().ok())
+        .and_then(|exe| Some(exe.parent()?.parent()?.join("share/casacore/data")))
+        .filter(|d| d.join("geodetic").exists())
+    else {
+        return;
+    };
+
+    // casacore reads its settings from "rc" files; write one that points at
+    // the bundled data.
+    let rc = std::env::temp_dir().join(format!("hyperdrive-casarc{}", user_suffix()));
+    let contents = format!("measures.directory: {}\n", data_dir.display());
+    let up_to_date = std::fs::read_to_string(&rc)
+        .map(|s| s == contents)
+        .unwrap_or(false);
+    if up_to_date || std::fs::write(&rc, contents).is_ok() {
+        debug!(
+            "Using bundled casacore measures data in {}",
+            data_dir.display()
+        );
+        std::env::set_var("CASARCFILES", rc);
+    }
+}
+
+/// With a vendored EveryBeam, tell EveryBeam where its data files
+/// (element-response coefficients) are: `EVERYBEAM_DATADIR` if set, otherwise
+/// the build-time directory if it still exists, otherwise the data embedded in
+/// the binary, written to a temporary directory.
+#[cfg(feature = "everybeam-vendored")]
+fn set_vendored_data_dir() -> Result<(), BeamError> {
+    use std::sync::OnceLock;
+
+    static DATA_DIR: OnceLock<Result<CString, String>> = OnceLock::new();
+    let dir = DATA_DIR.get_or_init(|| {
+        let dir = if let Some(dir) = std::env::var_os("EVERYBEAM_DATADIR") {
+            PathBuf::from(dir)
+        } else if Path::new(ffi::data::BUILD_DATA_DIR).exists() {
+            PathBuf::from(ffi::data::BUILD_DATA_DIR)
+        } else {
+            let dir = std::env::temp_dir().join(format!(
+                "hyperdrive-everybeam-{}-data{}",
+                ffi::data::EVERYBEAM_VERSION,
+                user_suffix()
+            ));
+            write_embedded_data(&dir).map_err(|e| {
+                format!(
+                    "Couldn't write EveryBeam's data files to {}: {e}",
+                    dir.display()
+                )
+            })?;
+            dir
+        };
+        debug!("Using EveryBeam data directory {}", dir.display());
+        CString::new(dir.as_os_str().as_bytes()).map_err(|e| e.to_string())
+    });
+    match dir {
+        Ok(dir) => {
+            unsafe { ffi::eb_set_data_dir(dir.as_ptr()) };
+            Ok(())
+        }
+        Err(e) => Err(BeamError::EveryBeam(e.clone())),
+    }
+}
+
+#[cfg(feature = "everybeam-vendored")]
+fn write_embedded_data(dir: &Path) -> std::io::Result<()> {
+    for (name, contents) in ffi::data::FILES {
+        let path = dir.join(name);
+        let up_to_date = path
+            .metadata()
+            .map(|m| m.len() == contents.len() as u64)
+            .unwrap_or(false);
+        if up_to_date {
+            continue;
+        }
+        std::fs::create_dir_all(path.parent().expect("has a parent"))?;
+        // Write atomically, in case of concurrent hyperdrive processes.
+        let tmp = path.with_extension(format!("tmp{}", std::process::id()));
+        std::fs::write(&tmp, contents)?;
+        std::fs::rename(&tmp, &path)?;
+    }
+    Ok(())
+}
+
 /// Convert an EveryBeam Jones matrix with columns in the (North, East) sky
 /// basis to hyperdrive's convention (columns in the (East, North) sky basis).
 /// The rows are unchanged.
@@ -189,16 +303,28 @@ impl EveryBeam {
             frequency_interpolation: options.frequency_interpolation.into(),
         };
 
+        #[cfg(feature = "everybeam-vendored")]
+        set_vendored_data_dir()?;
+
         let mut err = [0 as c_char; ERR_LEN];
         let telescope = {
             let _lock = CASACORE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
             unsafe { ffi::eb_load(ms_c.as_ptr(), &eb_options, err.as_mut_ptr(), ERR_LEN) }
         };
         let telescope = NonNull::new(telescope).ok_or_else(|| {
+            let msg = err_to_string(&err);
+            // casacore needs its "measures" data to convert coordinates.
+            let hint = if ["TAI_UTC", "IERS", "leap second", "measures"]
+                .iter()
+                .any(|s| msg.contains(s))
+            {
+                "\ncasacore's measures data couldn't be found; see https://mwatelescope.github.io/mwa_hyperdrive/installation/everybeam.html"
+            } else {
+                ""
+            };
             BeamError::EveryBeam(format!(
-                "Couldn't load telescope from {}: {}",
+                "Couldn't load telescope from {}: {msg}{hint}",
                 ms.display(),
-                err_to_string(&err)
             ))
         })?;
         let telescope = Telescope(telescope);
