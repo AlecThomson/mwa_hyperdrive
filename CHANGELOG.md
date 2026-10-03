@@ -33,6 +33,8 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   skipped.
 - Contiguous channels with a fractional channel width (e.g. SKA-Low's) are no
   longer mistaken for "picket fence" data.
+- A fully-flagged timestep in the middle of a measurement set no longer causes
+  all later timesteps to be ignored.
 - Beam calculations can now be given the time (`BeamTime`), which is needed by
   EveryBeam.
 - Tile de-duplication for beam calculations is now decided by the beam code
