@@ -613,6 +613,8 @@ impl BeamGpu for EveryBeamGpu {
         };
 
         let beam = &self.beam;
+        // `GpuFloat` is f32 with "gpu-single", otherwise f64.
+        #[allow(clippy::unnecessary_cast)]
         let azels: Vec<AzEl> = az_rad
             .iter()
             .zip(za_rad.iter())

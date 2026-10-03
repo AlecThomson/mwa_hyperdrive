@@ -116,6 +116,7 @@ fn fee_gpu_beam_values_are_sensible() {
                 &azs,
                 &zas,
                 MWA_LAT_RAD,
+                None,
                 hyperdrive_values_device.get_mut().cast(),
             )
             .unwrap();
