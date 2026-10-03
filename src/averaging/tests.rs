@@ -861,3 +861,40 @@ fn test_vis_average_weights_non_zero_half_flagged() {
     assert_abs_diff_eq!(jones_to, Jones::identity() * 10. / 4.);
     assert_abs_diff_eq!(weight_to, -4.0);
 }
+
+#[test]
+fn test_channels_to_chanblocks_fractional_resolution() {
+    // SKA-Low fine channels are 781250/144 Hz wide. Rounded to integer Hz, the
+    // frequencies of contiguous channels differ by 5425 or 5426 Hz, which must
+    // not be treated as a "picket fence".
+    let freq_res = 781250.0 / 144.0;
+    let all_channel_freqs: Vec<u64> = (0..288)
+        .map(|i| (150e6 + i as f64 * freq_res).round() as u64)
+        .collect();
+    let flagged_channels = HashSet::new();
+    for factor in [1, 2, 3, 4, 144] {
+        let spws = channels_to_chanblocks(
+            &all_channel_freqs,
+            freq_res.round() as u64,
+            NonZeroUsize::new(factor).unwrap(),
+            &flagged_channels,
+        );
+        assert_eq!(spws.len(), 1, "factor {factor}");
+        assert_eq!(
+            spws[0].chanblocks.len(),
+            288_usize.div_ceil(factor),
+            "factor {factor}"
+        );
+    }
+
+    // A real gap is still detected.
+    let mut picket = all_channel_freqs[..144].to_vec();
+    picket.extend_from_slice(&all_channel_freqs[200..]);
+    let spws = channels_to_chanblocks(
+        &picket,
+        freq_res.round() as u64,
+        NonZeroUsize::new(1).unwrap(),
+        &flagged_channels,
+    );
+    assert_eq!(spws.len(), 2);
+}

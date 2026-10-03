@@ -288,12 +288,16 @@ pub(super) fn channels_to_chanblocks(
         _ => (), // More complicated logic needed.
     }
 
-    // Find any picket SPWs here.
+    // Find any picket SPWs here. The frequencies and resolution have been
+    // rounded to integer Hz, so contiguous channels with a fractional
+    // resolution (e.g. SKA-Low's 781250/144 Hz) can be up to a Hz further apart
+    // than the rounded resolution; only a gap of at least another half a
+    // channel is a gap in the band.
     let mut spw_index_ends = vec![];
     (0..)
         .zip(all_channel_freqs.windows(2))
         .for_each(|(i, window)| {
-            if window[1] - window[0] > freq_resolution {
+            if window[1] - window[0] > freq_resolution + freq_resolution / 2 {
                 spw_index_ends.push(i + 1);
             }
         });
@@ -320,7 +324,8 @@ pub(super) fn channels_to_chanblocks(
             None => first_freq = Some(freq),
         }
 
-        if freq - first_freq.unwrap() >= biggest_freq_diff {
+        // Allow for rounding, as above.
+        if freq - first_freq.unwrap() + freq_resolution / 2 >= biggest_freq_diff {
             if all_flagged {
                 flagged_chanblock_indices.insert(i_chanblock);
             } else {
