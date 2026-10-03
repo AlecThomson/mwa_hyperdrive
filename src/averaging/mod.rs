@@ -295,10 +295,9 @@ pub(super) fn channels_to_chanblocks(
     }
 
     // Find any picket SPWs here. The frequencies and resolution have been
-    // rounded to integer Hz, so contiguous channels with a fractional
-    // resolution (e.g. SKA-Low's 781250/144 Hz) can be up to a Hz further apart
-    // than the rounded resolution; only a gap of at least another half a
-    // channel is a gap in the band.
+    // rounded to integer Hz, so contiguous channels with a non-integer
+    // resolution can be up to a Hz further apart than the rounded resolution;
+    // only a gap of at least another half a channel is a gap in the band.
     let mut spw_index_ends = vec![];
     (0..)
         .zip(all_channel_freqs.windows(2))

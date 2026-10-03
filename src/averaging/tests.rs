@@ -864,10 +864,11 @@ fn test_vis_average_weights_non_zero_half_flagged() {
 
 #[test]
 fn test_channels_to_chanblocks_fractional_resolution() {
-    // SKA-Low fine channels are 781250/144 Hz wide. Rounded to integer Hz, the
-    // frequencies of contiguous channels differ by 5425 or 5426 Hz, which must
-    // not be treated as a "picket fence".
-    let freq_res = 781250.0 / 144.0;
+    // A non-integer channel width (about that of an SKA-Low measurement set
+    // this was found with: ~5.425 kHz). Rounded to integer Hz, the frequencies
+    // of contiguous channels differ by 5425 or 5426 Hz, which must not be
+    // treated as a "picket fence".
+    let freq_res = 5425.35;
     let all_channel_freqs: Vec<u64> = (0..288)
         .map(|i| (150e6 + i as f64 * freq_res).round() as u64)
         .collect();
