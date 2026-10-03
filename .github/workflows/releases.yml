@@ -164,6 +164,7 @@ jobs:
             gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-gcc-gfortran \
             cmake make perl patchelf flex bison curl git tar gzip autoconf automake libtool \
             boost-devel hdf5-devel fftw-devel gsl-devel blas-devel lapack-devel \
+            freetype-devel fontconfig-devel expat-devel \
             ;
           echo "/opt/rh/gcc-toolset-13/root/usr/bin" >> "$GITHUB_PATH"
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
@@ -190,10 +191,11 @@ jobs:
             export CXXFLAGS="-march=x86-64-v${ARCH}"
             export RUSTFLAGS="-C target-cpu=x86-64-v${ARCH}"
 
-            # Plotting is too hard to make portable. HDF5 comes from the
-            # system (EveryBeam needs its C++ library) and is bundled.
-            cargo build --profile production --locked --no-default-features \
-              --features=everybeam-vendored,cfitsio-static
+            # Shared libraries (e.g. HDF5, whose C++ library EveryBeam needs,
+            # and freetype/fontconfig for plotting) come from the system and
+            # are bundled by bundle_libs.sh.
+            cargo build --profile production --locked \
+              --features=plotting,everybeam-vendored,cfitsio-static
 
             DIR="mwa_hyperdrive-${VERSION}-Linux-x86-64-v${ARCH}-everybeam"
             rm -rf "$DIR"
@@ -236,6 +238,10 @@ jobs:
           TARBALL=$(ls *-x86-64-v2-everybeam.tar.gz)
           docker run --rm -v "$PWD:/work" -w /work ubuntu:20.04 bash -c "
             set -ex
+            # Fonts (but not fontconfig/freetype themselves) are needed to plot.
+            apt-get update -qq
+            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+              fontconfig-config fonts-dejavu-core
             tar -xf $TARBALL
             HYP=\$(ls -d *-everybeam)/bin/hyperdrive
             \$HYP --version
@@ -246,6 +252,8 @@ jobs:
             \$HYP di-calibrate -d sim.ms -s test_files/everybeam/skalow_mini_srclist.yaml \
               --beam-type everybeam --everybeam-element-model skala40_wave \
               --beam-ms test_files/everybeam/skalow_mini.ms -o sols.fits
+            \$HYP solutions-plot sols.fits
+            ls sols_amps.png sols_phases.png
           "
 
   create-github-release:

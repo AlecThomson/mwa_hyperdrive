@@ -17,7 +17,8 @@ install CUDA are on [the next page](from_source.md#cuda).
 For beam models other than the MWA's (e.g. SKA-Low or LOFAR), download a
 tarball ending in `-everybeam.tar.gz`, which includes
 [EveryBeam](everybeam.md). These have a different layout (run
-`bin/hyperdrive`) and licence (GPL-3.0); see [Installing with EveryBeam
+`bin/hyperdrive`) and licence (GPL-3.0), and they can plot calibration
+solutions; see [Installing with EveryBeam
 support](everybeam.md#pre-compiled-binaries).
 
 It is possible to run `hyperdrive` with HIP (i.e. the AMD equivalent to
