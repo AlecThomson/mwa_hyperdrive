@@ -75,6 +75,38 @@ supplied as an extracted directory with `EVERYBEAM_SYS_<NAME>_SRC`, where
 EveryBeam's element-response coefficients (e.g. for SKA-Low and LOFAR element
 models) are embedded in the binary, and are used automatically.
 
+### Without root: conda
+
+The system packages can instead come from
+[conda-forge](https://conda-forge.org/) (e.g. with
+[miniforge](https://github.com/conda-forge/miniforge)):
+
+```shell
+conda create -n hyperdrive-eb -c conda-forge \
+    c-compiler cxx-compiler fortran-compiler cmake make pkg-config flex bison \
+    libboost-devel "hdf5=1.14" fftw gsl libblas liblapack cfitsio \
+    freetype fontconfig expat git curl
+conda activate hyperdrive-eb
+
+# Use conda's compilers and libraries (the compiler packages don't always set
+# these on activation).
+export CC=$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-cc
+export CXX=$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-c++
+export FC=$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gfortran
+export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=$CC
+export HDF5_DIR=$CONDA_PREFIX PKG_CONFIG_PATH=$CONDA_PREFIX/lib/pkgconfig
+# Find conda's libraries at runtime without LD_LIBRARY_PATH.
+export RUSTFLAGS="-C link-arg=-Wl,-rpath,$CONDA_PREFIX/lib"
+
+cargo install --path . --locked --features plotting,everybeam-vendored
+```
+
+HDF5 is pinned to 1.14 because the HDF5 bindings used by `hyperdrive` don't yet
+support HDF5 2. Rust itself can be installed without root with
+[rustup](https://rustup.rs/). The resulting binary uses libraries from the conda
+environment, so keep the environment (it doesn't need to be activated to run
+`hyperdrive`).
+
 ## From source: installed EveryBeam
 
 If EveryBeam (>= 0.9) and casacore (>= 3.6) are already installed, use the
@@ -148,6 +180,9 @@ What can be removed depends on how `hyperdrive` was built:
   `build` directories can be deleted once `make install` has finished. To
   uninstall, delete the installation prefixes (e.g. `/opt/everybeam` and
   `/opt/casacore`).
+- **conda**: `conda clean --all` removes conda's download cache. The
+  environment itself is needed at runtime by a `hyperdrive` built in it; remove
+  it (`conda env remove -n hyperdrive-eb`) only along with that `hyperdrive`.
 - **Pre-compiled binaries**: delete the extracted directory.
 
 At runtime, `hyperdrive` may write a few small files to the temporary directory

@@ -680,6 +680,9 @@ mod vendored {
             .opt_level(2)
             .pic(true)
             .warnings(false)
+            // As EveryBeam's CMakeLists.txt does; HDF5 >= 1.12 otherwise
+            // defaults to a newer, incompatible API.
+            .define("H5_USE_110_API", None)
             .flag_if_supported("-fopenmp")
             .flag_if_supported("-w");
         for dir in &include_dirs {
