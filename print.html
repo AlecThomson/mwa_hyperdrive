@@ -1328,7 +1328,7 @@ flowchart TD
 </div>
 <div>
 <p>Plotting calibration solutions is <em>not</em> available for GitHub-built releases of
-<code>hyperdrive</code>. <code>hyperdrive</code> must be built with the <code>plotting</code> <code>cargo</code> feature;
+<code>hyperdrive</code>, except the <code>-everybeam</code> releases. <code>hyperdrive</code> must be built with the <code>plotting</code> <code>cargo</code> feature;
 see the <a href="user/../installation/from_source.html">installation from source instructions
 here</a>.</p>
 </div>
@@ -1338,6 +1338,10 @@ its <a href="user/../defs/cal_sols.html">supported file formats</a>. Note that o
 <code>hyperdrive</code>-formatted calibration solutions can contain tile names; when tile
 names are unavailable, they won't be on the plots <em>unless</em> a corresponding
 metafits file is provided. With or without tile names, an index is provided.</p>
+<p>Calibration solutions are stored as corrections, i.e. the Jones matrices that
+take the data to the model. By default, <code>solutions-plot</code> plots their inverses,
+which are the instrumental gains. To plot the stored corrections instead, use
+<code>--corrections</code> (the plot filenames then have a <code>_corrections</code> suffix).</p>
 <p>By default, a reference tile is selected and reported at the top left of the
 plot. (By default, the last tile that isn't comprised of only NaNs is selected,
 but this can be manually chosen.) It is also possible to neglect using any
@@ -2114,6 +2118,7 @@ types.</p>
 <li><a href="defs/source_list_hyperdrive.html"><code>hyperdrive</code> format</a></li>
 <li><a href="defs/source_list_ao.html">André Offringa (<code>ao</code>) format</a></li>
 <li><a href="defs/source_list_rts.html"><code>RTS</code> format</a></li>
+<li><a href="defs/source_list_dp3.html">DP3 (makesourcedb/BBS) format</a> (reading only)</li>
 <li><a href="defs/source_list_fits.html">Jack, Gleam or LoBES style fits</a></li>
 </ul>
 </div>
@@ -2494,6 +2499,45 @@ ENDSOURCE
 </code></pre>
 </div>
 </div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-dp3-makesourcedbbbs-source-list-format"><a class="header" href="#the-dp3-makesourcedbbbs-source-list-format">The DP3 (makesourcedb/BBS) source list format</a></h1>
+<p>This is the comma-separated text format used by DP3, makesourcedb and BBS, and
+written by e.g. WSClean (<code>-save-source-list</code>). <code>hyperdrive</code> can read it (it is
+detected automatically, or use the <code>dp3</code> type), but not write it; use
+<code>srclist-convert</code> to convert it to another format.</p>
+<p>The first line describes the columns, e.g.</p>
+<pre><code class="language-plaintext">format = Name, Type, Patch, Ra, Dec, I, SpectralIndex, LogarithmicSI, ReferenceFrequency='183984261.97', MajorAxis, MinorAxis, Orientation
+J131139-221640,POINT,,13:11:39.3334008,-22.16.41.315016,43.94590718123622,[],true,183984261.97,,,
+,,cluster,13:00:00.0,-25.00.00.0
+cluster_g,GAUSSIAN,cluster,13:00:00.0,-25.00.00.0,2.5,[-0.8,0.05],true,,120.0,60.0,30.0
+</code></pre>
+<ul>
+<li>Column names are case insensitive, and can be in any order. The
+<code># (Name, Type, ...) = format</code> form of the first line is also accepted.</li>
+<li>A value in quotes after a column name (e.g. <code>ReferenceFrequency='150e6'</code>) is
+that column's default, used when a line's value is empty or missing.</li>
+<li>Used columns: <code>Name</code>, <code>Type</code> (<code>POINT</code> or <code>GAUSSIAN</code>), <code>Ra</code>, <code>Dec</code>, <code>I</code>, <code>Q</code>,
+<code>U</code>, <code>V</code> (0 if absent), <code>ReferenceFrequency</code> [Hz], <code>SpectralIndex</code>,
+<code>LogarithmicSI</code> (default <code>true</code>), <code>MajorAxis</code> and <code>MinorAxis</code> (FWHM, arcsec),
+<code>Orientation</code> (degrees) and <code>Patch</code>. Other columns are ignored.</li>
+<li><code>Ra</code> is <code>hh:mm:ss.s</code> (or <code>XXhYYmZZs</code>); <code>Dec</code> is <code>dd.mm.ss.s</code> or <code>dd:mm:ss.s</code>
+(or <code>XXdYYmZZs</code>). Either can instead be a number with a <code>deg</code> or <code>rad</code> unit.</li>
+<li>Lines with an empty name and type define patches. Components with the same
+<code>Patch</code> become one <code>hyperdrive</code> source, named after the patch; components
+without a patch are each their own source.</li>
+</ul>
+<h2 id="spectra"><a class="header" href="#spectra">Spectra</a></h2>
+<p>DP3's spectral shape is applied to all Stokes parameters.</p>
+<div class="table-wrapper"><table><thead><tr><th>DP3 spectrum</th><th><code>hyperdrive</code> <a href="defs/fd_types.html">flux-density type</a></th></tr></thead><tbody>
+<tr><td><code>SpectralIndex</code> <code>[]</code></td><td>power law with a spectral index of 0</td></tr>
+<tr><td><code>LogarithmicSI=true</code>, <code>[a]</code></td><td>power law, \( \alpha = a \)</td></tr>
+<tr><td><code>LogarithmicSI=true</code>, <code>[a, b]</code></td><td>curved power law, \( \alpha = a \), \( q = b / \ln 10 \)</td></tr>
+<tr><td>more terms, or <code>LogarithmicSI=false</code></td><td>list, sampled between 50 and 350 MHz (a warning is printed)</td></tr>
+</tbody></table>
+</div>
+<p>With <code>LogarithmicSI=true</code>, DP3's spectrum is
+\( \log_{10} S = \log_{10} S_0 + \sum_i c_i \left[\log_{10}(\nu/\nu_0)\right]^{i+1} \);
+with <code>LogarithmicSI=false</code>, it is
+\( S = S_0 + \sum_i c_i (\nu/\nu_0 - 1)^{i+1} \).</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="fits-source-list-formats"><a class="header" href="#fits-source-list-formats">FITS source list formats</a></h1>
 <p>There are three supported fits file formats:</p>
 <ul>
@@ -2710,8 +2754,9 @@ visibilities as part of <code>di-calibrate</code>).</p>
 <p>Jones matrices are stored in a <code>fits</code> file as an "image" with 4 dimensions
 (timeblock, tile, chanblock, float, in that order) in the "SOLUTIONS" HDU (which
 is the second HDU). An element of the solutions is a 64-bit float (a.k.a.
-double-precision float). The last dimension always has a length of 8; these
-correspond to the complex gains of the X dipoles (\( g_x \)), the leakage of
+double-precision float). The solutions are corrections, i.e. they take the data
+to the model; their inverses are the instrumental gains. The last dimension
+always has a length of 8; these correspond to the complex gains of the X dipoles (\( g_x \)), the leakage of
 the X dipoles (\( D_x \)), then the leakage of the Y dipoles (\( D_y \)) and
 the gains of the Y dipoles (\( g_y \)); these form a complex 2x2 Jones matrix:</p>
 <p>\[ \begin{pmatrix} g_x &amp; D_x \\ D_y &amp; g_y \end{pmatrix} \]</p>
@@ -2996,7 +3041,7 @@ original measurement set.</p>
 <tr><td><code>--beam-ms</code></td><td>The measurement set describing the telescope.</td></tr>
 <tr><td><code>--everybeam-element-model</code></td><td>The element response model, e.g. <code>default</code>, <code>oskar_dipole_cos</code>, <code>oskar_dipole</code>, <code>skala40_wave</code>, <code>skalow_feko</code>, <code>hamaker</code>, <code>lobes</code>. The default depends on the telescope; for SKA-Low/OSKAR it is <code>oskar_dipole_cos</code>, which is the best match to real SKA-Low stations.</td></tr>
 <tr><td><code>--everybeam-mode</code></td><td><code>full</code> (default), <code>array_factor</code> or <code>element</code>.</td></tr>
-<tr><td><code>--everybeam-normalisation</code></td><td><code>amplitude</code> (default), <code>none</code>, <code>full</code>, <code>preapplied</code> or <code>preapplied_or_full</code>. See below.</td></tr>
+<tr><td><code>--everybeam-normalisation</code></td><td><code>none</code> (default), <code>amplitude</code>, <code>full</code>, <code>preapplied</code> or <code>preapplied_or_full</code>. See below.</td></tr>
 <tr><td><code>--everybeam-coeff-path</code></td><td>Path to element-response coefficients (telescope dependent).</td></tr>
 <tr><td><code>--everybeam-field-id</code></td><td>The measurement set <code>FIELD</code> used for the beam pointing (default 0).</td></tr>
 <tr><td><code>--everybeam-data-column</code></td><td>The data column used to check for a pre-applied beam (LOFAR only).</td></tr>
@@ -3011,14 +3056,19 @@ Only the sky side (the columns of the beam Jones matrices) is converted to
 <code>hyperdrive</code>'s convention. The feed side (the rows) is left in the basis of the
 telescope's feeds, so that it matches the visibilities.</p>
 <ul>
-<li>With <code>amplitude</code> (the default) or <code>none</code> normalisation, the rows are each
+<li><code>none</code> (the default) uses each station's unnormalised response, so
+calibration solutions don't contain the beam's spectral response. <code>amplitude</code>
+instead scales each station's response, separately at each time and
+frequency, to unit amplitude in the direction of the measurement set's
+<code>FIELD</code> <code>REFERENCE_DIR</code>.</li>
+<li>With <code>none</code> or <code>amplitude</code> normalisation, the rows are each
 station's own feeds. For example, SKA-Low stations are rigidly rotated with
 respect to each other (as described in the measurement set's <code>PHASED_ARRAY</code>
 table), so each station's X and Y feeds are generally not East-West and
 North-South. This is appropriate for data that have not had a beam
 correction applied.</li>
 <li>With <code>full</code> (or <code>preapplied</code>) normalisation, EveryBeam multiplies the
-response by the inverse of the response at the beam centre. The rows are
+response by the inverse of the response in the <code>REFERENCE_DIR</code> direction. The rows are
 then in the (North, East) sky basis, i.e. the IAU order. This is only
 appropriate for data that have already had the beam at the phase centre
 corrected (e.g. with DP3's <code>applybeam</code>).</li>

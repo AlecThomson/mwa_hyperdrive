@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>RTS format - mwa_hyperdrive documentation</title>
+        <title>DP3 format - mwa_hyperdrive documentation</title>
 
 
         <!-- Custom HTML head -->
@@ -159,79 +159,55 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="the-rts-source-list-format"><a class="header" href="#the-rts-source-list-format">The <code>RTS</code> source list format</a></h1>
-<p>Coordinates are right ascension and declination, which have units of decimal
-hours (i.e. 0 - 24) and degrees, respectively. All frequencies are in Hz, and
-all flux densities are in Jy.</p>
-<p>Gaussian and shapelet sizes are specified in arcminutes, whereas position angles
-are in degrees. In an image space where RA increases from right to left (i.e.
-bigger RA values are on the left), position angles rotate counter clockwise. A
-position angle of 0 has the major axis aligned with the declination axis.</p>
-<p>All flux densities are specified in the "list" style (i.e. power laws and curved
-power laws are not supported).</p>
-<p>Keywords like <code>SOURCE</code>, <code>COMPONENT</code>, <code>POINT</code> etc. must be at the start of a line
-(i.e. no preceding space).</p>
-<p>RTS sources always have a "base source", which can be thought of as a
-non-optional component or the first component in a collection of components.</p>
-<div id="admonition-example" class="admonition admonish-example">
-<div class="admonition-title">
-<p>Example</p>
-<p><a class="admonition-anchor-link" href="#admonition-example"></a></p>
-</div>
-<div>
-<p>Taken from <a href="https://github.com/JLBLine/srclists">srclists</a>, file
-<code>srclist_pumav3_EoR0aegean_fixedEoR1pietro+ForA_phase1+2.txt</code>.</p>
-<p>Single-component point source:</p>
-<pre><code class="language-plaintext">SOURCE J161720+151943 16.2889374 15.32883
-FREQ 80.0e+6 1.45351 0 0 0
-FREQ 100.0e+6 1.23465 0 0 0
-FREQ 120.0e+6 1.07389 0 0 0
-FREQ 140.0e+6 0.95029 0 0 0
-FREQ 160.0e+6 0.85205 0 0 0
-FREQ 180.0e+6 0.77196 0 0 0
-FREQ 200.0e+6 0.70533 0 0 0
-FREQ 220.0e+6 0.64898 0 0 0
-FREQ 240.0e+6 0.60069 0 0 0
-ENDSOURCE
+                        <h1 id="the-dp3-makesourcedbbbs-source-list-format"><a class="header" href="#the-dp3-makesourcedbbbs-source-list-format">The DP3 (makesourcedb/BBS) source list format</a></h1>
+<p>This is the comma-separated text format used by DP3, makesourcedb and BBS, and
+written by e.g. WSClean (<code>-save-source-list</code>). <code>hyperdrive</code> can read it (it is
+detected automatically, or use the <code>dp3</code> type), but not write it; use
+<code>srclist-convert</code> to convert it to another format.</p>
+<p>The first line describes the columns, e.g.</p>
+<pre><code class="language-plaintext">format = Name, Type, Patch, Ra, Dec, I, SpectralIndex, LogarithmicSI, ReferenceFrequency='183984261.97', MajorAxis, MinorAxis, Orientation
+J131139-221640,POINT,,13:11:39.3334008,-22.16.41.315016,43.94590718123622,[],true,183984261.97,,,
+,,cluster,13:00:00.0,-25.00.00.0
+cluster_g,GAUSSIAN,cluster,13:00:00.0,-25.00.00.0,2.5,[-0.8,0.05],true,,120.0,60.0,30.0
 </code></pre>
-<p>Two component Gaussian source:</p>
-<pre><code class="language-plaintext">SOURCE EXT035221-3330 3.8722900 -33.51040
-FREQ 150.0e+6 0.34071 0 0 0
-FREQ 170.0e+6 0.30189 0 0 0
-FREQ 190.0e+6 0.27159 0 0 0
-FREQ 210.0e+6 0.24726 0 0 0
-GAUSSIAN 177.89089 1.419894937734689 0.9939397975299238
-COMPONENT 3.87266 -33.52005
-FREQ 150.0e+6 0.11400 0 0 0
-FREQ 170.0e+6 0.10101 0 0 0
-FREQ 190.0e+6 0.09087 0 0 0
-FREQ 210.0e+6 0.08273 0 0 0
-GAUSSIAN 2.17287 1.5198465761214996 0.9715267232520484
-ENDCOMPONENT
-ENDSOURCE
-</code></pre>
-<p>Single component shapelet source (truncated):</p>
-<pre><code class="language-plaintext">SOURCE FornaxA 3.3992560 -37.27733
-FREQ 185.0e+6 209.81459 0 0 0
-SHAPELET2 68.70984356 3.75 4.0
-COEFF 0.0 0.0 0.099731291104
-COEFF 0.0 1.0 0.002170910745
-COEFF 0.0 2.0 0.078201040179
-COEFF 0.0 3.0 0.000766942939
-ENDSOURCE
-</code></pre>
+<ul>
+<li>Column names are case insensitive, and can be in any order. The
+<code># (Name, Type, ...) = format</code> form of the first line is also accepted.</li>
+<li>A value in quotes after a column name (e.g. <code>ReferenceFrequency='150e6'</code>) is
+that column's default, used when a line's value is empty or missing.</li>
+<li>Used columns: <code>Name</code>, <code>Type</code> (<code>POINT</code> or <code>GAUSSIAN</code>), <code>Ra</code>, <code>Dec</code>, <code>I</code>, <code>Q</code>,
+<code>U</code>, <code>V</code> (0 if absent), <code>ReferenceFrequency</code> [Hz], <code>SpectralIndex</code>,
+<code>LogarithmicSI</code> (default <code>true</code>), <code>MajorAxis</code> and <code>MinorAxis</code> (FWHM, arcsec),
+<code>Orientation</code> (degrees) and <code>Patch</code>. Other columns are ignored.</li>
+<li><code>Ra</code> is <code>hh:mm:ss.s</code> (or <code>XXhYYmZZs</code>); <code>Dec</code> is <code>dd.mm.ss.s</code> or <code>dd:mm:ss.s</code>
+(or <code>XXdYYmZZs</code>). Either can instead be a number with a <code>deg</code> or <code>rad</code> unit.</li>
+<li>Lines with an empty name and type define patches. Components with the same
+<code>Patch</code> become one <code>hyperdrive</code> source, named after the patch; components
+without a patch are each their own source.</li>
+</ul>
+<h2 id="spectra"><a class="header" href="#spectra">Spectra</a></h2>
+<p>DP3's spectral shape is applied to all Stokes parameters.</p>
+<div class="table-wrapper"><table><thead><tr><th>DP3 spectrum</th><th><code>hyperdrive</code> <a href="fd_types.html">flux-density type</a></th></tr></thead><tbody>
+<tr><td><code>SpectralIndex</code> <code>[]</code></td><td>power law with a spectral index of 0</td></tr>
+<tr><td><code>LogarithmicSI=true</code>, <code>[a]</code></td><td>power law, \( \alpha = a \)</td></tr>
+<tr><td><code>LogarithmicSI=true</code>, <code>[a, b]</code></td><td>curved power law, \( \alpha = a \), \( q = b / \ln 10 \)</td></tr>
+<tr><td>more terms, or <code>LogarithmicSI=false</code></td><td>list, sampled between 50 and 350 MHz (a warning is printed)</td></tr>
+</tbody></table>
 </div>
-</div>
+<p>With <code>LogarithmicSI=true</code>, DP3's spectrum is
+\( \log_{10} S = \log_{10} S_0 + \sum_i c_i \left[\log_{10}(\nu/\nu_0)\right]^{i+1} \);
+with <code>LogarithmicSI=false</code>, it is
+\( S = S_0 + \sum_i c_i (\nu/\nu_0 - 1)^{i+1} \).</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../defs/source_list_ao.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../defs/source_list_rts.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../defs/source_list_dp3.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../defs/source_list_fits.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -241,11 +217,11 @@ ENDSOURCE
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../defs/source_list_ao.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../defs/source_list_rts.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../defs/source_list_dp3.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../defs/source_list_fits.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

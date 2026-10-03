@@ -214,7 +214,7 @@ original measurement set.</p>
 <tr><td><code>--beam-ms</code></td><td>The measurement set describing the telescope.</td></tr>
 <tr><td><code>--everybeam-element-model</code></td><td>The element response model, e.g. <code>default</code>, <code>oskar_dipole_cos</code>, <code>oskar_dipole</code>, <code>skala40_wave</code>, <code>skalow_feko</code>, <code>hamaker</code>, <code>lobes</code>. The default depends on the telescope; for SKA-Low/OSKAR it is <code>oskar_dipole_cos</code>, which is the best match to real SKA-Low stations.</td></tr>
 <tr><td><code>--everybeam-mode</code></td><td><code>full</code> (default), <code>array_factor</code> or <code>element</code>.</td></tr>
-<tr><td><code>--everybeam-normalisation</code></td><td><code>amplitude</code> (default), <code>none</code>, <code>full</code>, <code>preapplied</code> or <code>preapplied_or_full</code>. See below.</td></tr>
+<tr><td><code>--everybeam-normalisation</code></td><td><code>none</code> (default), <code>amplitude</code>, <code>full</code>, <code>preapplied</code> or <code>preapplied_or_full</code>. See below.</td></tr>
 <tr><td><code>--everybeam-coeff-path</code></td><td>Path to element-response coefficients (telescope dependent).</td></tr>
 <tr><td><code>--everybeam-field-id</code></td><td>The measurement set <code>FIELD</code> used for the beam pointing (default 0).</td></tr>
 <tr><td><code>--everybeam-data-column</code></td><td>The data column used to check for a pre-applied beam (LOFAR only).</td></tr>
@@ -229,14 +229,19 @@ Only the sky side (the columns of the beam Jones matrices) is converted to
 <code>hyperdrive</code>'s convention. The feed side (the rows) is left in the basis of the
 telescope's feeds, so that it matches the visibilities.</p>
 <ul>
-<li>With <code>amplitude</code> (the default) or <code>none</code> normalisation, the rows are each
+<li><code>none</code> (the default) uses each station's unnormalised response, so
+calibration solutions don't contain the beam's spectral response. <code>amplitude</code>
+instead scales each station's response, separately at each time and
+frequency, to unit amplitude in the direction of the measurement set's
+<code>FIELD</code> <code>REFERENCE_DIR</code>.</li>
+<li>With <code>none</code> or <code>amplitude</code> normalisation, the rows are each
 station's own feeds. For example, SKA-Low stations are rigidly rotated with
 respect to each other (as described in the measurement set's <code>PHASED_ARRAY</code>
 table), so each station's X and Y feeds are generally not East-West and
 North-South. This is appropriate for data that have not had a beam
 correction applied.</li>
 <li>With <code>full</code> (or <code>preapplied</code>) normalisation, EveryBeam multiplies the
-response by the inverse of the response at the beam centre. The rows are
+response by the inverse of the response in the <code>REFERENCE_DIR</code> direction. The rows are
 then in the (North, East) sky basis, i.e. the IAU order. This is only
 appropriate for data that have already had the beam at the phase centre
 corrected (e.g. with DP3's <code>applybeam</code>).</li>

@@ -167,7 +167,7 @@
 </div>
 <div>
 <p>Plotting calibration solutions is <em>not</em> available for GitHub-built releases of
-<code>hyperdrive</code>. <code>hyperdrive</code> must be built with the <code>plotting</code> <code>cargo</code> feature;
+<code>hyperdrive</code>, except the <code>-everybeam</code> releases. <code>hyperdrive</code> must be built with the <code>plotting</code> <code>cargo</code> feature;
 see the <a href="../installation/from_source.html">installation from source instructions
 here</a>.</p>
 </div>
@@ -177,6 +177,10 @@ its <a href="../defs/cal_sols.html">supported file formats</a>. Note that only
 <code>hyperdrive</code>-formatted calibration solutions can contain tile names; when tile
 names are unavailable, they won't be on the plots <em>unless</em> a corresponding
 metafits file is provided. With or without tile names, an index is provided.</p>
+<p>Calibration solutions are stored as corrections, i.e. the Jones matrices that
+take the data to the model. By default, <code>solutions-plot</code> plots their inverses,
+which are the instrumental gains. To plot the stored corrections instead, use
+<code>--corrections</code> (the plot filenames then have a <code>_corrections</code> suffix).</p>
 <p>By default, a reference tile is selected and reported at the top left of the
 plot. (By default, the last tile that isn't comprised of only NaNs is selected,
 but this can be manually chosen.) It is also possible to neglect using any
