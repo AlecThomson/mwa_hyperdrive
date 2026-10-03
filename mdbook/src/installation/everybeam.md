@@ -21,8 +21,8 @@ to the GPL-3.0. Binaries without EveryBeam (the default) are unaffected.
 
 ## Pre-compiled binaries
 
-Each `hyperdrive` [release](https://github.com/MWATelescope/mwa_hyperdrive/releases)
-includes `...-everybeam.tar.gz` tarballs. These contain a `hyperdrive`
+`hyperdrive` [releases](https://github.com/MWATelescope/mwa_hyperdrive/releases)
+made since EveryBeam support was added include `...-everybeam.tar.gz` tarballs. These contain a `hyperdrive`
 binary with EveryBeam and casacore statically linked, the other libraries it
 needs (in `lib/`), and casacore's measures data (in `share/`). They run on any
 x86-64 Linux with glibc 2.28 or newer (e.g. RHEL/Rocky 8+, Ubuntu 20.04+).
@@ -51,15 +51,20 @@ cargo install --path . --locked --features everybeam-vendored
 ```
 
 ~~~admonish info title="Build time"
-The first build compiles casacore and EveryBeam, which adds a few minutes (on
-the order of 5-10 minutes on 4 cores; less with more cores). These are built
-inside cargo's target directory (using about 2.5 GB of disk space), so later
-`cargo build`s don't rebuild them.
+The first build compiles casacore and EveryBeam, which adds about 7 minutes on
+4 cores (casacore is most of that; it's faster with more cores). These are
+built inside cargo's target directory (using about 2.5 GB of disk space), so
+later `cargo build`s don't rebuild them; see [Cleaning up](#cleaning-up-after-a-build).
 To avoid rebuilding them for every `cargo install`:
 - use a persistent target directory, e.g.
   `CARGO_TARGET_DIR=~/.cache/hyperdrive-target cargo install ...`; and/or
-- use a compiler cache: `export CMAKE_C_COMPILER_LAUNCHER=sccache
-  CMAKE_CXX_COMPILER_LAUNCHER=sccache` (or `ccache`) before building.
+- use [sccache](https://github.com/mozilla/sccache) before building:
+  ```shell
+  # EveryBeam (and other C/C++ code compiled by cargo) uses RUSTC_WRAPPER;
+  # casacore (built with CMake) uses the CMAKE_*_COMPILER_LAUNCHER variables.
+  export RUSTC_WRAPPER=sccache CMAKE_C_COMPILER_LAUNCHER=sccache \
+      CMAKE_CXX_COMPILER_LAUNCHER=sccache CMAKE_Fortran_COMPILER_LAUNCHER=sccache
+  ```
 ~~~
 
 For offline builds (or mirrors), any of the downloaded sources can instead be
@@ -120,6 +125,35 @@ instructions](https://everybeam.readthedocs.io/en/latest/build-instructions.html
 for more options. Don't build against the `everybeam` Python wheels on PyPI;
 they contain no headers and use a renamed casacore namespace.
 </details>
+
+## Cleaning up after a build
+
+What can be removed depends on how `hyperdrive` was built:
+
+- **`cargo install`** builds in a temporary directory that cargo deletes
+  afterwards, so nothing is left behind (unless `CARGO_TARGET_DIR` was set; then
+  delete that directory when it's no longer needed).
+- **From a clone of the repo** (`cargo build`), the vendored casacore and
+  EveryBeam builds live in the `target` directory (about 2.5 GB per build
+  profile and feature set). Remove just those with
+  ```shell
+  cargo clean -p everybeam-sys
+  ```
+  or everything with `cargo clean`. The next `everybeam-vendored` build then
+  downloads and compiles them again.
+- **sccache**, if used, keeps compiled objects in its own cache directory
+  (`~/.cache/sccache` by default); stop its server with `sccache --stop-server`
+  and delete that directory to clear it.
+- **An installed EveryBeam/casacore** (the manual route above): the source and
+  `build` directories can be deleted once `make install` has finished. To
+  uninstall, delete the installation prefixes (e.g. `/opt/everybeam` and
+  `/opt/casacore`).
+- **Pre-compiled binaries**: delete the extracted directory.
+
+At runtime, `hyperdrive` may write a few small files to the temporary directory
+(`$TMPDIR`, usually `/tmp`): `hyperdrive-everybeam-<version>-data*` (EveryBeam's
+coefficients, for vendored builds) and `hyperdrive-casarc*` (for pre-compiled
+binaries). These can be deleted at any time; they're recreated when needed.
 
 ## Runtime: casacore's measures data
 
