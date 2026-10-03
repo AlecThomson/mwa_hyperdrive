@@ -172,6 +172,12 @@
 the "CUDA-single" release. You can still use the double-precision version on a
 desktop GPU, but it will be much slower than single-precision. Instructions to
 install CUDA are on <a href="from_source.html#cuda">the next page</a>.</p>
+<p>For beam models other than the MWA's (e.g. SKA-Low or LOFAR), download a
+tarball ending in <code>-everybeam.tar.gz</code>, which includes
+<a href="everybeam.html">EveryBeam</a>. These have a different layout (run
+<code>bin/hyperdrive</code>) and licence (GPL-3.0), and they can plot calibration
+solutions; see <a href="everybeam.html#pre-compiled-binaries">Installing with EveryBeam
+support</a>.</p>
 <p>It is possible to run <code>hyperdrive</code> with HIP (i.e. the AMD equivalent to
 NVIDIA's CUDA), but HIP does not appear to offer static libraries, so no static
 feature is provided, and users will need to compile hyperdrive themselves with

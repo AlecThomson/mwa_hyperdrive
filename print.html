@@ -210,6 +210,12 @@ installation</a> instructions.</p>
 the "CUDA-single" release. You can still use the double-precision version on a
 desktop GPU, but it will be much slower than single-precision. Instructions to
 install CUDA are on <a href="installation/from_source.html#cuda">the next page</a>.</p>
+<p>For beam models other than the MWA's (e.g. SKA-Low or LOFAR), download a
+tarball ending in <code>-everybeam.tar.gz</code>, which includes
+<a href="installation/everybeam.html">EveryBeam</a>. These have a different layout (run
+<code>bin/hyperdrive</code>) and licence (GPL-3.0), and they can plot calibration
+solutions; see <a href="installation/everybeam.html#pre-compiled-binaries">Installing with EveryBeam
+support</a>.</p>
 <p>It is possible to run <code>hyperdrive</code> with HIP (i.e. the AMD equivalent to
 NVIDIA's CUDA), but HIP does not appear to offer static libraries, so no static
 feature is provided, and users will need to compile hyperdrive themselves with
@@ -312,6 +318,19 @@ time.</li>
 </ul>
 </li>
 <li>Can link statically; use the <code>cuda-static</code> or <code>all-static</code> features.</li>
+</ul>
+</div>
+</div>
+<div id="admonition-everybeam-for-non-mwa-beam-models-eg-ska-low" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>EveryBeam (for non-MWA beam models, e.g. SKA-Low)</p>
+<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-everybeam-for-non-mwa-beam-models-eg-ska-low"></a></p>
+</div>
+<div>
+<ul>
+<li>Only required if the <code>everybeam</code> feature is enabled</li>
+<li>Requires EveryBeam &gt;= 0.9 and casacore &gt;= 3.6</li>
+<li>See <a href="installation/everybeam.html">Installing with EveryBeam support</a></li>
 </ul>
 </div>
 </div>
@@ -493,6 +512,213 @@ system and what you've tried.</p>
 library. It now uses a pure-Rust equivalent.</p>
 </div>
 </div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installing-with-everybeam-support"><a class="header" href="#installing-with-everybeam-support">Installing with EveryBeam support</a></h1>
+<p><code>hyperdrive</code> can optionally use
+<a href="https://git.astron.nl/RD/EveryBeam">EveryBeam</a> for beam responses. This
+allows beam models other than the MWA FEE beam to be used, e.g. SKA-Low,
+LOFAR and OSKAR-simulated arrays; see <a href="installation/../defs/beam.html#everybeam">EveryBeam beam
+responses</a> for usage.</p>
+<p>There are three ways to get EveryBeam support:</p>
+<ol>
+<li><a href="installation/everybeam.html#pre-compiled-binaries">Pre-compiled binaries</a> (Linux x86-64; easiest);</li>
+<li><a href="installation/everybeam.html#from-source-vendored-everybeam">Building from source with a vendored EveryBeam</a>
+(recommended if building from source); or</li>
+<li><a href="installation/everybeam.html#from-source-installed-everybeam">Building from source against an installed EveryBeam</a>.</li>
+</ol>
+<div id="admonition-licensing" class="admonition admonish-warning">
+<div class="admonition-title">
+<p>Licensing</p>
+<p><a class="admonition-anchor-link" href="installation/everybeam.html#admonition-licensing"></a></p>
+</div>
+<div>
+<p>EveryBeam is licensed under the GPL-3.0, whereas <code>hyperdrive</code> is licensed under
+the MPL-2.0. <code>hyperdrive</code> binaries that include EveryBeam are therefore subject
+to the GPL-3.0. Binaries without EveryBeam (the default) are unaffected.</p>
+</div>
+</div>
+<h2 id="pre-compiled-binaries"><a class="header" href="#pre-compiled-binaries">Pre-compiled binaries</a></h2>
+<p><code>hyperdrive</code> <a href="https://github.com/MWATelescope/mwa_hyperdrive/releases">releases</a>
+made since EveryBeam support was added include <code>...-everybeam.tar.gz</code> tarballs. These contain a <code>hyperdrive</code>
+binary with EveryBeam and casacore statically linked, the other libraries it
+needs (in <code>lib/</code>), and casacore's measures data (in <code>share/</code>). They run on any
+x86-64 Linux with glibc 2.28 or newer (e.g. RHEL/Rocky 8+, Ubuntu 20.04+).
+Extract the tarball and run <code>bin/hyperdrive</code>; no other setup is required.</p>
+<h2 id="from-source-vendored-everybeam"><a class="header" href="#from-source-vendored-everybeam">From source: vendored EveryBeam</a></h2>
+<p>With the <code>everybeam-vendored</code> feature, the build downloads EveryBeam and
+casacore (and some header-only dependencies), verifies them, builds them and
+links them statically. Nothing needs to be installed except some common system
+packages:</p>
+<div class="table-wrapper"><table><thead><tr><th>Distribution</th><th>Packages</th></tr></thead><tbody>
+<tr><td>Debian/Ubuntu</td><td><code>build-essential cmake curl git gfortran flex bison libboost-dev libhdf5-dev libfftw3-dev libgsl-dev libblas-dev liblapack-dev</code></td></tr>
+<tr><td>Fedora/RHEL</td><td><code>gcc-c++ gcc-gfortran cmake curl git flex bison boost-devel hdf5-devel fftw-devel gsl-devel blas-devel lapack-devel</code></td></tr>
+</tbody></table>
+</div>
+<p>(plus <code>hyperdrive</code>'s usual <a href="installation/from_source.html">dependencies</a>). On RHEL-like
+systems, <code>hdf5-devel</code> comes from EPEL and the BLAS/LAPACK packages from the
+PowerTools/CRB repository, and a newer GCC (e.g. <code>gcc-toolset-13</code>) is needed on
+RHEL 8, because EveryBeam needs a C++20 compiler (GCC 10 or later). Then:</p>
+<pre><code class="language-shell"># From a clone of the hyperdrive repo:
+cargo install --path . --locked --features everybeam-vendored
+</code></pre>
+<div id="admonition-build-time" class="admonition admonish-info">
+<div class="admonition-title">
+<p>Build time</p>
+<p><a class="admonition-anchor-link" href="installation/everybeam.html#admonition-build-time"></a></p>
+</div>
+<div>
+<p>The first build compiles casacore and EveryBeam, which adds about 7 minutes on
+4 cores (casacore is most of that; it's faster with more cores). These are
+built inside cargo's target directory (using about 2.5 GB of disk space), so
+later <code>cargo build</code>s don't rebuild them; see <a href="installation/everybeam.html#cleaning-up-after-a-build">Cleaning up</a>.
+To avoid rebuilding them for every <code>cargo install</code>:</p>
+<ul>
+<li>use a persistent target directory, e.g.
+<code>CARGO_TARGET_DIR=~/.cache/hyperdrive-target cargo install ...</code>; and/or</li>
+<li>use <a href="https://github.com/mozilla/sccache">sccache</a> before building:
+<pre><code class="language-shell"># EveryBeam (and other C/C++ code compiled by cargo) uses RUSTC_WRAPPER;
+# casacore (built with CMake) uses the CMAKE_*_COMPILER_LAUNCHER variables.
+export RUSTC_WRAPPER=sccache CMAKE_C_COMPILER_LAUNCHER=sccache \
+    CMAKE_CXX_COMPILER_LAUNCHER=sccache CMAKE_Fortran_COMPILER_LAUNCHER=sccache
+</code></pre>
+</li>
+</ul>
+</div>
+</div>
+<p>For offline builds (or mirrors), any of the downloaded sources can instead be
+supplied as an extracted directory with <code>EVERYBEAM_SYS_&lt;NAME&gt;_SRC</code>, where
+<code>&lt;NAME&gt;</code> is one of <code>CASACORE</code>, <code>EVERYBEAM</code>, <code>AOCOMMON</code>, <code>SKA_SDP_FUNC</code>, <code>XTL</code>,
+<code>XTENSOR</code> or <code>EIGEN</code>; see <code>crates/everybeam-sys/build.rs</code> for the versions.</p>
+<p>EveryBeam's element-response coefficients (e.g. for SKA-Low and LOFAR element
+models) are embedded in the binary, and are used automatically.</p>
+<h3 id="without-root-conda"><a class="header" href="#without-root-conda">Without root: conda</a></h3>
+<p>The system packages can instead come from
+<a href="https://conda-forge.org/">conda-forge</a> (e.g. with
+<a href="https://github.com/conda-forge/miniforge">miniforge</a>):</p>
+<pre><code class="language-shell">conda create -n hyperdrive-eb -c conda-forge \
+    c-compiler cxx-compiler fortran-compiler cmake make pkg-config flex bison \
+    libboost-devel "hdf5=1.14" fftw gsl libblas liblapack cfitsio \
+    freetype fontconfig expat git curl
+conda activate hyperdrive-eb
+
+# Use conda's compilers and libraries (the compiler packages don't always set
+# these on activation).
+export CC=$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-cc
+export CXX=$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-c++
+export FC=$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gfortran
+export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=$CC
+export HDF5_DIR=$CONDA_PREFIX PKG_CONFIG_PATH=$CONDA_PREFIX/lib/pkgconfig
+# Find conda's libraries at runtime without LD_LIBRARY_PATH.
+export RUSTFLAGS="-C link-arg=-Wl,-rpath,$CONDA_PREFIX/lib"
+
+cargo install --path . --locked --features plotting,everybeam-vendored
+</code></pre>
+<p>HDF5 is pinned to 1.14 because the HDF5 bindings used by <code>hyperdrive</code> don't yet
+support HDF5 2. Rust itself can be installed without root with
+<a href="https://rustup.rs/">rustup</a>. The resulting binary uses libraries from the conda
+environment, so keep the environment (it doesn't need to be activated to run
+<code>hyperdrive</code>).</p>
+<h2 id="from-source-installed-everybeam"><a class="header" href="#from-source-installed-everybeam">From source: installed EveryBeam</a></h2>
+<p>If EveryBeam (&gt;= 0.9) and casacore (&gt;= 3.6) are already installed, use the
+<code>everybeam</code> feature:</p>
+<pre><code class="language-shell"># Only needed if they aren't in $CONDA_PREFIX, /opt/everybeam, /opt/casacore,
+# /usr/local or /usr:
+export EVERYBEAM_DIR=/path/to/everybeam/prefix
+export CASACORE_DIR=/path/to/casacore/prefix
+
+cargo install --path . --locked --features everybeam
+</code></pre>
+<p>The binary records where the libraries are (an rpath), so <code>LD_LIBRARY_PATH</code>
+isn't needed. Other build-time environment variables are <code>EVERYBEAM_CXXFLAGS</code>
+(extra C++ compiler flags) and <code>EVERYBEAM_LIBS</code> (extra libraries to link).</p>
+<details>
+<summary>Installing casacore and EveryBeam from source</summary>
+<p>At the time of writing, Ubuntu and Debian only package casacore 3.5, so
+casacore must be built from source. EveryBeam needs a C++20 compiler (e.g.
+GCC 10 or later).</p>
+<pre><code class="language-shell">sudo apt install -y build-essential cmake git wget gfortran flex bison \
+    libboost-all-dev libhdf5-dev libfftw3-dev libblas-dev liblapack-dev \
+    libcfitsio-dev wcslib-dev libgsl-dev casacore-data
+
+git clone --depth 1 --branch v3.8.2 https://github.com/casacore/casacore.git
+mkdir casacore/build &amp;&amp; cd casacore/build
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/casacore -DCMAKE_BUILD_TYPE=Release \
+    -DMODULE=ms -DBUILD_PYTHON=OFF -DBUILD_PYTHON3=OFF -DBUILD_TESTING=OFF \
+    -DBUILD_SISCO=OFF -DDATA_DIR=/usr/share/casacore/data
+make -j"$(nproc)" install
+cd ../..
+
+git clone --recursive --branch v0.9.0 https://git.astron.nl/RD/EveryBeam.git
+mkdir EveryBeam/build &amp;&amp; cd EveryBeam/build
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/everybeam -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH=/opt/casacore
+make -j"$(nproc)" install
+</code></pre>
+<p>See <a href="https://everybeam.readthedocs.io/en/latest/build-instructions.html">EveryBeam's build
+instructions</a>
+for more options. Don't build against the <code>everybeam</code> Python wheels on PyPI;
+they contain no headers and use a renamed casacore namespace.</p>
+</details>
+<h2 id="cleaning-up-after-a-build"><a class="header" href="#cleaning-up-after-a-build">Cleaning up after a build</a></h2>
+<p>What can be removed depends on how <code>hyperdrive</code> was built:</p>
+<ul>
+<li><strong><code>cargo install</code></strong> builds in a temporary directory that cargo deletes
+afterwards, so nothing is left behind (unless <code>CARGO_TARGET_DIR</code> was set; then
+delete that directory when it's no longer needed).</li>
+<li><strong>From a clone of the repo</strong> (<code>cargo build</code>), the vendored casacore and
+EveryBeam builds live in the <code>target</code> directory (about 2.5 GB per build
+profile and feature set). Remove just those with
+<pre><code class="language-shell">cargo clean -p everybeam-sys
+</code></pre>
+or everything with <code>cargo clean</code>. The next <code>everybeam-vendored</code> build then
+downloads and compiles them again.</li>
+<li><strong>sccache</strong>, if used, keeps compiled objects in its own cache directory
+(<code>~/.cache/sccache</code> by default); stop its server with <code>sccache --stop-server</code>
+and delete that directory to clear it.</li>
+<li><strong>An installed EveryBeam/casacore</strong> (the manual route above): the source and
+<code>build</code> directories can be deleted once <code>make install</code> has finished. To
+uninstall, delete the installation prefixes (e.g. <code>/opt/everybeam</code> and
+<code>/opt/casacore</code>).</li>
+<li><strong>conda</strong>: <code>conda clean --all</code> removes conda's download cache. The
+environment itself is needed at runtime by a <code>hyperdrive</code> built in it; remove
+it (<code>conda env remove -n hyperdrive-eb</code>) only along with that <code>hyperdrive</code>.</li>
+<li><strong>Pre-compiled binaries</strong>: delete the extracted directory.</li>
+</ul>
+<p>At runtime, <code>hyperdrive</code> may write a few small files to the temporary directory
+(<code>$TMPDIR</code>, usually <code>/tmp</code>): <code>hyperdrive-everybeam-&lt;version&gt;-data*</code> (EveryBeam's
+coefficients, for vendored builds) and <code>hyperdrive-casarc*</code> (for pre-compiled
+binaries). These can be deleted at any time; they're recreated when needed.</p>
+<h2 id="runtime-casacores-measures-data"><a class="header" href="#runtime-casacores-measures-data">Runtime: casacore's measures data</a></h2>
+<p>casacore needs its "measures" data (leap seconds, Earth-orientation tables) to
+convert coordinates; without it, EveryBeam fails with errors mentioning
+<code>TAI_UTC</code> or <code>IERS</code>. The pre-compiled binaries include it. Otherwise, download
+ASTRON's copy (no root needed) and tell casacore where it is:</p>
+<pre><code class="language-shell">mkdir -p ~/casacore-data
+curl -fL https://www.astron.nl/iers/WSRT_Measures.ztar -o WSRT_Measures.ztar
+tar -xf WSRT_Measures.ztar -C ~/casacore-data &amp;&amp; rm WSRT_Measures.ztar
+echo "measures.directory: $HOME/casacore-data" &gt;&gt; ~/.casarc
+</code></pre>
+<p>The Earth-orientation tables are updated regularly, so re-download them every
+few months for the most accurate coordinate conversions.</p>
+<div id="admonition-distribution-packages" class="admonition admonish-tip">
+<div class="admonition-title">
+<p>Distribution packages</p>
+<p><a class="admonition-anchor-link" href="installation/everybeam.html#admonition-distribution-packages"></a></p>
+</div>
+<div>
+<p>Debian/Ubuntu's <code>casacore-data</code> package keeps the leap-second table separately
+(in <code>/var/lib/casacore/data</code>), which casacore built from source (including
+the vendored build) doesn't look for, so ASTRON's copy is simpler. A casacore
+installed from a distribution or conda package knows where its own data are.</p>
+</div>
+</div>
+<h2 id="check-that-it-worked"><a class="header" href="#check-that-it-worked">Check that it worked</a></h2>
+<pre><code class="language-shell">hyperdrive di-calibrate --help | grep -i everybeam
+</code></pre>
+<p>should list <code>everybeam</code> as a beam type, along with the <code>BEAM (EVERYBEAM)</code>
+options. From a clone of the repo, the EveryBeam tests can be run with e.g.</p>
+<pre><code class="language-shell">cargo test --features everybeam-vendored --lib beam::everybeam
+cargo test --features everybeam-vendored --test integration_tests everybeam
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="post-installation-instructions"><a class="header" href="#post-installation-instructions">Post installation instructions</a></h1>
 <div id="admonition-setting-up-the-beam" class="admonition admonish-info">
 <div class="admonition-title">
@@ -2717,8 +2943,9 @@ attempts to write out the solutions.</p>
 </div>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="beam-responses"><a class="header" href="#beam-responses">Beam responses</a></h1>
 <p>Beam responses are given by
-<a href="https://github.com/MWATelescope/mwa_hyperbeam"><code>mwa_hyperbeam</code></a>. At present,
-only MWA beam code is used.</p>
+<a href="https://github.com/MWATelescope/mwa_hyperbeam"><code>mwa_hyperbeam</code></a> (the default)
+or, if <code>hyperdrive</code> was compiled with the <code>everybeam</code> feature,
+<a href="defs/beam.html#everybeam">EveryBeam</a>.</p>
 <p>To function, MWA beam code needs a few things:</p>
 <ul>
 <li>The <a href="defs/mwa/delays.html">dipole delays</a>;</li>
@@ -2737,6 +2964,69 @@ getting that set up.</p>
 <li>There's something wrong with the FEE HDF5 file. The official file is well
 tested.</li>
 </ol>
+<h2 id="everybeam"><a class="header" href="#everybeam">EveryBeam</a></h2>
+<p>If <code>hyperdrive</code> was compiled with the <code>everybeam</code> feature (see <a href="defs/../installation/everybeam.html">Installing with
+EveryBeam support</a>), <code>--beam-type everybeam</code>
+uses EveryBeam for beam responses. This supports any telescope that EveryBeam
+supports (e.g. SKA-Low, LOFAR, OSKAR-simulated arrays). EveryBeam reads the
+telescope's description (station positions, element layouts and orientations,
+pointing) from a measurement set:</p>
+<ul>
+<li>If the input visibilities are a measurement set, it is used by default.</li>
+<li>Otherwise (or to use a different one), supply it with <code>--beam-ms</code>.</li>
+</ul>
+<p>The number of stations in the measurement set must match the number of tiles
+in the input data, and the station order is assumed to be the same.</p>
+<div id="admonition-measurement-sets-written-by-hyperdrive" class="admonition admonish-warning">
+<div class="admonition-title">
+<p>Measurement sets written by hyperdrive</p>
+<p><a class="admonition-anchor-link" href="defs/beam.html#admonition-measurement-sets-written-by-hyperdrive"></a></p>
+</div>
+<div>
+<p>Measurement sets written by <code>hyperdrive</code> (e.g. by <code>vis-subtract</code> or
+<code>solutions-apply</code>) don't describe non-MWA telescopes, so EveryBeam can't load
+the telescope from them. When processing such outputs, point <code>--beam-ms</code> at the
+original measurement set.</p>
+</div>
+</div>
+<pre><code class="language-shell">hyperdrive di-calibrate -d obs.ms -s srclist.yaml --beam-type everybeam
+</code></pre>
+<h3 id="options"><a class="header" href="#options">Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Option</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--beam-ms</code></td><td>The measurement set describing the telescope.</td></tr>
+<tr><td><code>--everybeam-element-model</code></td><td>The element response model, e.g. <code>default</code>, <code>oskar_dipole_cos</code>, <code>oskar_dipole</code>, <code>skala40_wave</code>, <code>skalow_feko</code>, <code>hamaker</code>, <code>lobes</code>. The default depends on the telescope; for SKA-Low/OSKAR it is <code>oskar_dipole_cos</code>, which is the best match to real SKA-Low stations.</td></tr>
+<tr><td><code>--everybeam-mode</code></td><td><code>full</code> (default), <code>array_factor</code> or <code>element</code>.</td></tr>
+<tr><td><code>--everybeam-normalisation</code></td><td><code>amplitude</code> (default), <code>none</code>, <code>full</code>, <code>preapplied</code> or <code>preapplied_or_full</code>. See below.</td></tr>
+<tr><td><code>--everybeam-coeff-path</code></td><td>Path to element-response coefficients (telescope dependent).</td></tr>
+<tr><td><code>--everybeam-field-id</code></td><td>The measurement set <code>FIELD</code> used for the beam pointing (default 0).</td></tr>
+<tr><td><code>--everybeam-data-column</code></td><td>The data column used to check for a pre-applied beam (LOFAR only).</td></tr>
+<tr><td><code>--everybeam-subband-frequency</code></td><td>Use the subband frequency for the station beamformer (LOFAR only).</td></tr>
+<tr><td><code>--everybeam-frequency-interpolation</code></td><td>Interpolate the beam over frequency (MWA only).</td></tr>
+</tbody></table>
+</div>
+<h3 id="polarisation-conventions-and-normalisation"><a class="header" href="#polarisation-conventions-and-normalisation">Polarisation conventions and normalisation</a></h3>
+<p><code>hyperdrive</code>'s sky model uses the MWA <a href="defs/pols.html">polarisation</a> convention (X is
+East-West, Y is North-South), whereas the IAU convention has X as North-South.
+Only the sky side (the columns of the beam Jones matrices) is converted to
+<code>hyperdrive</code>'s convention. The feed side (the rows) is left in the basis of the
+telescope's feeds, so that it matches the visibilities.</p>
+<ul>
+<li>With <code>amplitude</code> (the default) or <code>none</code> normalisation, the rows are each
+station's own feeds. For example, SKA-Low stations are rigidly rotated with
+respect to each other (as described in the measurement set's <code>PHASED_ARRAY</code>
+table), so each station's X and Y feeds are generally not East-West and
+North-South. This is appropriate for data that have not had a beam
+correction applied.</li>
+<li>With <code>full</code> (or <code>preapplied</code>) normalisation, EveryBeam multiplies the
+response by the inverse of the response at the beam centre. The rows are
+then in the (North, East) sky basis, i.e. the IAU order. This is only
+appropriate for data that have already had the beam at the phase centre
+corrected (e.g. with DP3's <code>applybeam</code>).</li>
+</ul>
+<h3 id="performance"><a class="header" href="#performance">Performance</a></h3>
+<p>EveryBeam only runs on the CPU. When GPU modelling is used, EveryBeam beam
+responses are calculated on the CPU and copied to the GPU, which is slower than
+the MWA FEE beam's GPU code.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="modelling-visibilities"><a class="header" href="#modelling-visibilities">Modelling visibilities</a></h1>
 <p><code>hyperdrive</code> uses a sky model when modelling/simulating visibilities. This means
 that for every sky-model source, a visibility needs to be generated for each
