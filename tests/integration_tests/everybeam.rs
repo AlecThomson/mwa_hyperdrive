@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//! End-to-end tests with the EveryBeam beam, using a small synthetic SKA-Low
-//! measurement set (see `test_files/everybeam/make_skalow_ms.py`).
+//! End-to-end tests with the EveryBeam beam, using a small synthetic
+//! phased-array measurement set (see `test_files/everybeam/make_mini_ms.py`).
 
 use std::path::Path;
 
@@ -15,8 +15,8 @@ use tempfile::TempDir;
 use crate::{get_cmd_output, hyperdrive};
 use mwa_hyperdrive::CalibrationSolutions;
 
-const MS: &str = "test_files/everybeam/skalow_mini.ms";
-const SRCLIST: &str = "test_files/everybeam/skalow_mini_srclist.yaml";
+const MS: &str = "test_files/everybeam/mini.ms";
+const SRCLIST: &str = "test_files/everybeam/mini_srclist.yaml";
 const NUM_STATIONS: usize = 8;
 const NUM_CHANS: usize = 3;
 
@@ -86,7 +86,7 @@ fn test_everybeam_simulate_and_calibrate() {
     assert!(cmd.is_ok(), "{:?}", get_cmd_output(cmd));
 
     // Calibrate. hyperdrive-written measurement sets don't describe the
-    // SKA-Low stations, so the telescope comes from the original MS.
+    // stations' elements, so the telescope comes from the original MS.
     let solutions = tmp_dir.path().join("sols.fits");
     let cmd = hyperdrive()
         .arg("di-calibrate")
@@ -108,7 +108,7 @@ fn test_everybeam_simulate_and_calibrate() {
     // Corrupting with G and applying gives G^-1 V (G^-1)^H. With an
     // unpolarised sky, full-Jones calibration only determines the solutions up
     // to J_i = G_i^-1 B_i W B_i^-1, where B_i is station i's beam (which
-    // differ, because SKA-Low stations are rigidly rotated) and W is common to
+    // differ, because the stations are rigidly rotated) and W is common to
     // all stations. G_i J_i is therefore similar to W, so its trace and
     // determinant must be the same for every station.
     let trace = |j: Jones<f64>| j[0] + j[3];

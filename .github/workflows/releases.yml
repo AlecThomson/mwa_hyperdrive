@@ -252,13 +252,13 @@ jobs:
             tar -xf $TARBALL
             HYP=\$(ls -d *-everybeam)/bin/hyperdrive
             \$HYP --version
-            sed 's/        i: /        i: -/' test_files/everybeam/skalow_mini_srclist.yaml > neg.yaml
-            \$HYP vis-subtract -d test_files/everybeam/skalow_mini.ms -s neg.yaml \
+            sed 's/        i: /        i: -/' test_files/everybeam/mini_srclist.yaml > neg.yaml
+            \$HYP vis-subtract -d test_files/everybeam/mini.ms -s neg.yaml \
               --beam-type everybeam --everybeam-element-model skala40_wave \
               --named-sources zenith_source src_n src_s src_e src_w src_ne -o sim.ms
-            CAL_ARGS='di-calibrate -d sim.ms -s test_files/everybeam/skalow_mini_srclist.yaml
+            CAL_ARGS='di-calibrate -d sim.ms -s test_files/everybeam/mini_srclist.yaml
               --beam-type everybeam --everybeam-element-model skala40_wave
-              --beam-ms test_files/everybeam/skalow_mini.ms -o sols.fits'
+              --beam-ms test_files/everybeam/mini.ms -o sols.fits'
             \$HYP \$CAL_ARGS || {
               gdb -q -batch -ex run -ex 'thread apply all bt 25' --args \$HYP \$CAL_ARGS
               exit 1
