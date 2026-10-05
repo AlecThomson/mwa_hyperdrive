@@ -30,6 +30,8 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Measurement-set channel widths that differ only by floating-point noise
+  (within 1 part in 10^6) are no longer rejected as unequal.
 - `solutions-plot` now plots the instrumental gains, i.e. the inverse of the
   stored solutions (which are corrections). `--corrections` plots the stored
   values, as before, with a `_corrections` filename suffix.
