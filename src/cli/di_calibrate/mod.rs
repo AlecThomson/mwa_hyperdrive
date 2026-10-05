@@ -617,14 +617,25 @@ impl DiCalArgs {
     ) -> Result<Option<CalibrationSolutions>, HyperdriveError> {
         debug!("Converting arguments into parameters");
         trace!("{:#?}", self);
+        let __t = std::time::Instant::now();
         let params = self.parse()?;
+        eprintln!(
+            "PROFILE parse args (open MS, source list, beam, ...): {:.3} s",
+            __t.elapsed().as_secs_f64()
+        );
 
         if dry_run {
             info!("Dry run -- exiting now.");
             return Ok(None);
         }
 
+        let __t = std::time::Instant::now();
         let sols = params.run()?;
+        eprintln!(
+            "PROFILE params.run (read+model+calibrate): {:.3} s",
+            __t.elapsed().as_secs_f64()
+        );
+        let __t = std::time::Instant::now();
 
         // Write out the solutions.
         let num_solution_files = params.output_solution_files.len();
@@ -643,6 +654,10 @@ impl DiCalArgs {
             }
         }
 
+        eprintln!(
+            "PROFILE write solutions: {:.3} s",
+            __t.elapsed().as_secs_f64()
+        );
         Ok(Some(sols))
     }
 }

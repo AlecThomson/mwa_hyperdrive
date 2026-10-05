@@ -121,6 +121,7 @@ impl DiCalParams {
             vis_model,
             pols,
         } = self.get_cal_vis()?;
+        let __t = std::time::Instant::now();
         assert_eq!(vis_weights.len_of(Axis(2)), self.baseline_weights.len());
 
         // The shape of the array containing output Jones matrices.
@@ -153,6 +154,11 @@ impl DiCalParams {
             true,
         );
 
+        eprintln!(
+            "PROFILE calibrate_timeblocks: {:.3} s (vis_data shape {:?})",
+            __t.elapsed().as_secs_f64(),
+            vis_data.dim()
+        );
         // "Complete" the solutions.
         let sols = sols.into_cal_sols(self, Some(results.map(|r| r.max_precision)));
 
@@ -195,6 +201,7 @@ impl DiCalParams {
         let size = indicatif::HumanBytes((num_elems * std::mem::size_of::<Jones<f32>>()) as u64);
         debug!("Shape of data and model arrays: ({} timesteps, {} channels, {} baselines; {size} each)", vis_shape.0, vis_shape.1, vis_shape.2);
 
+        let __t_alloc = std::time::Instant::now();
         macro_rules! fallible_allocator {
             ($default:expr) => {{
                 let mut v = Vec::new();
@@ -238,6 +245,11 @@ impl DiCalParams {
             },
             "Still waiting to allocate visibility memory",
         )?;
+        eprintln!(
+            "PROFILE allocate data/model/weights {:?}: {:.3} s",
+            vis_shape,
+            __t_alloc.elapsed().as_secs_f64()
+        );
         let CalVis {
             mut vis_data,
             mut vis_model,
@@ -304,6 +316,7 @@ impl DiCalParams {
                     // If a panic happens, update our atomic error.
                     defer_on_unwind! { error.store(true); }
                     read_progress.tick();
+                    let __t = std::time::Instant::now();
 
                     for (timeblock, vis_data_fb, vis_weights_fb) in izip!(
                         &input_vis_params.timeblocks,
@@ -333,6 +346,10 @@ impl DiCalParams {
                         read_progress.inc(1);
                     }
 
+                    eprintln!(
+                        "PROFILE read thread total: {:.3} s",
+                        __t.elapsed().as_secs_f64()
+                    );
                     debug!("Finished reading");
                     read_progress.abandon_with_message("Finished reading visibilities");
                     Ok(())
@@ -345,6 +362,7 @@ impl DiCalParams {
                 .spawn_scoped(scope, || {
                     defer_on_unwind! { error.store(true); }
                     model_progress.tick();
+                    let __t = std::time::Instant::now();
 
                     let result = model_thread(
                         &*self.beam,
@@ -356,6 +374,10 @@ impl DiCalParams {
                         tx_model,
                         &error,
                         model_progress,
+                    );
+                    eprintln!(
+                        "PROFILE model thread total: {:.3} s",
+                        __t.elapsed().as_secs_f64()
                     );
                     if result.is_err() {
                         error.store(true);
@@ -452,7 +474,12 @@ impl DiCalParams {
             vis_model,
             pols: obs_context.polarisations,
         };
+        let __t = std::time::Instant::now();
         cal_vis.scale_by_weights(Some(&self.baseline_weights));
+        eprintln!(
+            "PROFILE scale_by_weights: {:.3} s",
+            __t.elapsed().as_secs_f64()
+        );
 
         info!("Finished reading input data and sky modelling");
 
@@ -491,6 +518,7 @@ fn model_thread(
         .iter()
         .map(|c| c.freq)
         .collect::<Vec<_>>();
+    let __t = std::time::Instant::now();
     let modeller = new_sky_modeller(
         beam,
         source_list,
@@ -504,6 +532,10 @@ fn model_thread(
         input_vis_params.dut1,
         apply_precession,
     )?;
+    eprintln!(
+        "PROFILE   new_sky_modeller (beam setup): {:.3} s",
+        __t.elapsed().as_secs_f64()
+    );
     let num_tiles = unflagged_tile_xyzs.len();
     let auto_vis_shape = (freqs.len(), num_tiles);
 
@@ -519,7 +551,12 @@ fn model_thread(
         .zip(vis_model_slices)
     {
         debug!("Modelling timestamp {}", timestamp.to_gpst_seconds());
+        let __t = std::time::Instant::now();
         modeller.model_timestep_with(timestamp, vis_model_fb.view_mut())?;
+        eprintln!(
+            "PROFILE   model_timestep_with: {:.3} s",
+            __t.elapsed().as_secs_f64()
+        );
         let auto_data_fb = if model_autos {
             let mut auto_data_fb = ArcArray2::zeros(auto_vis_shape);
             modeller.model_timestep_autos_with(timestamp, auto_data_fb.view_mut())?;

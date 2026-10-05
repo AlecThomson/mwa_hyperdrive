@@ -992,7 +992,12 @@ impl MsReader {
         let row_range_end = (timestep + 1) * self.step;
         let row_range = row_range_start as u64..row_range_end as u64;
 
+        let __tm = std::time::Instant::now();
         let mut main_table = read_table(&self.ms, None).map_err(MsReadError::from)?;
+        crate::io::read::PROFILE_META_NS.fetch_add(
+            __tm.elapsed().as_nanos() as u64,
+            std::sync::atomic::Ordering::Relaxed,
+        );
         let chan_flags = (0..self.obs_context.fine_chan_freqs.len())
             .map(|i_chan| flagged_fine_chans.contains(&(i_chan as u16)))
             .collect::<Vec<_>>();
@@ -1000,6 +1005,7 @@ impl MsReader {
         // with `Table::for_each_row_in_range`) also reads every other column
         // (e.g. SIGMA_SPECTRUM, FLAG_CATEGORY), which can be very slow.
         for row in row_range {
+            let __tm = std::time::Instant::now();
             // Check that the time associated with this row matches the
             // specified timestep.
             let this_timestamp: f64 = main_table
@@ -1021,6 +1027,10 @@ impl MsReader {
             // Use our map.
             let ant1 = self.tile_map[&ant1];
             let ant2 = self.tile_map[&ant2];
+            crate::io::read::PROFILE_META_NS.fetch_add(
+                __tm.elapsed().as_nanos() as u64,
+                std::sync::atomic::Ordering::Relaxed,
+            );
 
             // Read this row if the baseline is unflagged.
             // Baselines are stored with the lower-numbered tile first, but
@@ -1058,6 +1068,7 @@ impl MsReader {
                 continue;
             };
 
+            let __t = std::time::Instant::now();
             // The data array is arranged [frequency][instrumental_pol].
             let ms_data: Vec<c32> = main_table
                 .get_cell_as_vec(&self.data_col_name, row)
@@ -1085,6 +1096,11 @@ impl MsReader {
             let ms_flags: Vec<bool> = main_table
                 .get_cell_as_vec("FLAG", row)
                 .map_err(MsReadError::from)?;
+            crate::io::read::PROFILE_CELL_NS.fetch_add(
+                __t.elapsed().as_nanos() as u64,
+                std::sync::atomic::Ordering::Relaxed,
+            );
+            let __tc = std::time::Instant::now();
 
             if out_vis.len_of(Axis(1)) < i_out {
                 panic!(
@@ -1165,7 +1181,12 @@ impl MsReader {
                     let flag = flags.iter().any(|f| *f);
                     *out_weight = if flag { -weight.abs() } else { weight };
                 });
+            crate::io::read::PROFILE_CONV_NS.fetch_add(
+                __tc.elapsed().as_nanos() as u64,
+                std::sync::atomic::Ordering::Relaxed,
+            );
         }
+        let __tp = std::time::Instant::now();
 
         // Transform the data, depending on what the actual polarisations are.
         if let Some(crosses) = crosses.as_mut() {
@@ -1247,6 +1268,10 @@ impl MsReader {
             }
         }
 
+        crate::io::read::PROFILE_POST_NS.fetch_add(
+            __tp.elapsed().as_nanos() as u64,
+            std::sync::atomic::Ordering::Relaxed,
+        );
         Ok(())
     }
 }

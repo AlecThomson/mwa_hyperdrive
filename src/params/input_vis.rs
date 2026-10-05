@@ -106,6 +106,7 @@ impl InputVisParams {
         let averaging = timeblock.timestamps.len() > 1 || self.spw.chans_per_chanblock.get() > 1;
 
         if averaging {
+            let __t_alloc = std::time::Instant::now();
             let num_chans = obs_context.fine_chan_freqs.len();
             let num_timestamps = timeblock.timestamps.len();
             // If the user has supplied arrays for autos and the input data has
@@ -157,6 +158,11 @@ impl InputVisParams {
                 );
             }
             let chan_freqs = obs_context.fine_chan_freqs.mapped_ref(|f| *f as f64);
+            let (mut __read, mut __flagsol, mut __add) = (0.0, 0.0, 0.0);
+            eprintln!(
+                "PROFILE   streaming={streaming}, buffers allocated in {:.3} s",
+                __t_alloc.elapsed().as_secs_f64()
+            );
 
             for (i_timestamp, (&timestamp, &timestep)) in timeblock
                 .timestamps
@@ -176,6 +182,7 @@ impl InputVisParams {
                 });
 
                 debug!("Reading timestamp {}", timestamp.to_gpst_seconds());
+                let __t = std::time::Instant::now();
                 self.read_timestep(
                     timestep,
                     cross_data_fb.view_mut(),
@@ -186,6 +193,8 @@ impl InputVisParams {
                     &HashSet::new(),
                 )?;
 
+                __read += __t.elapsed().as_secs_f64();
+                let __t = std::time::Instant::now();
                 // Should we continue?
                 if error.load() {
                     return Ok(());
@@ -214,6 +223,8 @@ impl InputVisParams {
                     );
                 }
 
+                __flagsol += __t.elapsed().as_secs_f64();
+                let __t = std::time::Instant::now();
                 if let Some((cross_averager, auto_averager)) = averagers.as_mut() {
                     cross_averager.add(cross_data_fb.view(), cross_weights_fb.view());
                     if let (Some(auto_averager), Some((auto_data_fb, auto_weights_fb))) =
@@ -222,7 +233,14 @@ impl InputVisParams {
                         auto_averager.add(auto_data_fb.view(), auto_weights_fb.view());
                     }
                 }
+                __add += __t.elapsed().as_secs_f64();
             }
+            eprintln!("PROFILE   read_timestep total: {__read:.3} s (casacore cell reads {:.3} s, open+TIME/ANT {:.3} s, conversion {:.3} s, pol transform {:.3} s); flags+solutions {__flagsol:.3} s; averager add {__add:.3} s",
+                crate::io::read::PROFILE_CELL_NS.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e9,
+                crate::io::read::PROFILE_META_NS.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e9,
+                crate::io::read::PROFILE_CONV_NS.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e9,
+                crate::io::read::PROFILE_POST_NS.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1e9);
+            let __t = std::time::Instant::now();
 
             // Now that solutions have been applied, we can average the data
             // into the supplied arrays.
@@ -256,6 +274,10 @@ impl InputVisParams {
                     );
                 };
             }
+            eprintln!(
+                "PROFILE   final average: {:.3} s",
+                __t.elapsed().as_secs_f64()
+            );
         } else {
             // Not averaging; read the data directly into the supplied arrays.
             let timestamp = *timeblock.timestamps.first();

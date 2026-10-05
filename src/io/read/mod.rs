@@ -5,6 +5,14 @@
 //! Code to handle reading from and writing to various data container formats.
 
 mod error;
+pub(crate) static PROFILE_META_NS: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+pub(crate) static PROFILE_CONV_NS: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+pub(crate) static PROFILE_POST_NS: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+pub(crate) static PROFILE_CELL_NS: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
 pub(crate) mod fits;
 mod ms;
 mod raw;
