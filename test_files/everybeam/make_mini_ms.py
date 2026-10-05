@@ -4,18 +4,22 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-"""Generate a tiny synthetic SKA-Low measurement set that EveryBeam can read.
+"""Generate a tiny synthetic phased-array measurement set that EveryBeam can read.
 
 The measurement set has a few stations, each with a small grid of dual-pol
-elements described by a PHASED_ARRAY sub-table (as written by OSKAR). Like SKA-Low,
-the stations are rigidly rotated with respect to each other (both the element
+elements described by a PHASED_ARRAY sub-table (as written by OSKAR). The
+stations are rigidly rotated with respect to each other (both the element
 layout and the dipole orientations, via COORDINATE_AXES), and some X elements
 of station 2 are flagged, so that the stations have different beam responses. The visibilities are all
 zero; this is only intended for testing beam code.
 
+EveryBeam chooses its telescope model from TELESCOPE_NAME; this is set to
+SKA-LOW to select a phased-array model that uses the PHASED_ARRAY sub-table.
+Nothing else here is specific to SKA-Low.
+
 Requires python-casacore (pip install python-casacore).
 
-Usage: make_skalow_ms.py <output.ms>
+Usage: make_mini_ms.py <output.ms>
 """
 
 import sys
@@ -25,7 +29,7 @@ import casacore.tables as pt
 from casacore.measures import measures
 from casacore.quanta import quantity
 
-# Approximate SKA-Low core location.
+# An arbitrary southern-hemisphere location (near the SKA-Low core).
 LON_DEG = 116.7644482
 LAT_DEG = -26.82472208
 HEIGHT_M = 377.8

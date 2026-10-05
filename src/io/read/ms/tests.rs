@@ -854,7 +854,7 @@ fn copy_dir(src: &Path, dst: &Path) {
 #[test]
 #[serial]
 fn test_reversed_baselines() {
-    let src = PathBuf::from("test_files/everybeam/skalow_mini.ms");
+    let src = PathBuf::from("test_files/everybeam/mini.ms");
     let dir = tempdir().unwrap();
     let normal = dir.path().join("normal.ms");
     let reversed = dir.path().join("reversed.ms");
@@ -967,12 +967,12 @@ fn test_chan_width_noise() {
 
     let dir = tempdir().unwrap();
     let noisy = dir.path().join("noisy.ms");
-    copy_dir(Path::new("test_files/everybeam/skalow_mini.ms"), &noisy);
+    copy_dir(Path::new("test_files/everybeam/mini.ms"), &noisy);
     set_widths(&noisy, 3e-8);
     assert!(MsReader::new(noisy, None, None, None).is_ok());
 
     let unequal = dir.path().join("unequal.ms");
-    copy_dir(Path::new("test_files/everybeam/skalow_mini.ms"), &unequal);
+    copy_dir(Path::new("test_files/everybeam/mini.ms"), &unequal);
     set_widths(&unequal, 1000.0);
     assert!(matches!(
         MsReader::new(unequal, None, None, None),

@@ -140,7 +140,7 @@ fn test_channels_to_chanblocks() {
     let all_channel_freqs = [12000];
     let freq_average_factor = NonZeroUsize::new(1).unwrap();
     let mut flagged_channels = HashSet::new();
-    let freq_res = 1000;
+    let freq_res = 1000.0;
     let spws = channels_to_chanblocks(
         &all_channel_freqs,
         freq_res,
@@ -151,7 +151,7 @@ fn test_channels_to_chanblocks() {
     assert_eq!(spws[0].chanblocks.len(), 1);
     assert!(spws[0].flagged_chanblock_indices.is_empty());
     assert_abs_diff_eq!(spws[0].chanblocks[0].freq, 12000.0);
-    assert_abs_diff_eq!(spws[0].freq_res, freq_res as f64);
+    assert_abs_diff_eq!(spws[0].freq_res, freq_res);
     assert_abs_diff_eq!(spws[0].first_freq, 12000.0);
 
     let all_channel_freqs = [10000, 11000, 12000, 13000, 14000];
@@ -274,7 +274,7 @@ fn test_no_channels_to_chanblocks() {
     let flagged_channels = HashSet::new();
     let spws = channels_to_chanblocks(
         &all_channel_freqs,
-        10e3 as u64,
+        10e3,
         freq_average_factor,
         &flagged_channels,
     );
@@ -875,7 +875,7 @@ fn test_channels_to_chanblocks_fractional_resolution() {
     for factor in [1, 2, 3, 4, 144] {
         let spws = channels_to_chanblocks(
             &all_channel_freqs,
-            freq_res.round() as u64,
+            freq_res,
             NonZeroUsize::new(factor).unwrap(),
             &flagged_channels,
         );
@@ -892,7 +892,7 @@ fn test_channels_to_chanblocks_fractional_resolution() {
     picket.extend_from_slice(&all_channel_freqs[200..]);
     let spws = channels_to_chanblocks(
         &picket,
-        freq_res.round() as u64,
+        freq_res,
         NonZeroUsize::new(1).unwrap(),
         &flagged_channels,
     );
@@ -925,5 +925,92 @@ fn test_timesteps_to_timeblocks_rounded_timestamps() {
         );
         let num_timesteps: usize = timeblocks.iter().map(|tb| tb.timesteps.len()).sum();
         assert_eq!(num_timesteps, 2111, "factor {factor}");
+    }
+}
+
+/// [`VisAverager`] must give exactly the same results as [`vis_average`].
+#[test]
+fn test_vis_averager_matches_vis_average() {
+    // A simple deterministic pseudo-random sequence.
+    let mut state = 12345_u64;
+    let mut next = move || {
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        ((state >> 11) as f64 / (1_u64 << 53) as f64) as f32
+    };
+
+    // (timesteps, fine channels, baselines, chanblocks, flagged chanblocks)
+    let cases: [(usize, usize, usize, usize, &[u16]); 6] = [
+        (1, 8, 3, 2, &[]),
+        (5, 8, 3, 1, &[]),
+        (5, 16, 4, 4, &[]),
+        (7, 16, 4, 3, &[1]),
+        (3, 10, 2, 3, &[]), // the last chanblock has fewer channels
+        (4, 12, 5, 1, &[0, 2]),
+    ];
+    for (num_times, num_chans, num_bls, num_chanblocks, flagged) in cases {
+        let flagged_chanblock_indices: HashSet<u16> = flagged.iter().copied().collect();
+        let shape = (num_times, num_chans, num_bls);
+        let jones_tfb = Array3::from_shape_simple_fn(shape, || {
+            Jones::from([
+                next(),
+                next(),
+                next(),
+                next(),
+                next(),
+                next(),
+                next(),
+                next(),
+            ])
+        });
+        // Mix positive, negative (flagged) and zero weights; also make some
+        // chunks entirely flagged.
+        let mut weight_tfb = Array3::from_shape_simple_fn(shape, || {
+            let r = next();
+            if r < 0.2 {
+                -r
+            } else if r < 0.25 {
+                0.0
+            } else {
+                r * 10.0
+            }
+        });
+        weight_tfb
+            .slice_mut(s![.., 0, ..])
+            .mapv_inplace(|w| -w.abs());
+        weight_tfb
+            .slice_mut(s![.., 1, ..])
+            .mapv_inplace(|w| -w.abs());
+
+        let out_shape = (num_chanblocks, num_bls);
+        let mut expected_jones = Array2::from_elem(out_shape, Jones::identity());
+        let mut expected_weights = Array2::from_elem(out_shape, 7.0);
+        vis_average(
+            jones_tfb.view(),
+            expected_jones.view_mut(),
+            weight_tfb.view(),
+            expected_weights.view_mut(),
+            &flagged_chanblock_indices,
+        );
+
+        let mut averager = VisAverager::new(num_chans, out_shape, &flagged_chanblock_indices);
+        for (jones_fb, weight_fb) in jones_tfb.outer_iter().zip(weight_tfb.outer_iter()) {
+            averager.add(jones_fb, weight_fb);
+        }
+        let mut jones = Array2::from_elem(out_shape, Jones::identity());
+        let mut weights = Array2::from_elem(out_shape, 7.0);
+        averager.finish(jones.view_mut(), weights.view_mut());
+
+        // Bitwise equality.
+        for (a, b) in jones.iter().zip(expected_jones.iter()) {
+            for (a, b) in a.iter().zip(b.iter()) {
+                assert_eq!(a.re.to_bits(), b.re.to_bits());
+                assert_eq!(a.im.to_bits(), b.im.to_bits());
+            }
+        }
+        for (a, b) in weights.iter().zip(expected_weights.iter()) {
+            assert_eq!(a.to_bits(), b.to_bits());
+        }
     }
 }

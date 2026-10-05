@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//! Tests for EveryBeam beam responses. These use a small synthetic SKA-Low
-//! measurement set (see `test_files/everybeam/make_skalow_ms.py`) with 8
+//! Tests for EveryBeam beam responses. These use a small synthetic
+//! phased-array measurement set (see `test_files/everybeam/make_mini_ms.py`) with 8
 //! stations. The first three stations are rigidly rotated by 0, 30 and 75
 //! degrees, and the third station has some flagged X elements.
 
@@ -16,7 +16,7 @@ use ndarray::prelude::*;
 
 use super::{reference::*, *};
 
-const MS: &str = "test_files/everybeam/skalow_mini.ms";
+const MS: &str = "test_files/everybeam/mini.ms";
 
 fn get_beam(normalisation: &str) -> EveryBeam {
     EveryBeam::new(
