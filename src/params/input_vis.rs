@@ -116,7 +116,9 @@ impl InputVisParams {
             // memory would take more space than the running sums used to
             // average (about 4 visibilities' worth per averaged visibility).
             let streaming = (num_timestamps - 1) * self.spw.chans_per_chanblock.get() > 4;
-            let num_buffered_timestamps = if streaming { 1 } else { num_timestamps };
+            // When streaming, the unaveraged data are held in per-timestep
+            // buffers instead.
+            let num_buffered_timestamps = if streaming { 0 } else { num_timestamps };
 
             let cross_vis_shape = (
                 num_buffered_timestamps,
@@ -158,39 +160,16 @@ impl InputVisParams {
             }
             let chan_freqs = obs_context.fine_chan_freqs.mapped_ref(|f| *f as f64);
 
-            for (i_timestamp, (&timestamp, &timestep)) in timeblock
-                .timestamps
-                .iter()
-                .zip(timeblock.timesteps.iter())
-                .enumerate()
-            {
-                let i_buffer = if streaming { 0 } else { i_timestamp };
-                let mut cross_data_fb = unaveraged_cross_data_tfb.index_axis_mut(Axis(0), i_buffer);
-                let mut cross_weights_fb =
-                    unaveraged_cross_weights_tfb.index_axis_mut(Axis(0), i_buffer);
-                let mut autos = unaveraged_autos.as_mut().map(|(data_tfb, weights_tfb)| {
-                    (
-                        data_tfb.index_axis_mut(Axis(0), i_buffer),
-                        weights_tfb.index_axis_mut(Axis(0), i_buffer),
-                    )
-                });
-
-                debug!("Reading timestamp {}", timestamp.to_gpst_seconds());
-                self.read_timestep(
-                    timestep,
-                    cross_data_fb.view_mut(),
-                    cross_weights_fb.view_mut(),
-                    autos
-                        .as_mut()
-                        .map(|(data_fb, weights_fb)| (data_fb.view_mut(), weights_fb.view_mut())),
-                    &HashSet::new(),
-                )?;
-
-                // Should we continue?
-                if error.load() {
-                    return Ok(());
-                }
-
+            // Apply flagged channels and calibration solutions to a timestep's
+            // unaveraged data, and, if streaming, add it to the running
+            // averages.
+            let mut process = |timestamp: Epoch,
+                               mut cross_data_fb: ArrayViewMut2<Jones<f32>>,
+                               mut cross_weights_fb: ArrayViewMut2<f32>,
+                               mut autos: Option<(
+                ArrayViewMut2<Jones<f32>>,
+                ArrayViewMut2<f32>,
+            )>| {
                 // Apply flagged channels.
                 for i_chan in &self.spw.flagged_chan_indices {
                     let i_chan = usize::from(*i_chan);
@@ -222,6 +201,119 @@ impl InputVisParams {
                         auto_averager.add(auto_data_fb.view(), auto_weights_fb.view());
                     }
                 }
+            };
+
+            if streaming {
+                // Read the next timestep on another thread while this one is
+                // processed. Two sets of buffers are passed back and forth.
+                let new_buffers = || UnaveragedTimestep {
+                    cross_data_fb: Array2::zeros((num_chans, num_unflagged_cross_baselines)),
+                    cross_weights_fb: Array2::zeros((num_chans, num_unflagged_cross_baselines)),
+                    autos: read_autos.then(|| {
+                        (
+                            Array2::zeros((num_chans, num_unflagged_tiles)),
+                            Array2::zeros((num_chans, num_unflagged_tiles)),
+                        )
+                    }),
+                };
+                let (full_tx, full_rx) = crossbeam_channel::bounded::<UnaveragedTimestep>(1);
+                let (free_tx, free_rx) = crossbeam_channel::bounded::<UnaveragedTimestep>(2);
+                for _ in 0..2.min(num_timestamps) {
+                    free_tx.send(new_buffers()).expect("receiver is alive");
+                }
+
+                std::thread::scope(|scope| -> Result<(), VisReadError> {
+                    let reader = scope.spawn(move || -> Result<(), VisReadError> {
+                        for (&timestamp, &timestep) in
+                            timeblock.timestamps.iter().zip(timeblock.timesteps.iter())
+                        {
+                            // If the other side has hung up, stop.
+                            let Ok(mut buffers) = free_rx.recv() else {
+                                return Ok(());
+                            };
+                            debug!("Reading timestamp {}", timestamp.to_gpst_seconds());
+                            self.read_timestep(
+                                timestep,
+                                buffers.cross_data_fb.view_mut(),
+                                buffers.cross_weights_fb.view_mut(),
+                                buffers.autos.as_mut().map(|(data_fb, weights_fb)| {
+                                    (data_fb.view_mut(), weights_fb.view_mut())
+                                }),
+                                &HashSet::new(),
+                            )?;
+                            if error.load() || full_tx.send(buffers).is_err() {
+                                return Ok(());
+                            }
+                        }
+                        Ok(())
+                    });
+
+                    for &timestamp in &timeblock.timestamps {
+                        // If the reader has stopped (an error), stop.
+                        let Ok(mut buffers) = full_rx.recv() else {
+                            break;
+                        };
+                        if error.load() {
+                            break;
+                        }
+                        process(
+                            timestamp,
+                            buffers.cross_data_fb.view_mut(),
+                            buffers.cross_weights_fb.view_mut(),
+                            buffers.autos.as_mut().map(|(data_fb, weights_fb)| {
+                                (data_fb.view_mut(), weights_fb.view_mut())
+                            }),
+                        );
+                        // The reader may have finished; it doesn't need the
+                        // buffers back.
+                        let _ = free_tx.send(buffers);
+                    }
+                    // Let the reader stop if it's waiting for buffers.
+                    drop(free_tx);
+                    drop(full_rx);
+                    reader.join().expect("reading thread doesn't panic")
+                })?;
+            } else {
+                for (i_timestamp, (&timestamp, &timestep)) in timeblock
+                    .timestamps
+                    .iter()
+                    .zip(timeblock.timesteps.iter())
+                    .enumerate()
+                {
+                    let mut cross_data_fb =
+                        unaveraged_cross_data_tfb.index_axis_mut(Axis(0), i_timestamp);
+                    let mut cross_weights_fb =
+                        unaveraged_cross_weights_tfb.index_axis_mut(Axis(0), i_timestamp);
+                    let mut autos = unaveraged_autos.as_mut().map(|(data_tfb, weights_tfb)| {
+                        (
+                            data_tfb.index_axis_mut(Axis(0), i_timestamp),
+                            weights_tfb.index_axis_mut(Axis(0), i_timestamp),
+                        )
+                    });
+
+                    debug!("Reading timestamp {}", timestamp.to_gpst_seconds());
+                    self.read_timestep(
+                        timestep,
+                        cross_data_fb.view_mut(),
+                        cross_weights_fb.view_mut(),
+                        autos.as_mut().map(|(data_fb, weights_fb)| {
+                            (data_fb.view_mut(), weights_fb.view_mut())
+                        }),
+                        &HashSet::new(),
+                    )?;
+
+                    // Should we continue?
+                    if error.load() {
+                        return Ok(());
+                    }
+
+                    process(timestamp, cross_data_fb, cross_weights_fb, autos);
+                }
+            }
+
+            // Should we continue?
+            if error.load() {
+                return Ok(());
             }
 
             // Now that solutions have been applied, we can average the data
@@ -547,4 +639,11 @@ impl InputVisParams {
 
         debug!("Finished applying solutions");
     }
+}
+
+/// The unaveraged data of one timestep, as read from the input data.
+struct UnaveragedTimestep {
+    cross_data_fb: Array2<Jones<f32>>,
+    cross_weights_fb: Array2<f32>,
+    autos: Option<(Array2<Jones<f32>>, Array2<f32>)>,
 }

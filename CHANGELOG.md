@@ -30,11 +30,27 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Reading measurement sets is faster: only the needed columns are read
-  (previously every column of each row was read, e.g. SIGMA_SPECTRUM).
-- When averaging input data over time, timesteps are averaged as they're read,
-  rather than all being held in memory first, which is faster and uses much
+- Reading measurement sets is much faster, and averaging input data uses much
   less memory. Results are unchanged.
+  - Only the needed columns are read (previously every column of each row was
+    read, e.g. SIGMA_SPECTRUM).
+  - Rows are read in batches and converted in parallel, and the table stays
+    open between timesteps.
+  - When averaging over time, timesteps are averaged as they're read (while
+    the next one is read), rather than all being held in memory first.
+- DI calibration only holds one (averaged) timestep per input-data timeblock
+  in memory, rather than one per input timestep.
+- `--time-average 0` (and a time-averaging factor bigger than the data) now
+  spans the time range of the data, so data with missing timesteps are
+  averaged into one timeblock rather than two.
+- When DI calibrating with input time averaging and more than one calibration
+  timeblock, each calibration timeblock is now calibrated with its own data;
+  previously, they could be calibrated with the wrong data (or none).
+- Data with a non-integer channel width (in Hz) are written with the right
+  channel width and frequencies; previously the width was rounded to an
+  integer, so frequencies drifted (by up to a channel over many channels; this
+  also affected the frequencies stored in calibration solutions), and writing
+  could panic.
 - Measurement-set channel widths that differ only by floating-point noise
   (within 1 part in 10^6) are no longer rejected as unequal.
 - `solutions-plot` now plots the instrumental gains, i.e. the inverse of the
