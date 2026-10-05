@@ -577,9 +577,10 @@ impl MsReader {
         let freq_res = {
             let all_widths: Vec<f64> = spectral_window_table.get_cell_as_vec("CHAN_WIDTH", 0)?;
             let width = *all_widths.first().ok_or(MsReadError::NoChanWidths)?;
-            // Make sure all the widths all the same.
+            // Make sure all the widths all the same, allowing for
+            // floating-point noise in the stored values.
             for w in all_widths.iter().skip(1) {
-                if (w - width).abs() > f64::EPSILON {
+                if (w - width).abs() > width.abs() * 1e-6 {
                     return Err(MsReadError::ChanWidthsUnequal);
                 }
             }

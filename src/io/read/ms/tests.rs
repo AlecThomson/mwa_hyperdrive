@@ -950,3 +950,32 @@ fn test_flagged_timestep_in_the_middle() {
     let reader = MsReader::new(ms, None, None, None).unwrap();
     assert_eq!(&reader.get_obs_context().unflagged_timesteps, &[0, 1, 2]);
 }
+
+/// Channel widths that differ only by floating-point noise are equal, but
+/// genuinely different widths are still an error.
+#[test]
+#[serial]
+fn test_chan_width_noise() {
+    let set_widths = |ms: &Path, perturb: f64| {
+        let mut t = Table::open(ms.join("SPECTRAL_WINDOW"), TableOpenMode::ReadWrite).unwrap();
+        let mut widths: Vec<f64> = t.get_cell_as_vec("CHAN_WIDTH", 0).unwrap();
+        for (i, w) in widths.iter_mut().enumerate() {
+            *w += perturb * i as f64;
+        }
+        t.put_cell("CHAN_WIDTH", 0, &widths).unwrap();
+    };
+
+    let dir = tempdir().unwrap();
+    let noisy = dir.path().join("noisy.ms");
+    copy_dir(Path::new("test_files/everybeam/skalow_mini.ms"), &noisy);
+    set_widths(&noisy, 3e-8);
+    assert!(MsReader::new(noisy, None, None, None).is_ok());
+
+    let unequal = dir.path().join("unequal.ms");
+    copy_dir(Path::new("test_files/everybeam/skalow_mini.ms"), &unequal);
+    set_widths(&unequal, 1000.0);
+    assert!(matches!(
+        MsReader::new(unequal, None, None, None),
+        Err(MsReadError::ChanWidthsUnequal)
+    ));
+}
