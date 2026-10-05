@@ -30,6 +30,11 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Reading measurement sets is faster: only the needed columns are read
+  (previously every column of each row was read, e.g. SIGMA_SPECTRUM).
+- When averaging input data over time, timesteps are averaged as they're read,
+  rather than all being held in memory first, which is faster and uses much
+  less memory. Results are unchanged.
 - Measurement-set channel widths that differ only by floating-point noise
   (within 1 part in 10^6) are no longer rejected as unequal.
 - `solutions-plot` now plots the instrumental gains, i.e. the inverse of the

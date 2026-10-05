@@ -19,7 +19,7 @@ use ndarray::prelude::*;
 use vec1::Vec1;
 
 use crate::{
-    averaging::{vis_average, Spw, Timeblock},
+    averaging::{vis_average, Spw, Timeblock, VisAverager},
     context::ObsContext,
     io::read::{VisRead, VisReadError},
     math::TileBaselineFlags,
@@ -106,157 +106,120 @@ impl InputVisParams {
         let averaging = timeblock.timestamps.len() > 1 || self.spw.chans_per_chanblock.get() > 1;
 
         if averaging {
+            let num_chans = obs_context.fine_chan_freqs.len();
+            let num_timestamps = timeblock.timestamps.len();
+            // If the user has supplied arrays for autos and the input data has
+            // autos, read those out.
+            let read_autos = autos_fb.is_some() && obs_context.autocorrelations_present;
+
+            // Average while reading if holding all of the unaveraged data in
+            // memory would take more space than the running sums used to
+            // average (about 4 visibilities' worth per averaged visibility).
+            let streaming = (num_timestamps - 1) * self.spw.chans_per_chanblock.get() > 4;
+            let num_buffered_timestamps = if streaming { 1 } else { num_timestamps };
+
             let cross_vis_shape = (
-                timeblock.timestamps.len(),
-                obs_context.fine_chan_freqs.len(),
+                num_buffered_timestamps,
+                num_chans,
                 num_unflagged_cross_baselines,
             );
             let mut unaveraged_cross_data_tfb = Array3::zeros(cross_vis_shape);
             let mut unaveraged_cross_weights_tfb = Array3::zeros(cross_vis_shape);
-            // If the user has supplied arrays for autos and the input data has
-            // autos, read those out.
-            let mut unaveraged_autos =
-                match (autos_fb.as_ref(), obs_context.autocorrelations_present) {
-                    (Some(_), true) => {
-                        let auto_vis_shape = (
-                            timeblock.timestamps.len(),
-                            obs_context.fine_chan_freqs.len(),
-                            num_unflagged_tiles,
-                        );
-                        let unaveraged_auto_data_tfb = Array3::zeros(auto_vis_shape);
-                        let unaveraged_auto_weights_tfb = Array3::zeros(auto_vis_shape);
-                        Some((unaveraged_auto_data_tfb, unaveraged_auto_weights_tfb))
-                    }
-
-                    _ => None,
-                };
-
-            if let Some((unaveraged_auto_data_tfb, unaveraged_auto_weights_tfb)) =
-                unaveraged_autos.as_mut()
-            {
-                for (
-                    &timestamp,
-                    &timestep,
-                    unaveraged_cross_data_fb,
-                    unaveraged_cross_weights_fb,
-                    unaveraged_auto_data_fb,
-                    unaveraged_auto_weights_fb,
-                ) in izip!(
-                    timeblock.timestamps.iter(),
-                    timeblock.timesteps.iter(),
-                    unaveraged_cross_data_tfb.outer_iter_mut(),
-                    unaveraged_cross_weights_tfb.outer_iter_mut(),
-                    unaveraged_auto_data_tfb.outer_iter_mut(),
-                    unaveraged_auto_weights_tfb.outer_iter_mut()
-                ) {
-                    debug!("Reading timestamp {}", timestamp.to_gpst_seconds());
-
-                    self.read_timestep(
-                        timestep,
-                        unaveraged_cross_data_fb,
-                        unaveraged_cross_weights_fb,
-                        Some((unaveraged_auto_data_fb, unaveraged_auto_weights_fb)),
-                        &HashSet::new(),
-                    )?;
-
-                    // Should we continue?
-                    if error.load() {
-                        return Ok(());
-                    }
-                }
+            let mut unaveraged_autos = if read_autos {
+                let auto_vis_shape = (num_buffered_timestamps, num_chans, num_unflagged_tiles);
+                Some((Array3::zeros(auto_vis_shape), Array3::zeros(auto_vis_shape)))
             } else {
-                for (
-                    &timestamp,
-                    &timestep,
-                    unaveraged_cross_data_fb,
-                    unaveraged_cross_weights_fb,
-                ) in izip!(
-                    timeblock.timestamps.iter(),
-                    timeblock.timesteps.iter(),
-                    unaveraged_cross_data_tfb.outer_iter_mut(),
-                    unaveraged_cross_weights_tfb.outer_iter_mut()
-                ) {
-                    debug!("Reading timestamp {}", timestamp.to_gpst_seconds());
-
-                    self.read_timestep(
-                        timestep,
-                        unaveraged_cross_data_fb,
-                        unaveraged_cross_weights_fb,
-                        None,
-                        &HashSet::new(),
-                    )?;
-
-                    // Should we continue?
-                    if error.load() {
-                        return Ok(());
-                    }
-                }
+                None
+            };
+            let mut averagers = if streaming {
+                Some((
+                    VisAverager::new(
+                        num_chans,
+                        avg_cross_vis_shape,
+                        &self.spw.flagged_chanblock_indices,
+                    ),
+                    read_autos.then(|| {
+                        VisAverager::new(
+                            num_chans,
+                            avg_auto_vis_shape,
+                            &self.spw.flagged_chanblock_indices,
+                        )
+                    }),
+                ))
+            } else {
+                None
             };
 
-            // Apply flagged channels.
-            for i_chan in &self.spw.flagged_chan_indices {
-                let i_chan = usize::from(*i_chan);
-                unaveraged_cross_weights_tfb
-                    .slice_mut(s![.., i_chan, ..])
-                    .mapv_inplace(|w| -w.abs());
-                unaveraged_cross_weights_tfb
-                    .slice_mut(s![.., i_chan, ..])
-                    .mapv_inplace(|w| -w.abs());
-                if let Some((_, unaveraged_auto_weights_tfb)) = unaveraged_autos.as_mut() {
-                    unaveraged_auto_weights_tfb
-                        .slice_mut(s![.., i_chan, ..])
-                        .mapv_inplace(|w| -w.abs());
-                }
-            }
-
-            // We've now read in all of the timesteps for this timeblock. If
-            // there are calibration solutions, these now need to be applied.
             if self.solutions.is_some() {
                 debug!(
                     "Applying calibration solutions to input data from timeblock {}",
                     timeblock.index
                 );
+            }
+            let chan_freqs = obs_context.fine_chan_freqs.mapped_ref(|f| *f as f64);
 
-                let chan_freqs = obs_context.fine_chan_freqs.mapped_ref(|f| *f as f64);
-                if let Some((unaveraged_auto_data_tfb, unaveraged_auto_weights_tfb)) =
-                    unaveraged_autos.as_mut()
-                {
-                    for (
-                        &timestamp,
-                        cross_data_fb,
-                        cross_weights_fb,
-                        auto_data_fb,
-                        auto_weights_fb,
-                    ) in izip!(
-                        timeblock.timestamps.iter(),
-                        unaveraged_cross_data_tfb.outer_iter_mut(),
-                        unaveraged_cross_weights_tfb.outer_iter_mut(),
-                        unaveraged_auto_data_tfb.outer_iter_mut(),
-                        unaveraged_auto_weights_tfb.outer_iter_mut()
-                    ) {
-                        self.apply_solutions(
-                            timestamp,
-                            cross_data_fb,
-                            cross_weights_fb,
-                            Some((auto_data_fb, auto_weights_fb)),
-                            &chan_freqs,
-                        );
+            for (i_timestamp, (&timestamp, &timestep)) in timeblock
+                .timestamps
+                .iter()
+                .zip(timeblock.timesteps.iter())
+                .enumerate()
+            {
+                let i_buffer = if streaming { 0 } else { i_timestamp };
+                let mut cross_data_fb = unaveraged_cross_data_tfb.index_axis_mut(Axis(0), i_buffer);
+                let mut cross_weights_fb =
+                    unaveraged_cross_weights_tfb.index_axis_mut(Axis(0), i_buffer);
+                let mut autos = unaveraged_autos.as_mut().map(|(data_tfb, weights_tfb)| {
+                    (
+                        data_tfb.index_axis_mut(Axis(0), i_buffer),
+                        weights_tfb.index_axis_mut(Axis(0), i_buffer),
+                    )
+                });
+
+                debug!("Reading timestamp {}", timestamp.to_gpst_seconds());
+                self.read_timestep(
+                    timestep,
+                    cross_data_fb.view_mut(),
+                    cross_weights_fb.view_mut(),
+                    autos
+                        .as_mut()
+                        .map(|(data_fb, weights_fb)| (data_fb.view_mut(), weights_fb.view_mut())),
+                    &HashSet::new(),
+                )?;
+
+                // Should we continue?
+                if error.load() {
+                    return Ok(());
+                }
+
+                // Apply flagged channels.
+                for i_chan in &self.spw.flagged_chan_indices {
+                    let i_chan = usize::from(*i_chan);
+                    cross_weights_fb.row_mut(i_chan).mapv_inplace(|w| -w.abs());
+                    if let Some((_, auto_weights_fb)) = autos.as_mut() {
+                        auto_weights_fb.row_mut(i_chan).mapv_inplace(|w| -w.abs());
                     }
-                } else {
+                }
+
+                // If there are calibration solutions, these now need to be
+                // applied.
+                if self.solutions.is_some() {
+                    self.apply_solutions(
+                        timestamp,
+                        cross_data_fb.view_mut(),
+                        cross_weights_fb.view_mut(),
+                        autos.as_mut().map(|(data_fb, weights_fb)| {
+                            (data_fb.view_mut(), weights_fb.view_mut())
+                        }),
+                        &chan_freqs,
+                    );
+                }
+
+                if let Some((cross_averager, auto_averager)) = averagers.as_mut() {
+                    cross_averager.add(cross_data_fb.view(), cross_weights_fb.view());
+                    if let (Some(auto_averager), Some((auto_data_fb, auto_weights_fb))) =
+                        (auto_averager.as_mut(), autos.as_ref())
                     {
-                        for (&timestamp, cross_data_fb, cross_weights_fb) in izip!(
-                            timeblock.timestamps.iter(),
-                            unaveraged_cross_data_tfb.outer_iter_mut(),
-                            unaveraged_cross_weights_tfb.outer_iter_mut(),
-                        ) {
-                            self.apply_solutions(
-                                timestamp,
-                                cross_data_fb,
-                                cross_weights_fb,
-                                None,
-                                &chan_freqs,
-                            );
-                        }
+                        auto_averager.add(auto_data_fb.view(), auto_weights_fb.view());
                     }
                 }
             }
@@ -264,26 +227,35 @@ impl InputVisParams {
             // Now that solutions have been applied, we can average the data
             // into the supplied arrays.
             debug!("Averaging input data from timeblock {}", timeblock.index);
-            vis_average(
-                unaveraged_cross_data_tfb.view(),
-                cross_data_fb,
-                unaveraged_cross_weights_tfb.view(),
-                cross_weights_fb,
-                &self.spw.flagged_chanblock_indices,
-            );
-            if let (
-                Some((mut auto_data_fb, mut auto_weights_fb)),
-                Some((unaveraged_auto_data_tfb, unaveraged_auto_weights_tfb)),
-            ) = (autos_fb, unaveraged_autos)
-            {
+            if let Some((cross_averager, auto_averager)) = averagers {
+                cross_averager.finish(cross_data_fb, cross_weights_fb);
+                if let (Some(auto_averager), Some((mut auto_data_fb, mut auto_weights_fb))) =
+                    (auto_averager, autos_fb)
+                {
+                    auto_averager.finish(auto_data_fb.view_mut(), auto_weights_fb.view_mut());
+                }
+            } else {
                 vis_average(
-                    unaveraged_auto_data_tfb.view(),
-                    auto_data_fb.view_mut(),
-                    unaveraged_auto_weights_tfb.view(),
-                    auto_weights_fb.view_mut(),
+                    unaveraged_cross_data_tfb.view(),
+                    cross_data_fb,
+                    unaveraged_cross_weights_tfb.view(),
+                    cross_weights_fb,
                     &self.spw.flagged_chanblock_indices,
                 );
-            };
+                if let (
+                    Some((mut auto_data_fb, mut auto_weights_fb)),
+                    Some((unaveraged_auto_data_tfb, unaveraged_auto_weights_tfb)),
+                ) = (autos_fb, unaveraged_autos)
+                {
+                    vis_average(
+                        unaveraged_auto_data_tfb.view(),
+                        auto_data_fb.view_mut(),
+                        unaveraged_auto_weights_tfb.view(),
+                        auto_weights_fb.view_mut(),
+                        &self.spw.flagged_chanblock_indices,
+                    );
+                };
+            }
         } else {
             // Not averaging; read the data directly into the supplied arrays.
             let timestamp = *timeblock.timestamps.first();
