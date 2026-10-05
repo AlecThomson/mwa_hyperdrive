@@ -81,7 +81,7 @@ fn test_vis_output_no_time_averaging_no_gaps() {
 
     let spw = &channels_to_chanblocks(
         &fine_chan_freqs,
-        freq_res,
+        freq_res as f64,
         NonZeroUsize::new(1).unwrap(),
         &HashSet::new(),
     )[0];
@@ -283,7 +283,7 @@ fn test_vis_output_no_time_averaging_with_gaps() {
 
     let spw = &channels_to_chanblocks(
         &fine_chan_freqs,
-        freq_res,
+        freq_res as f64,
         NonZeroUsize::new(1).unwrap(),
         &HashSet::new(),
     )[0];
@@ -486,7 +486,7 @@ fn test_vis_output_time_averaging() {
 
     let spw = &channels_to_chanblocks(
         &fine_chan_freqs,
-        freq_res,
+        freq_res as f64,
         NonZeroUsize::new(1).unwrap(),
         &HashSet::new(),
     )[0];

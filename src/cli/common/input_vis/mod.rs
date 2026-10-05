@@ -1073,7 +1073,7 @@ impl InputVisArgs {
         // Set up the chanblocks.
         let mut spws = channels_to_chanblocks(
             &obs_context.fine_chan_freqs,
-            freq_res.round() as u64,
+            freq_res,
             freq_average_factor,
             &flagged_fine_chans,
         );

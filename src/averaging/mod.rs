@@ -258,7 +258,7 @@ pub(super) fn timesteps_to_timeblocks(
 /// observation.
 pub(super) fn channels_to_chanblocks(
     all_channel_freqs: &[u64],
-    freq_resolution: u64,
+    freq_resolution: f64,
     freq_average_factor: NonZeroUsize,
     flagged_chan_indices: &HashSet<u16>,
 ) -> Vec<Spw> {
@@ -272,7 +272,7 @@ pub(super) fn channels_to_chanblocks(
                     flagged_chan_indices: HashSet::from([0]),
                     flagged_chanblock_indices: HashSet::from([0]),
                     chans_per_chanblock: freq_average_factor,
-                    freq_res: freq_resolution as f64,
+                    freq_res: freq_resolution,
                     first_freq: *f as f64,
                 }
             } else {
@@ -285,7 +285,7 @@ pub(super) fn channels_to_chanblocks(
                     flagged_chan_indices: HashSet::new(),
                     flagged_chanblock_indices: HashSet::new(),
                     chans_per_chanblock: freq_average_factor,
-                    freq_res: freq_resolution as f64,
+                    freq_res: freq_resolution,
                     first_freq: *f as f64,
                 }
             };
@@ -294,21 +294,21 @@ pub(super) fn channels_to_chanblocks(
         _ => (), // More complicated logic needed.
     }
 
-    // Find any picket SPWs here. The frequencies and resolution have been
-    // rounded to integer Hz, so contiguous channels with a non-integer
-    // resolution can be up to a Hz further apart than the rounded resolution;
-    // only a gap of at least another half a channel is a gap in the band.
+    // Find any picket SPWs here. The frequencies have been rounded to integer
+    // Hz, so contiguous channels with a non-integer resolution aren't exactly
+    // the resolution apart; only a gap of at least another half a channel is
+    // a gap in the band.
     let mut spw_index_ends = vec![];
     (0..)
         .zip(all_channel_freqs.windows(2))
         .for_each(|(i, window)| {
-            if window[1] - window[0] > freq_resolution + freq_resolution / 2 {
+            if (window[1] - window[0]) as f64 > 1.5 * freq_resolution {
                 spw_index_ends.push(i + 1);
             }
         });
 
     let mut spws = Vec::with_capacity(spw_index_ends.len() + 1);
-    let biggest_freq_diff = freq_resolution * freq_average_factor.get() as u64;
+    let biggest_freq_diff = freq_resolution * freq_average_factor.get() as f64;
     let mut chanblocks = vec![];
     let mut flagged_chanblock_indices = HashSet::new();
     let mut i_chanblock = 0;
@@ -330,16 +330,16 @@ pub(super) fn channels_to_chanblocks(
         }
 
         // Allow for rounding, as above.
-        if freq - first_freq.unwrap() + freq_resolution / 2 >= biggest_freq_diff {
+        if (freq - first_freq.unwrap()) as f64 + freq_resolution / 2.0 >= biggest_freq_diff {
             if all_flagged {
                 flagged_chanblock_indices.insert(i_chanblock);
             } else {
-                let centroid_freq = first_freq.unwrap()
-                    + freq_resolution / 2 * (freq_average_factor.get() - 1) as u64;
+                let centroid_freq = first_freq.unwrap() as f64
+                    + freq_resolution / 2.0 * (freq_average_factor.get() - 1) as f64;
                 chanblocks.push(Chanblock {
                     chanblock_index: i_chanblock,
                     unflagged_index: i_unflagged_chanblock,
-                    freq: centroid_freq as f64,
+                    freq: centroid_freq,
                 });
                 i_unflagged_chanblock += 1;
             }
@@ -362,10 +362,9 @@ pub(super) fn channels_to_chanblocks(
                 flagged_chan_indices: this_spw_flagged_chans.clone(),
                 flagged_chanblock_indices: flagged_chanblock_indices.clone(),
                 chans_per_chanblock: freq_average_factor,
-                freq_res: biggest_freq_diff as f64,
-                first_freq: (first_spw_freq.unwrap()
-                    + freq_resolution / 2 * (freq_average_factor.get() - 1) as u64)
-                    as f64,
+                freq_res: biggest_freq_diff,
+                first_freq: first_spw_freq.unwrap() as f64
+                    + freq_resolution / 2.0 * (freq_average_factor.get() - 1) as f64,
             });
             first_spw_freq = Some(freq);
             chanblocks.clear();
@@ -379,11 +378,11 @@ pub(super) fn channels_to_chanblocks(
             flagged_chanblock_indices.insert(i_chanblock);
         } else {
             let centroid_freq =
-                first_freq + freq_resolution / 2 * (freq_average_factor.get() - 1) as u64;
+                first_freq as f64 + freq_resolution / 2.0 * (freq_average_factor.get() - 1) as f64;
             chanblocks.push(Chanblock {
                 chanblock_index: i_chanblock,
                 unflagged_index: i_unflagged_chanblock,
-                freq: centroid_freq as f64,
+                freq: centroid_freq,
             });
         }
         spws.push(Spw {
@@ -391,10 +390,9 @@ pub(super) fn channels_to_chanblocks(
             flagged_chan_indices: this_spw_flagged_chans,
             flagged_chanblock_indices,
             chans_per_chanblock: freq_average_factor,
-            freq_res: biggest_freq_diff as f64,
-            first_freq: (first_spw_freq.unwrap()
-                + freq_resolution / 2 * (freq_average_factor.get() - 1) as u64)
-                as f64,
+            freq_res: biggest_freq_diff,
+            first_freq: first_spw_freq.unwrap() as f64
+                + freq_resolution / 2.0 * (freq_average_factor.get() - 1) as f64,
         });
     }
 
@@ -406,7 +404,7 @@ pub(super) fn unflag_spw(spw: Spw) -> Spw {
     let all_freqs: Vec<u64> = spw.get_all_freqs().iter().map(|&f| f as u64).collect_vec();
     channels_to_chanblocks(
         &all_freqs,
-        spw.freq_res as u64,
+        spw.freq_res,
         NonZeroUsize::new(1).unwrap(),
         &HashSet::new(),
     )

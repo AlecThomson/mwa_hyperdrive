@@ -147,17 +147,22 @@ pub(crate) fn write_vis(
     // contiguous. But, the incoming visibility data might not be contiguous due
     // to flags. Set up the outgoing frequencies and set a flag so we know if
     // the incoming data needs to be padded.
+    // Chanblock frequencies are not necessarily whole numbers of Hz, nor exact
+    // multiples of the frequency resolution from the first chanblock (they
+    // may carry floating-point noise), so find each incoming chanblock's
+    // position in the outgoing band by rounding.
+    let first_freq = spw.chanblocks.first().map(|c| c.freq).unwrap_or_default();
+    let band_index = |freq: f64| ((freq - first_freq) / spw.freq_res).round() as i64;
     let chanblock_freqs = if write_smallest_contiguous_band {
         match spw.chanblocks.as_slice() {
             [] => panic!("There weren't any unflagged chanblocks in the SPW"),
             [c] => vec1![c.freq],
             [c1, .., cn] => {
-                let first_freq = c1.freq;
-                let last_freq = cn.freq;
-                let (mut v, v_offset) =
-                    Array1::range(first_freq, last_freq, spw.freq_res).into_raw_vec_and_offset();
-                assert!(v_offset.is_none() || v_offset.unwrap() == 0);
-                v.push(last_freq); // `Array1::range` is an exclusive range.
+                let num_chanblocks = band_index(cn.freq) + 1;
+                let mut v = (0..num_chanblocks - 1)
+                    .map(|i| c1.freq + i as f64 * spw.freq_res)
+                    .collect::<Vec<_>>();
+                v.push(cn.freq);
                 Vec1::try_from_vec(v).expect("v is never empty")
             }
         }
@@ -165,19 +170,16 @@ pub(crate) fn write_vis(
         spw.get_all_freqs()
     };
     let missing_chanblocks = {
-        let mut missing = HashSet::new();
-        let incoming_chanblock_freqs = spw
+        let incoming_chanblocks = spw
             .chanblocks
             .iter()
-            .map(|c| c.freq as u64)
+            .map(|c| band_index(c.freq))
             .collect::<HashSet<_>>();
-        for (i_chanblock, chanblock_freq) in (0..).zip(chanblock_freqs.iter()) {
-            let chanblock_freq = *chanblock_freq as u64;
-            if !incoming_chanblock_freqs.contains(&chanblock_freq) {
-                missing.insert(i_chanblock);
-            }
-        }
-        missing
+        (0..)
+            .zip(chanblock_freqs.iter())
+            .filter(|(_, &freq)| !incoming_chanblocks.contains(&band_index(freq)))
+            .map(|(i_chanblock, _)| i_chanblock)
+            .collect::<HashSet<_>>()
     };
 
     let start_timestamp = timeblocks.first().median;

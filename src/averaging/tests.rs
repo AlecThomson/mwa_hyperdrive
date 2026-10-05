@@ -140,7 +140,7 @@ fn test_channels_to_chanblocks() {
     let all_channel_freqs = [12000];
     let freq_average_factor = NonZeroUsize::new(1).unwrap();
     let mut flagged_channels = HashSet::new();
-    let freq_res = 1000;
+    let freq_res = 1000.0;
     let spws = channels_to_chanblocks(
         &all_channel_freqs,
         freq_res,
@@ -151,7 +151,7 @@ fn test_channels_to_chanblocks() {
     assert_eq!(spws[0].chanblocks.len(), 1);
     assert!(spws[0].flagged_chanblock_indices.is_empty());
     assert_abs_diff_eq!(spws[0].chanblocks[0].freq, 12000.0);
-    assert_abs_diff_eq!(spws[0].freq_res, freq_res as f64);
+    assert_abs_diff_eq!(spws[0].freq_res, freq_res);
     assert_abs_diff_eq!(spws[0].first_freq, 12000.0);
 
     let all_channel_freqs = [10000, 11000, 12000, 13000, 14000];
@@ -274,7 +274,7 @@ fn test_no_channels_to_chanblocks() {
     let flagged_channels = HashSet::new();
     let spws = channels_to_chanblocks(
         &all_channel_freqs,
-        10e3 as u64,
+        10e3,
         freq_average_factor,
         &flagged_channels,
     );
@@ -875,7 +875,7 @@ fn test_channels_to_chanblocks_fractional_resolution() {
     for factor in [1, 2, 3, 4, 144] {
         let spws = channels_to_chanblocks(
             &all_channel_freqs,
-            freq_res.round() as u64,
+            freq_res,
             NonZeroUsize::new(factor).unwrap(),
             &flagged_channels,
         );
@@ -892,7 +892,7 @@ fn test_channels_to_chanblocks_fractional_resolution() {
     picket.extend_from_slice(&all_channel_freqs[200..]);
     let spws = channels_to_chanblocks(
         &picket,
-        freq_res.round() as u64,
+        freq_res,
         NonZeroUsize::new(1).unwrap(),
         &flagged_channels,
     );

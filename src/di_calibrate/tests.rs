@@ -678,7 +678,7 @@ fn test_multiple_timeblocks_behave() {
     );
     let spws = channels_to_chanblocks(
         &[150000000],
-        40e3 as u64,
+        40e3,
         NonZeroUsize::new(1).unwrap(),
         &HashSet::new(),
     );
@@ -726,12 +726,8 @@ fn test_chanblocks_without_data_have_nan_solutions() {
         NonZeroUsize::new(1).unwrap(),
         None,
     );
-    let fences = channels_to_chanblocks(
-        &freqs,
-        40e3 as u64,
-        NonZeroUsize::new(1).unwrap(),
-        &HashSet::new(),
-    );
+    let fences =
+        channels_to_chanblocks(&freqs, 40e3, NonZeroUsize::new(1).unwrap(), &HashSet::new());
 
     let (incomplete_sols, results) = calibrate_timeblocks(
         vis_data.view(),
@@ -790,7 +786,7 @@ fn test_recalibrating_failed_chanblocks() {
     );
     let fences = channels_to_chanblocks(
         &freqs,
-        40000,
+        40000.0,
         NonZeroUsize::new(1).unwrap(),
         &HashSet::new(),
     );

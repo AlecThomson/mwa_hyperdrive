@@ -393,7 +393,7 @@ impl PeelArgs {
 
             channels_to_chanblocks(
                 &all_freqs,
-                spw.freq_res.round() as u64,
+                spw.freq_res,
                 iono_freq_average_factor,
                 &HashSet::new(),
             )
