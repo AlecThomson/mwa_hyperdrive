@@ -229,7 +229,10 @@ fn test_bad_station_index() {
     );
     assert!(matches!(
         result,
-        Err(BeamError::BadTileIndex { got: 8, max: 7 })
+        Err(BeamError::BadTileIndex {
+            got: 8,
+            num_tiles: 8
+        })
     ));
 }
 

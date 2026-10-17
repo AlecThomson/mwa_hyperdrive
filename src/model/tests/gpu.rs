@@ -673,3 +673,217 @@ fn model_timestep_autos_with_shapelet() {
 
     test_model_timestep_autos_with_shapelet(visibilities.view(), 0.0);
 }
+
+/// Model visibilities with an analytic beam on both the CPU and the GPU, and
+/// check that they agree. Unlike the other tests in this module, this compares
+/// against the CPU code rather than hard-coded values; the point is to
+/// exercise the GPU analytic-beam code, including the tile and frequency maps.
+macro_rules! compare_cpu_gpu {
+    ($obs:expr, $srclist:expr, $cpu_fn:expr, $gpu_fn:expr, $epsilon:expr) => {{
+        let obs = &$obs;
+        let cpu_modeller = obs.get_cpu_modeller($srclist);
+        let mut cpu_vis = Array2::zeros((obs.freqs.len(), obs.uvws.len()));
+        $cpu_fn(
+            &cpu_modeller,
+            cpu_vis.view_mut(),
+            &obs.uvws,
+            obs.lst,
+            obs.array_latitude_rad,
+            None,
+        )
+        .unwrap();
+
+        let (gpu_modeller, d_uvws) = obs.get_gpu_modeller($srclist);
+        let mut gpu_vis: Array2<Jones<f32>> = Array2::zeros((obs.freqs.len(), obs.uvws.len()));
+        let mut d_vis_fb = DevicePointer::copy_to_device(gpu_vis.as_slice().unwrap()).unwrap();
+        let mut d_beam_jones = DevicePointer::default();
+        unsafe {
+            $gpu_fn(
+                &gpu_modeller,
+                obs.lst,
+                obs.array_latitude_rad,
+                None,
+                &d_uvws,
+                &mut d_beam_jones,
+                &mut d_vis_fb,
+            )
+            .unwrap();
+        }
+        d_vis_fb
+            .copy_from_device(gpu_vis.as_slice_mut().unwrap())
+            .unwrap();
+
+        // The visibilities should be non-trivial; otherwise this test would
+        // pass even if the beam responses were all zero.
+        assert!(cpu_vis.iter().any(|j| j[0].norm() > 0.1), "{cpu_vis:?}");
+        assert_abs_diff_eq!(cpu_vis, gpu_vis, epsilon = $epsilon);
+    }};
+}
+
+#[test]
+fn analytic_beams_gpu_matches_cpu() {
+    use mwa_hyperbeam::analytic::AnalyticType;
+
+    use crate::beam::{AnalyticBeam, Beam};
+
+    // Give the tiles distinct delays and kill a dipole, so that the beam code
+    // has to keep track of which tile is which.
+    let mut delays = Array2::zeros((3, 16));
+    delays.slice_mut(s![2, ..]).fill(2);
+    let mut gains = Array2::ones((3, 32));
+    gains[(1, 3)] = 0.0;
+
+    #[cfg(not(feature = "gpu-single"))]
+    let epsilon = 1e-6;
+    #[cfg(feature = "gpu-single")]
+    let epsilon = 5e-3;
+
+    let beams: [Box<dyn Beam>; 2] = [
+        Box::new(
+            AnalyticBeam::new(
+                AnalyticType::MwaPb,
+                3,
+                Delays::Full(delays.clone()),
+                Some(gains.clone()),
+            )
+            .unwrap(),
+        ),
+        Box::new(
+            AnalyticBeam::new(AnalyticType::Rts, 3, Delays::Full(delays), Some(gains)).unwrap(),
+        ),
+    ];
+
+    for beam in beams {
+        let obs = ObsParams::new_with_beam(beam);
+
+        compare_cpu_gpu!(
+            obs,
+            &POINT_OFF_ZENITH_POWER_LAW,
+            SkyModellerCpu::model_points,
+            SkyModellerGpu::model_points,
+            epsilon
+        );
+        compare_cpu_gpu!(
+            obs,
+            &GAUSSIAN_OFF_ZENITH_LIST,
+            SkyModellerCpu::model_gaussians,
+            SkyModellerGpu::model_gaussians,
+            epsilon
+        );
+        // Shapelets need their own UVWs on the CPU side, so they can't use the
+        // macro above.
+        compare_cpu_gpu!(
+            obs,
+            &SHAPELET_OFF_ZENITH_CURVED_POWER_LAW,
+            |modeller: &SkyModellerCpu, vis_fb, uvws: &[UVW], lst, latitude, timestamp| {
+                let shapelet_uvws = modeller
+                    .components
+                    .shapelets
+                    .get_shapelet_uvws(lst, &obs.xyzs);
+                modeller.model_shapelets(
+                    vis_fb,
+                    uvws,
+                    shapelet_uvws.view(),
+                    lst,
+                    latitude,
+                    timestamp,
+                )
+            },
+            SkyModellerGpu::model_shapelets,
+            epsilon
+        );
+    }
+}
+
+/// The sky modellers don't filter components by elevation (only the source
+/// list is vetoed, at one LST), so a component that sets during an observation
+/// is modelled with whatever beam response it gets below the horizon. With the
+/// analytic beams that response is zero on the CPU; check that it is on the GPU
+/// too, so that the two agree and the component contributes nothing.
+#[test]
+fn analytic_beams_gpu_matches_cpu_below_horizon() {
+    use mwa_hyperbeam::analytic::AnalyticType;
+
+    use crate::beam::{AnalyticBeam, Beam};
+
+    // 12 hours of hour angle from the phase centre at the test LST, so well
+    // below the horizon.
+    let below_horizon = RADec::from_degrees(180.0, -27.0);
+    let above_only = SourceList::from([(
+        "off_zenith".to_string(),
+        Source {
+            components: vec![get_point(*OFF_PHASE_CENTRE, FluxType::PowerLaw)].into_boxed_slice(),
+        },
+    )]);
+    let mixed = SourceList::from([
+        (
+            "off_zenith".to_string(),
+            Source {
+                components: vec![get_point(*OFF_PHASE_CENTRE, FluxType::PowerLaw)]
+                    .into_boxed_slice(),
+            },
+        ),
+        (
+            "below_horizon".to_string(),
+            Source {
+                components: vec![get_point(below_horizon, FluxType::PowerLaw)].into_boxed_slice(),
+            },
+        ),
+    ]);
+
+    #[cfg(not(feature = "gpu-single"))]
+    let epsilon = 1e-6;
+    #[cfg(feature = "gpu-single")]
+    let epsilon = 5e-3;
+
+    for analytic_type in [AnalyticType::MwaPb, AnalyticType::Rts] {
+        let beam: Box<dyn Beam> = Box::new(
+            AnalyticBeam::new(analytic_type, 3, Delays::Partial(vec![0; 16]), None).unwrap(),
+        );
+        let obs = ObsParams::new_with_beam(beam);
+        let azel = below_horizon
+            .to_hadec(obs.lst)
+            .to_azel(obs.array_latitude_rad);
+        assert!(
+            azel.el < 0.0,
+            "test source isn't below the horizon: {azel:?}"
+        );
+
+        // CPU and GPU agree when a below-horizon component is present.
+        compare_cpu_gpu!(
+            obs,
+            &mixed,
+            SkyModellerCpu::model_points,
+            SkyModellerGpu::model_points,
+            epsilon
+        );
+
+        // And the below-horizon component contributes nothing on the GPU.
+        let gpu_model = |srclist: &SourceList| {
+            let (gpu_modeller, d_uvws) = obs.get_gpu_modeller(srclist);
+            let mut gpu_vis: Array2<Jones<f32>> = Array2::zeros((obs.freqs.len(), obs.uvws.len()));
+            let mut d_vis_fb = DevicePointer::copy_to_device(gpu_vis.as_slice().unwrap()).unwrap();
+            let mut d_beam_jones = DevicePointer::default();
+            unsafe {
+                gpu_modeller
+                    .model_points(
+                        obs.lst,
+                        obs.array_latitude_rad,
+                        None,
+                        &d_uvws,
+                        &mut d_beam_jones,
+                        &mut d_vis_fb,
+                    )
+                    .unwrap();
+            }
+            d_vis_fb
+                .copy_from_device(gpu_vis.as_slice_mut().unwrap())
+                .unwrap();
+            gpu_vis
+        };
+        let vis_above_only = gpu_model(&above_only);
+        let vis_mixed = gpu_model(&mixed);
+        assert!(vis_above_only.iter().any(|j| j[0].norm() > 0.1));
+        assert_abs_diff_eq!(vis_mixed, vis_above_only, epsilon = 1e-6);
+    }
+}

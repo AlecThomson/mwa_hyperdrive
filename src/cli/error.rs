@@ -226,17 +226,14 @@ impl From<SolutionsPlotError> for HyperdriveError {
     fn from(e: SolutionsPlotError) -> Self {
         let s = e.to_string();
         match e {
-            #[cfg(not(feature = "plotting"))]
-            SolutionsPlotError::NoPlottingFeature => Self::SolutionsPlot(s),
             SolutionsPlotError::SolutionsRead(_) => Self::Solutions(s),
             SolutionsPlotError::Mwalib(_) => Self::Mwalib(s),
             SolutionsPlotError::IO(_) => Self::Generic(s),
-            #[cfg(feature = "plotting")]
-            SolutionsPlotError::MetafitsNoAntennaNames => Self::Metafits(s),
-            #[cfg(feature = "plotting")]
-            SolutionsPlotError::Draw(_)
+            SolutionsPlotError::MetafitsNoAntennaNames
+            | SolutionsPlotError::TooFewTileNames { .. } => Self::Metafits(s),
+            SolutionsPlotError::Png(_)
             | SolutionsPlotError::NoInputs
-            | SolutionsPlotError::InvalidSolsFormat(_) => Self::Generic(s),
+            | SolutionsPlotError::InvalidSolsFormat(_) => Self::SolutionsPlot(s),
         }
     }
 }
@@ -404,7 +401,7 @@ impl From<WriteSourceListError> for HyperdriveError {
             WriteSourceListError::UnsupportedComponentType { .. }
             | WriteSourceListError::UnsupportedFluxDensityType { .. }
             | WriteSourceListError::InvalidHyperdriveFormat(_)
-            | WriteSourceListError::UnsupportedOutputType(_)
+            | WriteSourceListError::UnsupportedOutputType { .. }
             | WriteSourceListError::Sexagesimal(_) => Self::Srclist(s),
             WriteSourceListError::IO(e) => Self::from(e),
             WriteSourceListError::Yaml(_)
@@ -469,8 +466,9 @@ impl From<BeamError> for HyperdriveError {
             | BeamError::DelayGainsDimensionMismatch { .. } => Self::Delays(s),
             BeamError::Unrecognised(_)
             | BeamError::BadTileIndex { .. }
-            | BeamError::Hyperbeam(_)
-            | BeamError::HyperbeamInit(_)
+            | BeamError::HyperbeamFee(_)
+            | BeamError::HyperbeamInitFee(_)
+            | BeamError::HyperbeamAnalytic(_)
             | BeamError::EveryBeam(_)
             | BeamError::NeedsBeamMs
             | BeamError::NeedsTime

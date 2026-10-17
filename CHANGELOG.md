@@ -6,12 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## Unreleased
 
 ### Added
-
-- Sky-model source lists in the DP3/makesourcedb ("BBS") format, as written by
-  DP3 and WSClean, can be read (type `dp3`, or detected automatically).
+- Support for the "mwa_pb" and "RTS" analytic beams.
+- hyperdrive calibration solutions record the beam model used (`BEAMTYPE`), so
+  that solutions made with an analytic beam, the FEE beam or no beam can be
+  told apart.
+- Reading DP3/BBS ("makesourcedb") text sky models, as used by DP3 and
+  written by WSClean (`.skymodel`/`.txt`; source list type `dp3`, aliases
+  `skymodel` and `bbs`), on every subcommand that reads a source list. They
+  are recognised automatically by their format line. Each patch becomes a
+  source; point and Gaussian components are supported; logarithmic spectral
+  terms map exactly onto power laws (one term) and curved power laws (two
+  terms, `q = c1 / ln 10`), and other spectral models are evaluated into
+  flux-density lists with a warning. See the new "DP3/BBS (dp3) format" book
+  page. Writing this format is not supported.
 - Optional EveryBeam support, enabling beam models for telescopes other than
   the MWA (e.g. SKA-Low, LOFAR). Use it with `--beam-type everybeam`; the
   telescope is described by the input measurement set or `--beam-ms`, and the
@@ -29,7 +39,30 @@ Versioning](https://semver.org/spec/v2.0.0.html).
     unaffected.
 
 ### Changed
-
+- `solutions-plot` draws with [rizzma](https://github.com/OrbitalCommons/rizzma)
+  instead of plotters. It is pure Rust with a bundled font, so plotting no
+  longer needs freetype or fontconfig, is always built, and works in the
+  GitHub-built release binaries. The `plotting` and `fontconfig-dlopen`
+  features are removed.
+- Updated to Marlu 0.18, Birli 0.20 and hyperbeam 0.12, which all share one
+  Marlu.
+- Measurement Sets are written much faster: Marlu 0.19's writer does
+  column-range writes into tiled storage managers instead of cell by cell.
+  Updated to Marlu 0.19, Birli 0.21 and hyperbeam 0.13.
+- The beam subcommand now takes a beam type with `-b` / `--beam-type` instead of
+  a positional argument, and dipole delays with `--delays` instead of `-d`.
+  `--beam-type` accepts `analytic-mwa_pb` / `mwa_pb` and `analytic-rts` / `rts`.
+- Beam type names (`--beam-type`) are case-insensitive, e.g. `FEE` and `RTS`
+  are accepted.
+- A warning is issued when `--beam-file` is supplied alongside an analytic beam;
+  only the FEE beam uses a beam file.
+- Updated hyperbeam to 0.11.1, whose GPU analytic beams return zero below the
+  horizon.
+- The sky modellers evaluate the analytic beams on the 1.28 MHz coarse-channel
+  grid (the resolution of the FEE beam file) rather than at every fine channel,
+  which keeps the memory needed for beam responses the same as for the FEE
+  beam. The `beam` subcommand evaluates at exactly the requested frequency on
+  the CPU, and at the nearest grid frequency on the GPU (`--gpu`).
 - Reading measurement sets is much faster, and averaging input data uses much
   less memory. Results are unchanged.
   - Only the needed columns are read (previously every column of each row was
@@ -70,6 +103,19 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 - Tile de-duplication for beam calculations is now decided by the beam code
   (`Beam::get_unique_tiles`), rather than always using MWA dipole delays and
   gains.
+
+### Fixed
+- `solutions-plot --ignore-cross-pols` no longer draws a tile as flagged when
+  its gains are valid but its leakage terms are NaN.
+- `solutions-plot` returns an error, rather than panicking, when a metafits
+  with fewer tiles than the solutions is supplied.
+- Using the beam subcommand would fail to set up an FEE beam if MWA_BEAM_FILE
+  was not set.
+- The analytic beams return a zero response for directions below the horizon
+  rather than erroring. Without this, any sky-model component that set during
+  an observation would abort the whole model (the FEE beam has never errored
+  here). The GPU analytic beams also return zero there, where they previously
+  gave a non-zero, meaningless response.
 
 ## [0.8.1] - 2026-09-10
 

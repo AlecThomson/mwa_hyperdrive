@@ -92,6 +92,13 @@ fn verify<P: AsRef<Path>>(
                         "Still reading source list file",
                     )
                 }
+                SourceListType::Dp3 => {
+                    let mut buf = std::io::BufReader::new(File::open(source_list)?);
+                    crate::misc::expensive_op(
+                        || dp3::parse_source_list(&mut buf),
+                        "Still reading source list file",
+                    )
+                }
                 SourceListType::Rts => {
                     let mut buf = std::io::BufReader::new(File::open(source_list)?);
                     crate::misc::expensive_op(
@@ -103,13 +110,6 @@ fn verify<P: AsRef<Path>>(
                     let mut buf = std::io::BufReader::new(File::open(source_list)?);
                     crate::misc::expensive_op(
                         || woden::parse_source_list(&mut buf),
-                        "Still reading source list file",
-                    )
-                }
-                SourceListType::Dp3 => {
-                    let mut buf = std::io::BufReader::new(File::open(source_list)?);
-                    crate::misc::expensive_op(
-                        || dp3::parse_source_list(&mut buf),
                         "Still reading source list file",
                     )
                 }
