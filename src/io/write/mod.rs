@@ -170,12 +170,17 @@ pub(crate) fn write_vis(
             [] => panic!("There weren't any unflagged chanblocks in the SPW"),
             [c] => vec1![c.freq],
             [c1, .., cn] => {
-                let first_freq = c1.freq;
-                let last_freq = cn.freq;
-                let (mut v, v_offset) =
-                    Array1::range(first_freq, last_freq, spw.freq_res).into_raw_vec_and_offset();
-                assert!(v_offset.is_none() || v_offset.unwrap() == 0);
-                v.push(last_freq); // `Array1::range` is an exclusive range.
+                // Count the chanblocks by rounding, rather than with
+                // `Array1::range`: chanblock frequencies come from channel
+                // frequencies stored in whole Hz, so with a non-integer
+                // resolution, (last - first) / resolution can be slightly
+                // more than a whole number, and `range` would then give an
+                // extra frequency.
+                let num_gaps = ((cn.freq - c1.freq) / spw.freq_res).round() as usize;
+                let mut v = (0..num_gaps)
+                    .map(|i| c1.freq + i as f64 * spw.freq_res)
+                    .collect::<Vec<_>>();
+                v.push(cn.freq);
                 Vec1::try_from_vec(v).expect("v is never empty")
             }
         }

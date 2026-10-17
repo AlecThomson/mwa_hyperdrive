@@ -13,6 +13,7 @@ use tempfile::TempDir;
 
 use super::VisConvertArgs;
 use crate::{
+    cli::vis_simulate::VisSimulateArgs,
     io::read::VisRead,
     params::VisConvertParams,
     tests::{get_reduced_1061316544_uvfits, get_reduced_1090008640_raw, DataAsStrings},
@@ -287,4 +288,100 @@ fn test_averaging_flags() {
             j[0].re
         );
     });
+}
+
+#[test]
+/// Channels with a non-integer width (in Hz; here, SKA-Low-like 5425.35 Hz)
+/// are written with the right frequencies, with flagged channels and
+/// averaging, and when writing the smallest contiguous band.
+fn test_non_integer_channel_width() {
+    let temp_dir = TempDir::new().expect("couldn't make tmp dir");
+    let DataAsStrings {
+        metafits, srclist, ..
+    } = get_reduced_1090008640_raw();
+    let model = temp_dir.path().join("model.ms");
+    let model_string = model.display().to_string();
+    let num_chans = 300;
+    let freq_res_khz = 5.42535;
+    #[rustfmt::skip]
+    VisSimulateArgs::parse_from([
+        "vis-simulate",
+        "--metafits", &metafits,
+        "--source-list", &srclist,
+        "--output-model-files", &model_string,
+        "--num-timesteps", "1",
+        "--num-fine-channels", &format!("{num_chans}"),
+        "--freq-res", &format!("{freq_res_khz}"),
+        "--no-beam",
+    ])
+    .run(false)
+    .unwrap();
+    let in_freqs = MsReader::new(model.clone(), None, Some(Path::new(&metafits)), None)
+        .unwrap()
+        .get_obs_context()
+        .fine_chan_freqs
+        .clone();
+
+    // (flagged channels, frequency averaging factor, write the smallest
+    // contiguous band?, the first output channel, the number of output
+    // channels)
+    let cases: [(&[&str], usize, bool, usize, usize); 5] = [
+        (&["0", "1", "100", "101"], 1, false, 0, num_chans),
+        (&["7"], 4, false, 0, num_chans / 4),
+        // Whether the smallest band's edges are rounded up or down depends on
+        // which channels are flagged; these cover both.
+        (&["0", "1", "298", "299"], 1, true, 2, 296),
+        (&["0", "1", "2", "3", "299"], 1, true, 4, 295),
+        (
+            &["0", "1", "2", "3", "296", "297", "298", "299"],
+            4,
+            true,
+            1,
+            73,
+        ),
+    ];
+    for (i_case, &(flags, freq_average, smallest, first_out_chan, num_out_chans)) in
+        cases.iter().enumerate()
+    {
+        let out = temp_dir.path().join(format!("out_{i_case}.ms"));
+        let out_string = out.display().to_string();
+        let freq_average_string = format!("{freq_average}");
+        let mut args = vec![
+            "vis-convert",
+            "--data",
+            &model_string,
+            &metafits,
+            "--freq-average",
+            &freq_average_string,
+            "--outputs",
+            &out_string,
+        ];
+        if smallest {
+            args.push("--output-smallest-contiguous-band");
+        }
+        args.push("--fine-chan-flags");
+        args.extend(flags.iter().copied());
+        VisConvertArgs::parse_from(args).run(false).unwrap();
+
+        let out_ctx = MsReader::new(out, None, Some(Path::new(&metafits)), None).unwrap();
+        let out_ctx = out_ctx.get_obs_context();
+        let freq_res = freq_res_khz * 1e3 * freq_average as f64;
+        approx::assert_abs_diff_eq!(out_ctx.freq_res.unwrap(), freq_res, epsilon = 1e-6);
+        assert_eq!(
+            out_ctx.fine_chan_freqs.len(),
+            num_out_chans,
+            "case {i_case}"
+        );
+        for (i, &out_freq) in out_ctx.fine_chan_freqs.iter().enumerate() {
+            let expected = in_freqs[0] as f64
+                + (first_out_chan + i) as f64 * freq_res
+                + (freq_average - 1) as f64 / 2.0 * freq_res_khz * 1e3;
+            // Frequencies are read (and so the smallest band starts from) and
+            // written in integer Hz, so allow for up to 1 Hz from each.
+            assert!(
+                (out_freq as f64 - expected).abs() <= 2.0,
+                "case {i_case}, channel {i}: {out_freq} vs {expected}"
+            );
+        }
+    }
 }
