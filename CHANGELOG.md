@@ -22,6 +22,9 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   terms, `q = c1 / ln 10`), and other spectral models are evaluated into
   flux-density lists with a warning. See the new "DP3/BBS (dp3) format" book
   page. Writing this format is not supported.
+- `solutions-plot --gains` plots the instrumental gains, i.e. the inverses of
+  the stored solutions (which are corrections), with a `_gains` filename
+  suffix.
 - Optional EveryBeam support, enabling beam models for telescopes other than
   the MWA (e.g. SKA-Low, LOFAR). Use it with `--beam-type everybeam`; the
   telescope is described by the input measurement set or `--beam-ms`, and the
@@ -86,9 +89,6 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   could panic.
 - Measurement-set channel widths that differ only by floating-point noise
   (within 1 part in 10^6) are no longer rejected as unequal.
-- `solutions-plot` now plots the instrumental gains, i.e. the inverse of the
-  stored solutions (which are corrections). `--corrections` plots the stored
-  values, as before, with a `_corrections` filename suffix.
 - Measurement sets with baselines stored as ANTENNA1 > ANTENNA2 are now read;
   previously these baselines were silently skipped.
 - Contiguous channels with a non-integer channel width (in Hz) are no longer
