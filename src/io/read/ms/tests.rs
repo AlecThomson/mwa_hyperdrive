@@ -834,7 +834,119 @@ fn test_sdc3() {
     assert_abs_diff_eq!(cross_vis_weights[(0, 0)], 1.0);
 }
 
-/// Recursively copy a directory (e.g. a measurement set).
+/// Write a small, non-MWA measurement set (ASKAP-like 1 MHz channels starting
+/// at 744 MHz) and then scale its UVW column by `uvw_factor`.
+fn write_non_mwa_ms(vis_path: &Path, uvw_factor: f64) {
+    let num_timesteps = 2;
+    let num_channels = 10;
+    let ant_pairs = vec![(0, 1), (0, 2), (1, 2)];
+    let start_timestamp = Epoch::from_gpst_seconds(1_400_000_000.0);
+
+    let vis_ctx = VisContext {
+        num_sel_timesteps: num_timesteps,
+        start_timestamp,
+        int_time: Duration::from_seconds(10.),
+        num_sel_chans: num_channels,
+        start_freq_hz: 744e6,
+        freq_resolution_hz: 1e6,
+        sel_baselines: ant_pairs,
+        avg_time: 1,
+        avg_freq: 1,
+        num_vis_pols: 4,
+    };
+    let shape = vis_ctx.sel_dims();
+    let vis_data = Array3::from_elem(shape, Jones::identity());
+    let weight_data = Array3::<f32>::from_elem(shape, 1.);
+
+    let phase_centre = RADec::from_degrees(98.2119, -30.861);
+    let array_pos = LatLngHeight {
+        longitude_rad: 116.637_f64.to_radians(),
+        latitude_rad: (-26.697_f64).to_radians(),
+        height_metres: 360.0,
+    };
+    #[rustfmt::skip]
+    let tile_xyzs = vec![
+        XyzGeodetic { x: 0., y: 0., z: 0., },
+        XyzGeodetic { x: 100., y: 20., z: 0., },
+        XyzGeodetic { x: 30., y: 150., z: 10., },
+    ];
+    let marlu_obs_ctx = MarluObsContext {
+        sched_start_timestamp: start_timestamp,
+        sched_duration: num_timesteps as f64 * vis_ctx.int_time,
+        name: None,
+        phase_centre,
+        pointing_centre: Some(phase_centre),
+        array_pos,
+        ant_positions_enh: tile_xyzs
+            .iter()
+            .map(|xyz| xyz.to_enh(array_pos.latitude_rad))
+            .collect(),
+        ant_names: vec!["ak01".into(), "ak02".into(), "ak03".into()],
+        field_name: None,
+        project_id: None,
+        observer: None,
+    };
+    let mut writer = MeasurementSetWriter::new(
+        vis_path,
+        phase_centre,
+        array_pos,
+        tile_xyzs,
+        Duration::from_seconds(0.0),
+        true,
+    );
+    writer.initialize(&vis_ctx, &marlu_obs_ctx, None).unwrap();
+    writer
+        .write_vis(vis_data.view(), weight_data.view(), &vis_ctx)
+        .unwrap();
+
+    let mut main_table = Table::open(vis_path, TableOpenMode::ReadWrite).unwrap();
+    for i_row in 0..main_table.n_rows() {
+        let uvw: Vec<f64> = main_table.get_cell_as_vec("UVW", i_row).unwrap();
+        let uvw: Vec<f64> = uvw.into_iter().map(|x| x * uvw_factor).collect();
+        main_table.put_cell("UVW", i_row, &uvw).unwrap();
+    }
+}
+
+#[test]
+#[serial]
+fn test_non_mwa_ms_with_zero_uvws() {
+    let temp_dir = tempdir().expect("Couldn't make temp dir");
+    let vis_path = temp_dir.path().join("vis.ms");
+    write_non_mwa_ms(&vis_path, 0.0);
+
+    // This used to panic, because non-MWA frequencies don't sit nicely in MWA
+    // coarse channels.
+    let ms_reader = MsReader::new(vis_path, None, None, None).unwrap();
+    let obs_context = ms_reader.get_obs_context();
+    assert!(obs_context.mwa_coarse_chan_nums.is_none());
+    assert!(obs_context.num_fine_chans_per_coarse_chan.is_none());
+    assert!(obs_context.flagged_fine_chans_per_coarse_chan.is_none());
+    assert_eq!(obs_context.fine_chan_freqs.len(), 10);
+    // The UVWs are all zero, so the baseline convention couldn't be checked;
+    // the default is to not conjugate.
+    assert!(!ms_reader.conjugate_vis);
+}
+
+#[test]
+#[serial]
+fn test_ms_baseline_convention_detection() {
+    let temp_dir = tempdir().expect("Couldn't make temp dir");
+
+    let vis_path = temp_dir.path().join("same.ms");
+    write_non_mwa_ms(&vis_path, 1.0);
+    let ms_reader = MsReader::new(vis_path, None, None, None).unwrap();
+    assert!(!ms_reader.conjugate_vis);
+
+    let vis_path = temp_dir.path().join("other.ms");
+    write_non_mwa_ms(&vis_path, -1.0);
+    let ms_reader = MsReader::new(vis_path, None, None, None).unwrap();
+    assert!(ms_reader.conjugate_vis);
+}
+
+/// A small synthetic non-MWA measurement set whose channel width (5425.35 Hz)
+/// is not a whole number of hertz; see `test_files/mini_ms/make_mini_ms.py`.
+const MINI_MS: &str = "test_files/mini_ms/mini.ms";
+
 fn copy_dir(src: &Path, dst: &Path) {
     std::fs::create_dir_all(dst).unwrap();
     for entry in std::fs::read_dir(src).unwrap() {
@@ -846,6 +958,126 @@ fn copy_dir(src: &Path, dst: &Path) {
             std::fs::copy(entry.path(), &to).unwrap();
         }
     }
+}
+
+/// The channel width of a measurement set is read as-is, even when it is not
+/// a whole number of hertz, and the channel centres are stored to the nearest
+/// hertz.
+#[test]
+#[serial]
+fn test_fractional_chan_width() {
+    let reader = MsReader::new(PathBuf::from(MINI_MS), None, None, None).unwrap();
+    let obs_context = reader.get_obs_context();
+    assert_eq!(obs_context.timestamps.len(), 2);
+    assert_eq!(obs_context.tile_xyzs.len(), 8);
+    assert_eq!(obs_context.fine_chan_freqs.len(), 32);
+    assert_abs_diff_eq!(obs_context.freq_res.unwrap(), 5425.35);
+    // 1.28 MHz / 5425.35 Hz isn't a whole number, so this isn't MWA data; no
+    // coarse channels are inferred (previously, coarse channel 78 with 236
+    // fine channels was assumed).
+    assert!(obs_context.mwa_coarse_chan_nums.is_none());
+    assert!(obs_context.num_fine_chans_per_coarse_chan.is_none());
+    assert!(obs_context.flagged_fine_chans_per_coarse_chan.is_none());
+    // The UVWs are ant1 - ant2, as hyperdrive expects.
+    assert!(!reader.conjugate_vis);
+    for (i, &freq) in obs_context.fine_chan_freqs.iter().enumerate() {
+        assert_eq!(freq, (100e6 + 5425.35 * i as f64).round() as u64);
+    }
+    // Successive rounded channel centres are alternately 5425 and 5426 Hz
+    // apart; this used to be taken as a "picket fence".
+    let diffs: HashSet<u64> = obs_context
+        .fine_chan_freqs
+        .windows(2)
+        .map(|w| w[1] - w[0])
+        .collect();
+    assert_eq!(diffs, HashSet::from([5425, 5426]));
+}
+
+/// Channel widths that differ only by floating-point noise are equal, but
+/// genuinely different widths are still an error.
+#[test]
+#[serial]
+fn test_chan_width_noise() {
+    let set_widths = |ms: &Path, perturb: f64| {
+        let mut t = Table::open(ms.join("SPECTRAL_WINDOW"), TableOpenMode::ReadWrite).unwrap();
+        let mut widths: Vec<f64> = t.get_cell_as_vec("CHAN_WIDTH", 0).unwrap();
+        for (i, w) in widths.iter_mut().enumerate() {
+            *w += perturb * i as f64;
+        }
+        t.put_cell("CHAN_WIDTH", 0, &widths).unwrap();
+    };
+
+    let dir = tempdir().unwrap();
+    let noisy = dir.path().join("noisy.ms");
+    copy_dir(Path::new(MINI_MS), &noisy);
+    set_widths(&noisy, 3e-8);
+    assert!(MsReader::new(noisy, None, None, None).is_ok());
+
+    let unequal = dir.path().join("unequal.ms");
+    copy_dir(Path::new(MINI_MS), &unequal);
+    set_widths(&unequal, 1000.0);
+    assert!(matches!(
+        MsReader::new(unequal, None, None, None),
+        Err(MsReadError::ChanWidthsUnequal)
+    ));
+}
+
+/// Copy `test_files/mini_ms/mini.ms` and multiply its UVW column by
+/// `uvw_factor`.
+fn copy_mini_ms_with_uvw_factor(dst: &Path, uvw_factor: f64) {
+    copy_dir(Path::new(MINI_MS), dst);
+    let mut main_table = Table::open(dst, TableOpenMode::ReadWrite).unwrap();
+    for i_row in 0..main_table.n_rows() {
+        let uvw: Vec<f64> = main_table.get_cell_as_vec("UVW", i_row).unwrap();
+        let uvw: Vec<f64> = uvw.into_iter().map(|x| x * uvw_factor).collect();
+        main_table.put_cell("UVW", i_row, &uvw).unwrap();
+    }
+}
+
+/// The baseline convention of a real (non-MWA) measurement set is detected
+/// from its UVWs: negated UVWs mean the visibilities must be conjugated, and
+/// all-zero UVWs (as some simulators write) can't be checked, so the default
+/// of not conjugating applies.
+#[test]
+#[serial]
+fn test_mini_ms_uvw_conventions() {
+    let temp_dir = tempdir().expect("Couldn't make temp dir");
+
+    let other = temp_dir.path().join("other.ms");
+    copy_mini_ms_with_uvw_factor(&other, -1.0);
+    let reader = MsReader::new(other, None, None, None).unwrap();
+    assert!(reader.conjugate_vis);
+
+    let zero = temp_dir.path().join("zero.ms");
+    copy_mini_ms_with_uvw_factor(&zero, 0.0);
+    let reader = MsReader::new(zero, None, None, None).unwrap();
+    assert!(!reader.conjugate_vis);
+    assert_eq!(reader.get_obs_context().fine_chan_freqs.len(), 32);
+}
+
+/// A fully-flagged timestep between unflagged ones must not truncate the
+/// timesteps; only leading and trailing flagged timesteps are excluded.
+#[test]
+#[serial]
+fn test_flagged_timestep_in_the_middle() {
+    let dir = tempdir().unwrap();
+    let ms = dir.path().join("flagged.ms");
+    copy_dir(
+        Path::new("test_files/1090008640/1090008640_cotter_trunc_noautos.ms"),
+        &ms,
+    );
+    // This MS has one baseline (row) per timestep.
+    {
+        let mut t = Table::open(&ms, TableOpenMode::ReadWrite).unwrap();
+        for (row, flagged) in [(0, false), (1, true), (2, false)] {
+            let num_flags = t.get_cell_as_vec::<bool>("FLAG", row).unwrap().len() / 4;
+            t.put_cell("FLAG", row, &Array2::from_elem((num_flags, 4), flagged))
+                .unwrap();
+        }
+    }
+
+    let reader = MsReader::new(ms, None, None, None).unwrap();
+    assert_eq!(&reader.get_obs_context().unflagged_timesteps, &[0, 1, 2]);
 }
 
 /// Some measurement sets have ANTENNA1 > ANTENNA2. Such a baseline's visibilities are the conjugate transpose (and
@@ -924,58 +1156,4 @@ fn test_reversed_baselines() {
         .all(|j| j.norm_sqr().iter().all(|n| *n > 0.0)));
     assert_abs_diff_eq!(vis_normal, vis_reversed);
     assert_abs_diff_eq!(weights_normal, weights_reversed);
-}
-
-/// A fully-flagged timestep between unflagged ones must not truncate the
-/// timesteps; only leading and trailing flagged timesteps are excluded.
-#[test]
-#[serial]
-fn test_flagged_timestep_in_the_middle() {
-    let dir = tempdir().unwrap();
-    let ms = dir.path().join("flagged.ms");
-    copy_dir(
-        Path::new("test_files/1090008640/1090008640_cotter_trunc_noautos.ms"),
-        &ms,
-    );
-    // This MS has one baseline (row) per timestep.
-    {
-        let mut t = Table::open(&ms, TableOpenMode::ReadWrite).unwrap();
-        for (row, flagged) in [(0, false), (1, true), (2, false)] {
-            let num_flags = t.get_cell_as_vec::<bool>("FLAG", row).unwrap().len() / 4;
-            t.put_cell("FLAG", row, &Array2::from_elem((num_flags, 4), flagged))
-                .unwrap();
-        }
-    }
-
-    let reader = MsReader::new(ms, None, None, None).unwrap();
-    assert_eq!(&reader.get_obs_context().unflagged_timesteps, &[0, 1, 2]);
-}
-
-/// Channel widths that differ only by floating-point noise are equal, but
-/// genuinely different widths are still an error.
-#[test]
-#[serial]
-fn test_chan_width_noise() {
-    let set_widths = |ms: &Path, perturb: f64| {
-        let mut t = Table::open(ms.join("SPECTRAL_WINDOW"), TableOpenMode::ReadWrite).unwrap();
-        let mut widths: Vec<f64> = t.get_cell_as_vec("CHAN_WIDTH", 0).unwrap();
-        for (i, w) in widths.iter_mut().enumerate() {
-            *w += perturb * i as f64;
-        }
-        t.put_cell("CHAN_WIDTH", 0, &widths).unwrap();
-    };
-
-    let dir = tempdir().unwrap();
-    let noisy = dir.path().join("noisy.ms");
-    copy_dir(Path::new("test_files/everybeam/mini.ms"), &noisy);
-    set_widths(&noisy, 3e-8);
-    assert!(MsReader::new(noisy, None, None, None).is_ok());
-
-    let unequal = dir.path().join("unequal.ms");
-    copy_dir(Path::new("test_files/everybeam/mini.ms"), &unequal);
-    set_widths(&unequal, 1000.0);
-    assert!(matches!(
-        MsReader::new(unequal, None, None, None),
-        Err(MsReadError::ChanWidthsUnequal)
-    ));
 }

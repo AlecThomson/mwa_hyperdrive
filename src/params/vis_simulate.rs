@@ -194,7 +194,7 @@ impl VisSimulateParams {
                         };
 
                         let spw = &channels_to_chanblocks(
-                            &fine_chan_freqs.mapped_ref(|f| *f as u64),
+                            fine_chan_freqs,
                             *freq_res_hz,
                             NonZeroUsize::new(1).unwrap(),
                             &HashSet::new(),
@@ -216,6 +216,7 @@ impl VisSimulateParams {
                             *output_freq_average_factor,
                             Some(&MwaObsContext::from_mwalib(metafits)),
                             *write_smallest_contiguous_band,
+                            *apply_precession,
                             rx_model,
                             &error,
                             Some(write_progress),

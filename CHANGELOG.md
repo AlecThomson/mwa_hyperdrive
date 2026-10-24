@@ -42,6 +42,11 @@ Versioning](https://semver.org/spec/v2.0.0.html).
     unaffected.
 
 ### Changed
+- Reading a source list now warns when components have a flux-density list
+  with a single entry, because such components are extrapolated with a
+  spectral index of -0.8 rather than being flat. This was only logged at the
+  `trace` level before. The behaviour is unchanged; the flux-density
+  documentation now describes it.
 - `solutions-plot` draws with [rizzma](https://github.com/OrbitalCommons/rizzma)
   instead of plotters. It is pure Rust with a bundled font, so plotting no
   longer needs freetype or fontconfig, is always built, and works in the
@@ -52,6 +57,16 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 - Measurement Sets are written much faster: Marlu 0.19's writer does
   column-range writes into tiled storage managers instead of cell by cell.
   Updated to Marlu 0.19, Birli 0.21 and hyperbeam 0.13.
+- CPU modelling of point and Gaussian components computes the phase term once
+  per tile, frequency and component and forms each baseline's phasor as the
+  product of its two tiles' phasors (as DP3's predict does), instead of one
+  `sin`/`cos` per baseline, frequency and component. The beam-weighted flux
+  density `B1 F B2^H` is computed once per frequency and component when it is
+  the same for every baseline (no beam, or all tiles identical to the beam);
+  otherwise it is split into per-tile half products via a Cholesky factor of
+  `F`, with the full product as the fallback for non-physical (negative) flux
+  densities. Results are unchanged to floating-point precision. Shapelets and
+  the GPU modeller are unchanged.
 - The beam subcommand now takes a beam type with `-b` / `--beam-type` instead of
   a positional argument, and dipole delays with `--delays` instead of `-d`.
   `--beam-type` accepts `analytic-mwa_pb` / `mwa_pb` and `analytic-rts` / `rts`.
@@ -74,30 +89,8 @@ Versioning](https://semver.org/spec/v2.0.0.html).
     open between timesteps.
   - When averaging over time, timesteps are averaged as they're read (while
     the next one is read), rather than all being held in memory first.
-- DI calibration only holds one (averaged) timestep per input-data timeblock
-  in memory, rather than one per input timestep.
-- `--time-average 0` (and a time-averaging factor bigger than the data) now
-  spans the time range of the data, so data with missing timesteps are
-  averaged into one timeblock rather than two.
-- When DI calibrating with input time averaging and more than one calibration
-  timeblock, each calibration timeblock is now calibrated with its own data;
-  previously, they could be calibrated with the wrong data (or none).
-- Data with a non-integer channel width (in Hz) are written with the right
-  channel width and frequencies; previously the width was rounded to an
-  integer, so frequencies drifted (by up to a channel over many channels; this
-  also affected the frequencies stored in calibration solutions), and writing
-  could panic.
-- Measurement-set channel widths that differ only by floating-point noise
-  (within 1 part in 10^6) are no longer rejected as unequal.
 - Measurement sets with baselines stored as ANTENNA1 > ANTENNA2 are now read;
   previously these baselines were silently skipped.
-- Contiguous channels with a non-integer channel width (in Hz) are no longer
-  mistaken for "picket fence" data.
-- A fully-flagged timestep in the middle of a measurement set no longer causes
-  all later timesteps to be ignored.
-- Timesteps are no longer silently dropped when the time resolution isn't a
-  whole number of the timestamp rounding (10 us); without time averaging,
-  only the first timestep was used.
 - Beam calculations can now be given the time (`BeamTime`), which is needed by
   EveryBeam.
 - Tile de-duplication for beam calculations is now decided by the beam code
@@ -105,6 +98,39 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   gains.
 
 ### Fixed
+- Raw MWAX data with oversampled coarse channels (`OVERSAMP = 1`, e.g. Phase
+  III) no longer has 80 kHz flagged at each coarse-channel edge by default; its
+  passband is flat right to the edges.
+- Channel frequencies are grouped into spectral windows and chanblocks using
+  floating-point hertz with a 1 Hz tolerance instead of truncated integers.
+  Grids whose channel width is not a whole number of hertz (e.g. LOFAR's
+  195312.5 Hz / 4 = 48828.125 Hz, or any width with a fractional part below 0.5
+  Hz) were previously split into spurious spectral windows, which made
+  `vis-simulate` panic and other subcommands reject or mis-handle such data.
+  Output channel centres are no longer truncated to whole hertz, and the
+  visibility writer matches chanblocks to the output grid to within half a
+  channel instead of by truncated integer hertz (which dropped channels, then
+  panicked, on such grids). The written band is also laid out by counting
+  channels from the first chanblock rather than by stepping a floating-point
+  range, which could gain or lose a channel on such grids.
+- Measurement-set channel widths that differ only by floating-point noise
+  (within 1 part in 10^6) are no longer rejected as unequal. (From Alec
+  Thomson's fork.)
+- A fully-flagged timestep in the middle of a measurement set no longer causes
+  all later timesteps to be ignored; only leading and trailing fully-flagged
+  timesteps are excluded. (From Alec Thomson's fork.)
+- Timesteps are no longer silently dropped when the time resolution isn't a
+  whole number of the timestamp rounding (10 us); without time averaging, only
+  the first timestep was used. (From Alec Thomson's fork.)
+- `--time-average 0` (and a time-averaging factor bigger than the data) now
+  spans the time range of the data, so data with missing timesteps are
+  averaged into one timeblock rather than two. (From Alec Thomson's fork.)
+- When DI calibrating with input time averaging and more than one calibration
+  timeblock, each calibration timeblock is now calibrated with its own data;
+  previously, they could be calibrated with the wrong data (or none). This
+  also affects MWA data. DI calibration also now only allocates one timestep
+  per input-data timeblock, rather than one per input timestep. (From Alec
+  Thomson's fork.)
 - `solutions-plot --ignore-cross-pols` no longer draws a tile as flagged when
   its gains are valid but its leakage terms are NaN.
 - `solutions-plot` returns an error, rather than panicking, when a metafits
@@ -116,6 +142,10 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   an observation would abort the whole model (the FEE beam has never errored
   here). The GPU analytic beams also return zero there, where they previously
   gave a non-zero, meaningless response.
+
+- Reading a non-MWA measurement set or uvfits without a metafits no longer panics. MWA coarse channels are now only inferred from the frequencies when a whole number of channels fits in 1.28 MHz; otherwise the data have no MWA coarse channels and no per-coarse-channel flags.
+- When a measurement set's or uvfits's UVWs are all zero (or there are no cross-correlations), the baseline-convention check is reported as not possible and the visibilities are not conjugated, rather than silently treating the check as passed.
+- `--no-precession` now also applies to the UVWs written to output visibilities (`vis-simulate`, `vis-subtract`, `peel`, and `di-calibrate`'s model output). Previously the model was unprecessed but the written UVWs were precessed, so the visibilities and UVWs disagreed.
 
 ## [0.8.1] - 2026-09-10
 

@@ -2,15 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::path::PathBuf;
+use std::{collections::HashSet, path::PathBuf};
 
 use approx::{assert_abs_diff_eq, assert_relative_eq};
 use crossbeam_utils::atomic::AtomicCell;
+use hifitime::{Duration, Epoch};
 use marlu::{
     constants::{MWA_HEIGHT_M, MWA_LAT_DEG, MWA_LONG_DEG},
-    Jones, LatLngHeight,
+    Jones, LatLngHeight, RADec, UvfitsWriter, VisContext, VisWrite, XyzGeodetic,
 };
 use ndarray::prelude::*;
+use serial_test::serial;
 use tempfile::TempDir;
 
 use super::{
@@ -669,4 +671,155 @@ fn sparse_timeblocks_with_averaging() {
     )
     .unwrap();
     assert_eq!(output_params.output_timeblocks.len(), 3);
+}
+
+#[test]
+fn test_non_mwa_data_ignores_per_coarse_chan_flags() {
+    // 1 MHz channels don't divide an MWA coarse channel, so this isn't treated
+    // as MWA data.
+    let tmp_dir = TempDir::new().unwrap();
+    let uvfits = tmp_dir.path().join("non_mwa.uvfits");
+    let vis_ctx = VisContext {
+        num_sel_timesteps: 1,
+        start_timestamp: Epoch::from_gpst_seconds(1_400_000_000.0),
+        int_time: Duration::from_seconds(10.0),
+        num_sel_chans: 4,
+        start_freq_hz: 744e6,
+        freq_resolution_hz: 1e6,
+        sel_baselines: vec![(0, 1), (0, 2), (1, 2)],
+        avg_time: 1,
+        avg_freq: 1,
+        num_vis_pols: 4,
+    };
+    let vis = Array3::from_elem(vis_ctx.avg_dims(), Jones::identity());
+    let weights = Array3::from_elem(vis_ctx.avg_dims(), 1.0);
+    let mut writer = UvfitsWriter::from_marlu(
+        &uvfits,
+        &vis_ctx,
+        LatLngHeight::mwa(),
+        RADec::from_degrees(0.0, -27.0),
+        Duration::from_seconds(0.0),
+        None,
+        vec!["ak01".into(), "ak02".into(), "ak03".into()],
+        vec![
+            XyzGeodetic::default(),
+            XyzGeodetic {
+                x: 100.0,
+                y: 20.0,
+                z: 0.0,
+            },
+            XyzGeodetic {
+                x: 30.0,
+                y: 150.0,
+                z: 10.0,
+            },
+        ],
+        true,
+        None,
+    )
+    .unwrap();
+    writer
+        .write_vis(vis.view(), weights.view(), &vis_ctx)
+        .unwrap();
+    writer.finalise().unwrap();
+
+    // The per-coarse-channel flags are ignored rather than rejected.
+    let params = InputVisArgs {
+        files: Some(vec![uvfits.display().to_string()]),
+        fine_chan_flags_per_coarse_chan: Some(vec![0, 1]),
+        ..Default::default()
+    }
+    .parse("")
+    .unwrap();
+    assert!(params.spw.flagged_chan_indices.is_empty());
+    assert_eq!(params.spw.chanblocks.len(), 4);
+}
+
+/// A non-MWA measurement set with a 5425.35 Hz channel width
+/// (`test_files/mini_ms/mini.ms`). The channel centres are stored to the
+/// nearest hertz, so they are alternately 5425 and 5426 Hz apart; they must
+/// still form one spectral window, with and without averaging and flags, and
+/// the chanblock frequencies must not drift from the real ones. (Before
+/// frequencies were handled as floating-point hertz, this data was taken to
+/// be a "picket fence", which exits the program.)
+#[test]
+#[serial] // casacore's table cache is not thread-safe
+fn test_fractional_chan_width_chanblocks() {
+    let ms = "test_files/mini_ms/mini.ms".to_string();
+    let width = 5425.35;
+    let num_chans = 32;
+
+    for (freq_average, flags) in [
+        (1, vec![]),
+        (1, vec![0, 1, 31]),
+        (4, vec![0, 1, 9]),
+        (4, vec![4, 5, 6, 7, 9]),
+        (8, (0..8).collect()),
+    ] {
+        let args = InputVisArgs {
+            files: Some(vec![ms.clone()]),
+            freq_average: Some(freq_average.to_string()),
+            fine_chan_flags: (!flags.is_empty()).then(|| flags.clone()),
+            ..Default::default()
+        };
+        let params = args.parse("").unwrap();
+        let spw = &params.spw;
+
+        let num_chanblocks = num_chans / freq_average;
+        // A chanblock is flagged only when all of its channels are.
+        let flagged_chanblocks: HashSet<u16> = (0..num_chanblocks as u16)
+            .filter(|&i| {
+                (i * freq_average as u16..(i + 1) * freq_average as u16).all(|c| flags.contains(&c))
+            })
+            .collect();
+        assert_eq!(
+            spw.chanblocks.len() + spw.flagged_chanblock_indices.len(),
+            num_chanblocks,
+            "freq_average {freq_average}, flags {flags:?}"
+        );
+        assert_eq!(spw.flagged_chanblock_indices, flagged_chanblocks);
+        assert_eq!(spw.flagged_chan_indices, flags.iter().copied().collect());
+        let res = width * freq_average as f64;
+        assert_abs_diff_eq!(spw.freq_res, res, epsilon = 1e-9);
+
+        // Each chanblock is centred on its channels. The input channel centres
+        // are integer hertz, so allow a hertz.
+        let expected = |i_chanblock: usize| {
+            100e6 + width * (freq_average - 1) as f64 / 2.0 + i_chanblock as f64 * res
+        };
+        assert_abs_diff_eq!(spw.first_freq, expected(0), epsilon = 1.0);
+        for chanblock in &spw.chanblocks {
+            assert_abs_diff_eq!(
+                chanblock.freq,
+                expected(usize::from(chanblock.chanblock_index)),
+                epsilon = 1.0
+            );
+        }
+        let all_freqs = spw.get_all_freqs();
+        assert_eq!(all_freqs.len(), num_chanblocks);
+        for (i, &freq) in all_freqs.iter().enumerate() {
+            assert_abs_diff_eq!(freq, expected(i), epsilon = 1.0);
+        }
+    }
+}
+
+/// As above, but with a real measurement set (`test_files/mini_ms/mini.ms`,
+/// 5425.35 Hz channels at 100 MHz). Previously it was taken for MWA data with
+/// 236 fine channels per coarse channel, and per-coarse-channel flags were
+/// applied on that made-up grid (flagging channel 0 here).
+#[test]
+#[serial] // casacore's table cache is not thread-safe
+fn test_mini_ms_ignores_per_coarse_chan_flags() {
+    let params = InputVisArgs {
+        files: Some(vec!["test_files/mini_ms/mini.ms".to_string()]),
+        fine_chan_flags_per_coarse_chan: Some(vec![0, 1]),
+        ..Default::default()
+    }
+    .parse("")
+    .unwrap();
+    let obs_context = params.get_obs_context();
+    assert!(obs_context.mwa_coarse_chan_nums.is_none());
+    assert!(obs_context.num_fine_chans_per_coarse_chan.is_none());
+    assert!(params.spw.flagged_chan_indices.is_empty());
+    assert_eq!(params.spw.chanblocks.len(), 32);
 }

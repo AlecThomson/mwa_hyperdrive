@@ -36,6 +36,24 @@ use crate::{
     cli::Warn,
 };
 
+/// Which of the output channel grid's frequencies (`grid_freqs`, in Hz) have
+/// no incoming chanblock. Frequencies are matched to within half the channel
+/// width (and at least 1 Hz), so grids whose channel width is not a whole
+/// number of hertz are handled.
+fn missing_chanblocks(grid_freqs: &[f64], chanblock_freqs: &[f64], freq_res: f64) -> HashSet<u16> {
+    let tol = (freq_res.abs() / 2.0).max(1.0);
+    let mut sorted = chanblock_freqs.to_vec();
+    sorted.sort_by(|a, b| a.total_cmp(b));
+    (0..)
+        .zip(grid_freqs.iter())
+        .filter(|(_, &f)| {
+            let i = sorted.partition_point(|&c| c < f - tol);
+            !matches!(sorted.get(i), Some(&c) if (c - f).abs() <= tol)
+        })
+        .map(|(i, _)| i)
+        .collect()
+}
+
 #[derive(Debug, Display, EnumIter, EnumString, Clone, Copy)]
 /// All write-supported visibility formats.
 pub(crate) enum VisOutputType {
@@ -99,6 +117,10 @@ pub(crate) struct VisTimestep {
 /// * `marlu_mwa_obs_context` - a tuple of [`marlu::MwaObsContext`] and a range
 ///   of MWA coarse channel indices. Kept optional because they're not strictly
 ///   needed.
+/// * `write_smallest_contiguous_band` - only write out the smallest
+///   contiguous band of unflagged channels.
+/// * `precess_uvws` - should the outgoing UVWs be precessed to J2000? This
+///   should match whether precession was applied to any model visibilities.
 /// * `rx` - the channel to receive visibilities from.
 /// * `error` - a thread-safe [`bool`] to indicate if an error has occurred.
 ///   Receiving `true` signals that we should not continue, as another thread
@@ -127,6 +149,7 @@ pub(crate) fn write_vis(
     freq_average_factor: NonZeroUsize,
     marlu_mwa_obs_context: Option<&MarluMwaObsContext>,
     write_smallest_contiguous_band: bool,
+    precess_uvws: bool,
     rx: Receiver<VisTimestep>,
     error: &AtomicCell<bool>,
     progress_bar: Option<ProgressBar>,
@@ -147,40 +170,31 @@ pub(crate) fn write_vis(
     // contiguous. But, the incoming visibility data might not be contiguous due
     // to flags. Set up the outgoing frequencies and set a flag so we know if
     // the incoming data needs to be padded.
-    // Chanblock frequencies are not necessarily whole numbers of Hz, nor exact
-    // multiples of the frequency resolution from the first chanblock (they
-    // may carry floating-point noise), so find each incoming chanblock's
-    // position in the outgoing band by rounding.
-    let first_freq = spw.chanblocks.first().map(|c| c.freq).unwrap_or_default();
-    let band_index = |freq: f64| ((freq - first_freq) / spw.freq_res).round() as i64;
     let chanblock_freqs = if write_smallest_contiguous_band {
         match spw.chanblocks.as_slice() {
             [] => panic!("There weren't any unflagged chanblocks in the SPW"),
             [c] => vec1![c.freq],
             [c1, .., cn] => {
-                let num_chanblocks = band_index(cn.freq) + 1;
-                let mut v = (0..num_chanblocks - 1)
-                    .map(|i| c1.freq + i as f64 * spw.freq_res)
-                    .collect::<Vec<_>>();
-                v.push(cn.freq);
+                // The number of channels spanned by the first and last
+                // chanblocks, found by rounding (chanblock frequencies carry
+                // floating-point noise, and the channel width need not be a
+                // whole number of hertz, so `Array1::range` could give one
+                // channel too few or too many).
+                let num_chanblocks = ((cn.freq - c1.freq) / spw.freq_res).round() as usize + 1;
+                let v = (0..num_chanblocks)
+                    .map(|i| (i as f64).mul_add(spw.freq_res, c1.freq))
+                    .collect();
                 Vec1::try_from_vec(v).expect("v is never empty")
             }
         }
     } else {
         spw.get_all_freqs()
     };
-    let missing_chanblocks = {
-        let incoming_chanblocks = spw
-            .chanblocks
-            .iter()
-            .map(|c| band_index(c.freq))
-            .collect::<HashSet<_>>();
-        (0..)
-            .zip(chanblock_freqs.iter())
-            .filter(|(_, &freq)| !incoming_chanblocks.contains(&band_index(freq)))
-            .map(|(i_chanblock, _)| i_chanblock)
-            .collect::<HashSet<_>>()
-    };
+    let missing_chanblocks = missing_chanblocks(
+        &chanblock_freqs,
+        &spw.chanblocks.iter().map(|c| c.freq).collect::<Vec<_>>(),
+        spw.freq_res,
+    );
 
     let start_timestamp = timeblocks.first().median;
     let num_baselines = unflagged_baseline_tile_pairs.len();
@@ -249,7 +263,7 @@ pub(crate) fn write_vis(
                     marlu_obs_ctx.name.as_deref(),
                     tile_names.to_vec(),
                     tile_positions.to_vec(),
-                    true,
+                    precess_uvws,
                     Some(&history),
                 )?;
                 Box::new(uvfits)
@@ -262,7 +276,7 @@ pub(crate) fn write_vis(
                     array_pos,
                     tile_positions.to_vec(),
                     dut1,
-                    true,
+                    precess_uvws,
                 );
                 if let Some(marlu_mwa_obs_context) = marlu_mwa_obs_context {
                     ms.initialize_mwa(

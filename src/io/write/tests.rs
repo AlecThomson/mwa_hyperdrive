@@ -9,6 +9,7 @@ use marlu::{Jones, LatLngHeight};
 use ndarray::prelude::*;
 use scopeguard::defer_on_unwind;
 use serial_test::serial;
+use std::collections::HashSet;
 use tempfile::TempDir;
 use vec1::{vec1, Vec1};
 
@@ -71,17 +72,17 @@ fn test_vis_output_no_time_averaging_no_gaps() {
         Some(&timesteps),
     );
 
-    let freq_res = 10e3 as u64;
+    let freq_res = 10e3;
     let fine_chan_freqs = Vec1::try_from_vec(
-        (0..num_channels as u64)
-            .map(|i| 150_000_000 + freq_res * i)
+        (0..num_channels)
+            .map(|i| 150_000_000.0 + freq_res * i as f64)
             .collect(),
     )
     .unwrap();
 
     let spw = &channels_to_chanblocks(
         &fine_chan_freqs,
-        freq_res as f64,
+        freq_res,
         NonZeroUsize::new(1).unwrap(),
         &HashSet::new(),
     )[0];
@@ -92,7 +93,7 @@ fn test_vis_output_no_time_averaging_no_gaps() {
         int_time: time_res,
         num_sel_chans: num_channels,
         start_freq_hz: 128_000_000.,
-        freq_resolution_hz: freq_res as f64,
+        freq_resolution_hz: freq_res,
         sel_baselines: ant_pairs.clone(),
         avg_time: 1,
         avg_freq: 1,
@@ -165,6 +166,7 @@ fn test_vis_output_no_time_averaging_no_gaps() {
                 vis_freq_average_factor,
                 marlu_mwa_obs_context,
                 false,
+                true,
                 rx,
                 &error,
                 None,
@@ -214,7 +216,7 @@ fn test_vis_output_no_time_averaging_no_gaps() {
         );
 
         assert_eq!(obs_context.time_res, Some(time_res));
-        assert_eq!(obs_context.freq_res, Some(freq_res as f64));
+        assert_eq!(obs_context.freq_res, Some(freq_res));
 
         let avg_shape = (
             obs_context.fine_chan_freqs.len(),
@@ -273,17 +275,17 @@ fn test_vis_output_no_time_averaging_with_gaps() {
         Some(&timesteps),
     );
 
-    let freq_res = 10e3 as u64;
+    let freq_res = 10e3;
     let fine_chan_freqs = Vec1::try_from_vec(
-        (0..num_channels as u64)
-            .map(|i| 150_000_000 + freq_res * i)
+        (0..num_channels)
+            .map(|i| 150_000_000.0 + freq_res * i as f64)
             .collect(),
     )
     .unwrap();
 
     let spw = &channels_to_chanblocks(
         &fine_chan_freqs,
-        freq_res as f64,
+        freq_res,
         NonZeroUsize::new(1).unwrap(),
         &HashSet::new(),
     )[0];
@@ -294,7 +296,7 @@ fn test_vis_output_no_time_averaging_with_gaps() {
         int_time: time_res,
         num_sel_chans: num_channels,
         start_freq_hz: 128_000_000.,
-        freq_resolution_hz: freq_res as f64,
+        freq_resolution_hz: freq_res,
         sel_baselines: ant_pairs.clone(),
         avg_time: 1,
         avg_freq: 1,
@@ -367,6 +369,7 @@ fn test_vis_output_no_time_averaging_with_gaps() {
                 vis_freq_average_factor,
                 marlu_mwa_obs_context,
                 false,
+                true,
                 rx,
                 &error,
                 None,
@@ -415,7 +418,7 @@ fn test_vis_output_no_time_averaging_with_gaps() {
             expected.mapped_ref(|t| t.to_gpst_seconds())
         );
         assert_eq!(obs_context.time_res, Some(time_res));
-        assert_eq!(obs_context.freq_res, Some(freq_res as f64));
+        assert_eq!(obs_context.freq_res, Some(freq_res));
 
         let avg_shape = (
             obs_context.fine_chan_freqs.len(),
@@ -476,17 +479,17 @@ fn test_vis_output_time_averaging() {
         Some(&timesteps),
     );
 
-    let freq_res = 10e3 as u64;
+    let freq_res = 10e3;
     let fine_chan_freqs = Vec1::try_from_vec(
-        (0..num_channels as u64)
-            .map(|i| 150_000_000 + freq_res * i)
+        (0..num_channels)
+            .map(|i| 150_000_000.0 + freq_res * i as f64)
             .collect(),
     )
     .unwrap();
 
     let spw = &channels_to_chanblocks(
         &fine_chan_freqs,
-        freq_res as f64,
+        freq_res,
         NonZeroUsize::new(1).unwrap(),
         &HashSet::new(),
     )[0];
@@ -497,7 +500,7 @@ fn test_vis_output_time_averaging() {
         int_time: time_res,
         num_sel_chans: num_channels,
         start_freq_hz: 128_000_000.,
-        freq_resolution_hz: freq_res as f64,
+        freq_resolution_hz: freq_res,
         sel_baselines: ant_pairs.clone(),
         avg_time: 1,
         avg_freq: 1,
@@ -573,6 +576,7 @@ fn test_vis_output_time_averaging() {
                 vis_freq_average_factor,
                 marlu_mwa_obs_context,
                 false,
+                true,
                 rx,
                 &error,
                 None,
@@ -620,7 +624,7 @@ fn test_vis_output_time_averaging() {
             expected.mapped_ref(|t| t.to_gpst_seconds())
         );
         assert_eq!(obs_context.time_res, Some(Duration::from_seconds(3.0)));
-        assert_eq!(obs_context.freq_res, Some(freq_res as f64));
+        assert_eq!(obs_context.freq_res, Some(freq_res));
 
         let avg_shape = (
             obs_context.fine_chan_freqs.len(),
@@ -697,4 +701,145 @@ fn test_vis_output_time_averaging() {
             }
         }
     }
+}
+
+#[test]
+fn missing_chanblocks_tolerates_fractional_widths() {
+    use super::missing_chanblocks;
+
+    let res = 48828.125;
+    let grid: Vec<f64> = (0..16).map(|i| 150e6 + res * i as f64).collect();
+    // All present (chanblock centroids may differ by rounding noise).
+    let present: Vec<f64> = grid.iter().map(|f| f + 1e-6).collect();
+    assert!(missing_chanblocks(&grid, &present, res).is_empty());
+    // Drop two chanblocks; exactly those grid slots are missing.
+    let fewer: Vec<f64> = grid
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != 3 && *i != 15)
+        .map(|(_, f)| *f)
+        .collect();
+    let missing = missing_chanblocks(&grid, &fewer, res);
+    assert_eq!(missing, HashSet::from([3, 15]));
+    // Unordered input is fine.
+    let mut shuffled = fewer.clone();
+    shuffled.reverse();
+    assert_eq!(
+        missing_chanblocks(&grid, &shuffled, res),
+        HashSet::from([3, 15])
+    );
+}
+
+/// The UVWs written out should only be precessed if we asked for it.
+#[test]
+#[serial]
+fn test_vis_output_precess_uvws() {
+    use marlu::{
+        precession::{get_lmst, precess_time},
+        rubbl_casatables::{Table, TableOpenMode},
+        UVW,
+    };
+
+    let obsid = 1090000000;
+    let timestamp = Epoch::from_gpst_seconds(obsid as f64);
+    let time_res = Duration::from_seconds(1.);
+    let timestamps = vec1![timestamp];
+    let timeblocks = timesteps_to_timeblocks(
+        &timestamps,
+        time_res,
+        NonZeroUsize::new(1).unwrap(),
+        Some(&vec1![0]),
+    );
+    let freq_res = 1e6;
+    let spw = &channels_to_chanblocks(
+        &vec1![744e6, 745e6],
+        freq_res,
+        NonZeroUsize::new(1).unwrap(),
+        &HashSet::new(),
+    )[0];
+    let array_pos = LatLngHeight::mwa();
+    let phase_centre = RADec::from_degrees(98.2119, -30.861);
+    #[rustfmt::skip]
+    let tile_xyzs = [
+        XyzGeodetic { x: 0., y: 0., z: 0., },
+        XyzGeodetic { x: 1000., y: 500., z: 100., },
+    ];
+    let tile_names = ["tile_0".into(), "tile_1".into()];
+    let ant_pairs = [(0, 1)];
+    let (vis_data, vis_weights) = synthesize_test_data((1, 2, 1));
+
+    let mut written_uvws = vec![];
+    for precess_uvws in [false, true] {
+        let tmp_dir = TempDir::new().expect("couldn't make tmp dir");
+        let ms_path = tmp_dir.path().join("vis.ms");
+        let (tx, rx) = bounded(1);
+        tx.send(VisTimestep {
+            cross_data_fb: vis_data.slice(s![0, .., ..]).to_shared(),
+            cross_weights_fb: vis_weights.slice(s![0, .., ..]).to_shared(),
+            autos: None,
+            timestamp,
+        })
+        .unwrap();
+        drop(tx);
+        write_vis(
+            &vec1![(ms_path.clone(), VisOutputType::MeasurementSet)],
+            array_pos,
+            phase_centre,
+            None,
+            &tile_xyzs,
+            &tile_names,
+            Some(obsid),
+            &timeblocks,
+            time_res,
+            Duration::default(),
+            spw,
+            &ant_pairs,
+            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::new(1).unwrap(),
+            None,
+            false,
+            precess_uvws,
+            rx,
+            &AtomicCell::new(false),
+            None,
+        )
+        .unwrap();
+
+        let mut main_table = Table::open(&ms_path, TableOpenMode::Read).unwrap();
+        let uvw: Vec<f64> = main_table.get_cell_as_vec("UVW", 0).unwrap();
+        let time: f64 = main_table.get_cell("TIME", 0).unwrap();
+        written_uvws.push((
+            UVW {
+                u: uvw[0],
+                v: uvw[1],
+                w: uvw[2],
+            },
+            Epoch::from_mjd_utc(time / 86400.0),
+        ));
+    }
+
+    // Unprecessed UVWs use the tile positions and LMST as they are.
+    let (uvw, time) = written_uvws[0];
+    let lmst = get_lmst(array_pos.longitude_rad, time, Duration::default());
+    let expected = UVW::from_xyz(tile_xyzs[0] - tile_xyzs[1], phase_centre.to_hadec(lmst));
+    assert_abs_diff_eq!(uvw.u, expected.u, epsilon = 1e-6);
+    assert_abs_diff_eq!(uvw.v, expected.v, epsilon = 1e-6);
+    assert_abs_diff_eq!(uvw.w, expected.w, epsilon = 1e-6);
+
+    // Precessed UVWs are noticeably different.
+    let (uvw, time) = written_uvws[1];
+    let prec_info = precess_time(
+        array_pos.longitude_rad,
+        array_pos.latitude_rad,
+        phase_centre,
+        time,
+        Duration::default(),
+    );
+    let xyzs = prec_info.precess_xyz(&tile_xyzs);
+    let expected = UVW::from_xyz(xyzs[0] - xyzs[1], prec_info.hadec_j2000);
+    assert_abs_diff_eq!(uvw.u, expected.u, epsilon = 1e-6);
+    assert_abs_diff_eq!(uvw.v, expected.v, epsilon = 1e-6);
+    assert_abs_diff_eq!(uvw.w, expected.w, epsilon = 1e-6);
+    let diff = written_uvws[0].0 - written_uvws[1].0;
+    assert!((diff.u * diff.u + diff.v * diff.v + diff.w * diff.w).sqrt() > 1.0);
 }

@@ -7,8 +7,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use approx::assert_abs_diff_eq;
 use clap::Parser;
 use ndarray::prelude::*;
+use serial_test::serial;
 use tempfile::TempDir;
 
 use super::VisConvertArgs;
@@ -290,57 +292,15 @@ fn test_averaging_flags() {
     });
 }
 
-#[test]
-/// A measurement set with missing timesteps (gaps in time) averaged with a time
-/// factor of 0 ("all timesteps") yields one timeblock.
-fn test_time_average_all_with_missing_timesteps() {
-    let temp_dir = TempDir::new().expect("couldn't make tmp dir");
-    let ms = temp_dir.path().join("gaps.ms");
-    let ms_string = ms.display().to_string();
-    let DataAsStrings {
-        metafits, srclist, ..
-    } = get_reduced_1090008640_raw();
-    let model = temp_dir.path().join("model.uvfits");
-    let model_string = model.display().to_string();
-    #[rustfmt::skip]
-    VisSimulateArgs::parse_from([
-        "vis-simulate",
-        "--metafits", &metafits,
-        "--source-list", &srclist,
-        "--output-model-files", &model_string,
-        "--num-timesteps", "4",
-        "--num-fine-channels", "2",
-        "--no-beam",
-    ])
-    .run(false)
-    .unwrap();
-
-    // Write timesteps 0, 1 and 3; timestep 2 is missing from the output.
-    #[rustfmt::skip]
-    let args = vec![
-        "vis-convert",
-        "--data", &model_string, &metafits,
-        "--timesteps", "0", "1", "3",
-        "--outputs", &ms_string,
-    ];
-    VisConvertArgs::parse_from(args).run(false).unwrap();
-
-    let args = InputVisArgs {
-        files: Some(vec![ms_string, metafits]),
-        time_average: Some("0".to_string()),
-        ..Default::default()
-    };
-    let params = args.parse("").unwrap();
-    assert_eq!(params.get_obs_context().timestamps.len(), 3);
-    assert_eq!(params.timeblocks.len(), 1);
-    assert_eq!(params.timeblocks.first().timesteps.len(), 3);
-}
-
-#[test]
 /// Channels with a non-integer width (in Hz) are written with the right
 /// frequencies, including when some channels are flagged. Previously, the
 /// channel width was rounded to an integer, so written frequencies drifted
 /// from the real ones, and writing could panic.
+///
+/// Adapted from Alec Thomson's hyperdrive fork
+/// (<https://github.com/AlecThomson/mwa_hyperdrive>).
+#[test]
+#[serial] // casacore's table cache is not thread-safe
 fn test_non_integer_channel_width() {
     let temp_dir = TempDir::new().expect("couldn't make tmp dir");
     let DataAsStrings {
@@ -390,7 +350,7 @@ fn test_non_integer_channel_width() {
         let out_ctx = out_ctx.get_obs_context();
         let freq_average: usize = freq_average.parse().unwrap();
         let freq_res = freq_res_khz * 1e3 * freq_average as f64;
-        approx::assert_abs_diff_eq!(out_ctx.freq_res.unwrap(), freq_res, epsilon = 1e-6);
+        assert_abs_diff_eq!(out_ctx.freq_res.unwrap(), freq_res, epsilon = 1e-6);
         // Flagged channels are written (as flagged), so the whole band is
         // there.
         assert_eq!(out_ctx.fine_chan_freqs.len(), num_chans / freq_average);
@@ -399,7 +359,142 @@ fn test_non_integer_channel_width() {
                 + i as f64 * freq_res
                 + (freq_average - 1) as f64 / 2.0 * freq_res_khz * 1e3;
             // Frequencies are stored in integer Hz.
-            approx::assert_abs_diff_eq!(out_freq as f64, expected, epsilon = 1.0);
+            assert_abs_diff_eq!(out_freq as f64, expected, epsilon = 1.0);
         }
     }
+}
+
+/// Convert a non-MWA measurement set with a 5425.35 Hz channel width
+/// (`test_files/mini_ms/mini.ms`) to uvfits and to a measurement set, with
+/// flags, with frequency averaging, and writing only the smallest contiguous
+/// band of unflagged chanblocks. The written channel grid must match the
+/// input one.
+#[test]
+#[serial] // casacore's table cache is not thread-safe
+fn test_vis_convert_fractional_chan_width() {
+    let temp_dir = TempDir::new().expect("couldn't make tmp dir");
+    let ms = "test_files/mini_ms/mini.ms";
+    let width = 5425.35;
+    let num_chans = 32;
+
+    // (averaging factor, flagged channels, output type, smallest band only,
+    // expected first chanblock index and number of chanblocks)
+    #[rustfmt::skip]
+    let cases = [
+        (1, vec![], "uvfits", false, 0, 32),
+        (1, vec!["0", "1", "10"], "ms", false, 0, 32),
+        (4, vec!["7"], "ms", false, 0, 8),
+        (8, vec!["0", "1", "2", "3", "4", "5", "6", "7"], "uvfits", false, 0, 4),
+        // Flagged channels at the band edges are dropped, those within it are
+        // written as flagged.
+        (1, vec!["0", "1", "10", "30", "31"], "ms", true, 2, 28),
+        (1, vec!["0", "1", "10", "30", "31"], "uvfits", true, 2, 28),
+        // Chanblock 0 is entirely flagged, chanblock 7 is not.
+        (4, vec!["0", "1", "2", "3", "28", "29"], "ms", true, 1, 7),
+    ];
+    for (i_case, (freq_average, flags, ext, smallest_band, first_chanblock, num_chanblocks)) in
+        cases.into_iter().enumerate()
+    {
+        let out = temp_dir.path().join(format!("out_{i_case}.{ext}"));
+        let out_string = out.display().to_string();
+        let freq_average_string = freq_average.to_string();
+        #[rustfmt::skip]
+        let mut args = vec![
+            "vis-convert",
+            "--data", ms,
+            "--freq-average", &freq_average_string,
+            "--outputs", &out_string,
+        ];
+        if smallest_band {
+            args.push("--output-smallest-contiguous-band");
+        }
+        if !flags.is_empty() {
+            args.push("--fine-chan-flags");
+            args.extend(flags.iter().copied());
+        }
+        VisConvertArgs::parse_from(args).run(false).unwrap();
+
+        let (out_freqs, out_freq_res) = if ext == "ms" {
+            let reader = MsReader::new(out, None, None, None).unwrap();
+            let obs_context = reader.get_obs_context();
+            (
+                obs_context.fine_chan_freqs.clone(),
+                obs_context.freq_res.unwrap(),
+            )
+        } else {
+            let reader = UvfitsReader::new(out, None, None).unwrap();
+            let obs_context = reader.get_obs_context();
+            (
+                obs_context.fine_chan_freqs.clone(),
+                obs_context.freq_res.unwrap(),
+            )
+        };
+
+        let res = width * freq_average as f64;
+        assert!(
+            (out_freq_res - res).abs() < 1e-6,
+            "case {i_case}: written channel width {out_freq_res} != {res}"
+        );
+        if !smallest_band {
+            assert_eq!(num_chanblocks, num_chans / freq_average);
+        }
+        assert_eq!(out_freqs.len(), num_chanblocks, "case {i_case}");
+        for (i, &out_freq) in out_freqs.iter().enumerate() {
+            let expected = 100e6
+                + width * (freq_average - 1) as f64 / 2.0
+                + (first_chanblock + i) as f64 * res;
+            // Frequencies are stored in integer Hz.
+            assert!(
+                (out_freq as f64 - expected).abs() <= 1.0,
+                "case {i_case}: written channel {i} is {out_freq} Hz, expected {expected} Hz"
+            );
+        }
+    }
+}
+
+/// A measurement set with missing timesteps (gaps in time) averaged with a time
+/// factor of 0 ("all timesteps") yields one timeblock.
+#[test]
+#[serial] // casacore's table cache is not thread-safe
+fn test_time_average_all_with_missing_timesteps() {
+    let temp_dir = TempDir::new().expect("couldn't make tmp dir");
+    let ms = temp_dir.path().join("gaps.ms");
+    let ms_string = ms.display().to_string();
+    let DataAsStrings {
+        metafits, srclist, ..
+    } = get_reduced_1090008640_raw();
+    let model = temp_dir.path().join("model.uvfits");
+    let model_string = model.display().to_string();
+    #[rustfmt::skip]
+    VisSimulateArgs::parse_from([
+        "vis-simulate",
+        "--metafits", &metafits,
+        "--source-list", &srclist,
+        "--output-model-files", &model_string,
+        "--num-timesteps", "4",
+        "--num-fine-channels", "2",
+        "--no-beam",
+    ])
+    .run(false)
+    .unwrap();
+
+    // Write timesteps 0, 1 and 3; timestep 2 is missing from the output.
+    #[rustfmt::skip]
+    let args = vec![
+        "vis-convert",
+        "--data", &model_string, &metafits,
+        "--timesteps", "0", "1", "3",
+        "--outputs", &ms_string,
+    ];
+    VisConvertArgs::parse_from(args).run(false).unwrap();
+
+    let args = InputVisArgs {
+        files: Some(vec![ms_string, metafits]),
+        time_average: Some("0".to_string()),
+        ..Default::default()
+    };
+    let params = args.parse("").unwrap();
+    assert_eq!(params.get_obs_context().timestamps.len(), 3);
+    assert_eq!(params.timeblocks.len(), 1);
+    assert_eq!(params.timeblocks.first().timesteps.len(), 3);
 }
