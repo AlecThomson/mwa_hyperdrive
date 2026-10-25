@@ -217,6 +217,7 @@ impl VisSimulateParams {
                             Some(&MwaObsContext::from_mwalib(metafits)),
                             *write_smallest_contiguous_band,
                             *apply_precession,
+                            None,
                             rx_model,
                             &error,
                             Some(write_progress),

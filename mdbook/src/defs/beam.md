@@ -55,11 +55,13 @@ pointing) from a measurement set:
 The number of stations in the measurement set must match the number of tiles
 in the input data, and the station order is assumed to be the same.
 
-~~~admonish warning title="Measurement sets written by hyperdrive"
-Measurement sets written by `hyperdrive` (e.g. by `vis-subtract` or
-`solutions-apply`) don't describe non-MWA telescopes, so EveryBeam can't load
-the telescope from them. When processing such outputs, point `--beam-ms` at the
-original measurement set.
+~~~admonish warning title="Files written by hyperdrive"
+When `hyperdrive` writes a measurement set (e.g. with `vis-subtract` or
+`solutions-apply`) from one with a `PHASED_ARRAY` table (e.g. SKA-Low or
+OSKAR data), it copies that table and the telescope name, so EveryBeam can use
+the output directly. Other telescope descriptions (e.g. LOFAR's) aren't copied,
+and uvfits files can't hold one; when processing such outputs, point
+`--beam-ms` at the original measurement set.
 ~~~
 
 ```shell

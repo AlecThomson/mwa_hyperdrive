@@ -38,6 +38,9 @@ Versioning](https://semver.org/spec/v2.0.0.html).
     are still vetoed with an amplitude-normalised beam, as unnormalised
     responses have an arbitrary scale.
   - Releases include portable `-everybeam` Linux tarballs (glibc >= 2.28).
+  - Measurement sets written from one with a `PHASED_ARRAY` table keep that
+    table and the telescope name, so EveryBeam can use them without
+    `--beam-ms`.
     These are GPL-3.0, because of EveryBeam; the other release tarballs are
     unaffected.
 
