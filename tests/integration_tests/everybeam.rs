@@ -85,15 +85,15 @@ fn test_everybeam_simulate_and_calibrate() {
         .ok();
     assert!(cmd.is_ok(), "{:?}", get_cmd_output(cmd));
 
-    // Calibrate. hyperdrive-written measurement sets don't describe the
-    // stations' elements, so the telescope comes from the original MS.
+    // Calibrate. hyperdrive-written measurement sets keep the input's
+    // telescope description, so EveryBeam can use them directly.
     let solutions = tmp_dir.path().join("sols.fits");
     let cmd = hyperdrive()
         .arg("di-calibrate")
         .arg("--data")
         .arg(&corrupted)
         .args(["--source-list", SRCLIST])
-        .args(["--beam-type", "everybeam", "--beam-ms", MS])
+        .args(["--beam-type", "everybeam"])
         .arg("--outputs")
         .arg(&solutions)
         .arg("--no-progress-bars")
@@ -125,12 +125,18 @@ fn test_everybeam_simulate_and_calibrate() {
     }
 }
 
-/// hyperdrive-written measurement sets don't describe non-MWA telescopes, so
-/// EveryBeam needs --beam-ms; check that a helpful error is given otherwise.
+/// uvfits files don't describe non-MWA telescopes, so EveryBeam needs
+/// --beam-ms; check that a helpful error is given otherwise.
 #[test]
 fn test_everybeam_needs_telescope_ms() {
     let tmp_dir = TempDir::new().unwrap();
-    let sim = simulate(tmp_dir.path());
+    let sim = tmp_dir.path().join("sim.uvfits");
+    let cmd = hyperdrive()
+        .args(["vis-convert", "--data", MS, "--outputs"])
+        .arg(&sim)
+        .arg("--no-progress-bars")
+        .ok();
+    assert!(cmd.is_ok(), "{:?}", get_cmd_output(cmd));
     let cmd = hyperdrive()
         .arg("di-calibrate")
         .arg("--data")
