@@ -699,51 +699,30 @@ pub(super) fn calibrate(
         // Do a once-off check to see if `top` and `bot` are already identical.
         // This occurs on flagged channels containing no data, or perhaps with
         // simulated data.
+        // The comparison is relative to the size of `top` and `bot`, because
+        // they scale with the data weights, and only the weights' relative
+        // values matter.
         if iteration == 1 {
-            let mut top_and_bot_are_equal = true;
-            let mut top_and_bot_are_zeros = true;
-            for (top, bot) in top.iter().zip(bot.iter()) {
-                let diff = *top - bot;
-                for diff in diff.to_float_array() {
-                    if diff.abs() > stop_threshold {
-                        top_and_bot_are_equal = false;
-                        top_and_bot_are_zeros = false;
-                        break;
-                    }
-                }
-                if !top_and_bot_are_equal && !top_and_bot_are_zeros {
-                    break;
-                }
-
-                if top_and_bot_are_zeros {
-                    for top in top.to_float_array() {
-                        if top.abs() > f64::EPSILON {
-                            top_and_bot_are_zeros = false;
-                            break;
-                        }
-                    }
-                }
-                if top_and_bot_are_zeros {
-                    for bot in bot.to_float_array() {
-                        if bot.abs() > f64::EPSILON {
-                            top_and_bot_are_zeros = false;
-                            break;
-                        }
-                    }
-                }
-                if !top_and_bot_are_equal && !top_and_bot_are_zeros {
-                    break;
-                }
-            }
+            let max_abs = |a: &Array1<Jones<f64>>| {
+                a.iter()
+                    .flat_map(|j| j.to_float_array())
+                    .fold(0.0_f64, |m, x| m.max(x.abs()))
+            };
+            let scale = max_abs(&top).max(max_abs(&bot));
+            let max_diff = top
+                .iter()
+                .zip(bot.iter())
+                .flat_map(|(top, bot)| (*top - bot).to_float_array())
+                .fold(0.0_f64, |m, x| m.max(x.abs()));
 
             // `top` and `bot` are the same; this implies that there's no need
             // for calibration.
-            if top_and_bot_are_equal {
+            if max_diff <= stop_threshold * scale {
                 // Rather than simply continuing and allowing the calibration
                 // solutions to be identity, check if `top` and `bot` are zeros;
                 // in this case, we assume that this channel had no data, so we
                 // mark all tiles as failed.
-                if top_and_bot_are_zeros {
+                if scale == 0.0 {
                     failed.fill(true);
                 }
                 break;

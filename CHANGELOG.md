@@ -101,6 +101,11 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   gains.
 
 ### Fixed
+- `di-calibrate` no longer returns identity solutions (or fails every
+  chanblock) when the data weights are very small, e.g. a uniform
+  `WEIGHT_SPECTRUM` of 1e-9. Its first-iteration "the data already match the
+  model" check compared against an absolute threshold, but data and model are
+  scaled by the weights, and only the weights' relative values matter.
 - Raw MWAX data with oversampled coarse channels (`OVERSAMP = 1`, e.g. Phase
   III) no longer has 80 kHz flagged at each coarse-channel edge by default; its
   passband is flat right to the edges.
