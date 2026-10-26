@@ -20,10 +20,10 @@ use crossbeam_utils::atomic::AtomicCell;
 use hifitime::{Duration, Epoch};
 use indicatif::ProgressBar;
 use itertools::Itertools;
-use log::{debug, trace};
+use log::{debug, trace, warn};
 use marlu::{
     math::num_tiles_from_num_baselines,
-    rubbl_casatables::{Table, TableOpenMode},
+    rubbl_casatables::{GlueDataType, Table, TableOpenMode},
     History, Jones, LatLngHeight, MeasurementSetWriter, MwaObsContext as MarluMwaObsContext,
     ObsContext as MarluObsContext, RADec, UvfitsWriter, VisContext, VisWrite, XyzGeodetic,
 };
@@ -499,13 +499,14 @@ pub(crate) fn write_vis(
     if let Some(source_ms) = source_ms {
         for (output, vis_type) in outputs {
             if matches!(vis_type, VisOutputType::MeasurementSet) {
+                // Use the logger, not `Warn`; collected warnings have already
+                // been displayed by now.
                 if let Err(e) = copy_beam_metadata(source_ms, output) {
-                    format!(
+                    warn!(
                         "Couldn't copy the beam metadata of '{}' to '{}': {e}",
                         source_ms.display(),
                         output.display()
-                    )
-                    .warn();
+                    );
                 }
             }
         }
@@ -538,15 +539,22 @@ fn copy_beam_metadata(source: &Path, dest: &Path) -> Result<(), String> {
         Table::open(&path, mode).map_err(|e| format!("{}: {e}", path.display()))
     };
 
+    // Find the sub-table through the main table's keyword (as EveryBeam does),
+    // as it needn't be inside the measurement set's directory.
     let mut source_main = open(source, None, TableOpenMode::Read)?;
-    if !source_main
-        .table_keyword_names()
+    let source_table_path = match source_main
+        .get_keyword_record()
+        .and_then(|mut r| r.keyword_names_types_reprs())
         .map_err(|e| e.to_string())?
-        .iter()
-        .any(|k| k == PHASED_ARRAY)
+        .into_iter()
+        .find(|(name, data_type, _)| name == PHASED_ARRAY && *data_type == GlueDataType::TpTable)
     {
-        return Ok(());
-    }
+        Some((_, _, repr)) => match repr.strip_prefix("Table: ") {
+            Some(path) => PathBuf::from(path),
+            None => source.join(PHASED_ARRAY),
+        },
+        None => return Ok(()),
+    };
 
     // The sub-table has a row per station, so the stations must be the same.
     let source_stations = open(source, Some("ANTENNA"), TableOpenMode::Read)?.n_rows();
@@ -558,7 +566,8 @@ fn copy_beam_metadata(source: &Path, dest: &Path) -> Result<(), String> {
     }
 
     let dest_table_path = dest.join(PHASED_ARRAY);
-    let mut source_table = open(source, Some(PHASED_ARRAY), TableOpenMode::Read)?;
+    let mut source_table = Table::open(&source_table_path, TableOpenMode::Read)
+        .map_err(|e| format!("{}: {e}", source_table_path.display()))?;
     source_table
         .deep_copy_no_rows(&dest_table_path.display().to_string())
         .map_err(|e| e.to_string())?;
