@@ -137,29 +137,22 @@ pub(super) fn calibrate_timeblock_constrained(
                         bot.view_mut(),
                     );
 
+                    // As in `calibrate`, compare relative to the size of `top`
+                    // and `bot`, which scale with the data weights.
                     if iteration == 1 {
-                        let mut equal = true;
-                        let mut zeros = true;
-                        for (top, bot) in top.iter().zip(bot.iter()) {
-                            let diff = *top - bot;
-                            if diff
-                                .to_float_array()
-                                .iter()
-                                .any(|d| d.abs() > stop_threshold)
-                            {
-                                equal = false;
-                                zeros = false;
-                                break;
-                            }
-                            if zeros
-                                && (top.to_float_array().iter().any(|v| v.abs() > f64::EPSILON)
-                                    || bot.to_float_array().iter().any(|v| v.abs() > f64::EPSILON))
-                            {
-                                zeros = false;
-                            }
-                        }
-                        if equal {
-                            if zeros {
+                        let max_abs = |a: &Array1<Jones<f64>>| {
+                            a.iter()
+                                .flat_map(|j| j.to_float_array())
+                                .fold(0.0_f64, |m, x| m.max(x.abs()))
+                        };
+                        let scale = max_abs(&top).max(max_abs(&bot));
+                        let max_diff = top
+                            .iter()
+                            .zip(bot.iter())
+                            .flat_map(|(top, bot)| (*top - bot).to_float_array())
+                            .fold(0.0_f64, |m, x| m.max(x.abs()));
+                        if max_diff <= stop_threshold * scale {
+                            if scale == 0.0 {
                                 failed.fill(true);
                             }
                             *settled = true;
