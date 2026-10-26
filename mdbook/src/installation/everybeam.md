@@ -85,7 +85,7 @@ The system packages can instead come from
 conda create -n hyperdrive-eb -c conda-forge \
     c-compiler cxx-compiler fortran-compiler cmake make pkg-config flex bison \
     libboost-devel "hdf5=1.14" fftw gsl libblas liblapack cfitsio \
-    freetype fontconfig expat git curl
+    expat git curl
 conda activate hyperdrive-eb
 
 # Use conda's compilers and libraries (the compiler packages don't always set
@@ -98,7 +98,7 @@ export HDF5_DIR=$CONDA_PREFIX PKG_CONFIG_PATH=$CONDA_PREFIX/lib/pkgconfig
 # Find conda's libraries at runtime without LD_LIBRARY_PATH.
 export RUSTFLAGS="-C link-arg=-Wl,-rpath,$CONDA_PREFIX/lib"
 
-cargo install --path . --locked --features plotting,everybeam-vendored
+cargo install --path . --locked --features everybeam-vendored
 ```
 
 HDF5 is pinned to 1.14 because the HDF5 bindings used by `hyperdrive` don't yet

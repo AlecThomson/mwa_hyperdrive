@@ -12,6 +12,7 @@
 //! implication being that a sky-model source's brightness is always assumed to
 //! be correct when at zenith.
 
+mod analytic;
 mod error;
 #[cfg(feature = "everybeam")]
 mod everybeam;
@@ -19,6 +20,7 @@ mod fee;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use analytic::AnalyticBeam;
 pub(crate) use error::BeamError;
 #[cfg(feature = "everybeam")]
 pub(crate) use everybeam::EveryBeam;
@@ -37,6 +39,7 @@ use hifitime::Epoch;
 use itertools::Itertools;
 use log::debug;
 use marlu::{AzEl, Jones};
+use mwa_hyperbeam::analytic::AnalyticType;
 use ndarray::{prelude::*, ArcArray2};
 use strum::IntoEnumIterator;
 
@@ -56,11 +59,20 @@ use crate::gpu::{DevicePointer, GpuFloat};
     strum_macros::EnumString,
 )]
 #[allow(clippy::upper_case_acronyms)]
+#[strum(ascii_case_insensitive)]
 pub enum BeamType {
     /// Fully-embedded element beam.
     #[strum(serialize = "fee")]
     #[default]
     FEE,
+
+    /// The mwa_pb flavour of the analytic beam.
+    #[strum(serialize = "analytic-mwa_pb", serialize = "mwa_pb")]
+    AnalyticMwaPb,
+
+    /// The RTS flavour of the analytic beam.
+    #[strum(serialize = "analytic-rts", serialize = "rts")]
+    AnalyticRts,
 
     /// a.k.a. [`NoBeam`]. Only returns identity matrices.
     #[strum(serialize = "none")]
@@ -71,6 +83,28 @@ pub enum BeamType {
     #[cfg(feature = "everybeam")]
     #[strum(serialize = "everybeam")]
     EveryBeam,
+}
+
+impl BeamType {
+    /// If this is one of the analytic beams, which flavour is it?
+    pub(crate) fn analytic_type(self) -> Option<AnalyticType> {
+        match self {
+            BeamType::AnalyticMwaPb => Some(AnalyticType::MwaPb),
+            BeamType::AnalyticRts => Some(AnalyticType::Rts),
+            BeamType::FEE | BeamType::None => None,
+            #[cfg(feature = "everybeam")]
+            BeamType::EveryBeam => None,
+        }
+    }
+}
+
+impl From<AnalyticType> for BeamType {
+    fn from(at: AnalyticType) -> BeamType {
+        match at {
+            AnalyticType::MwaPb => BeamType::AnalyticMwaPb,
+            AnalyticType::Rts => BeamType::AnalyticRts,
+        }
+    }
 }
 
 lazy_static::lazy_static! {
@@ -205,9 +239,12 @@ pub trait Beam: Sync + Send {
     }
 
     /// Given a frequency in Hz, find the closest frequency that the beam code
-    /// is defined for. An example of when this is important is with the FEE
-    /// beam code, which can only give beam responses at specific frequencies.
-    /// On the other hand, the analytic beam can be used at any frequency.
+    /// should be evaluated at. The sky modellers use this to de-duplicate the
+    /// frequencies they request beam responses for, so the result bounds how
+    /// many unique beam frequencies they evaluate and store. The FEE beam code
+    /// can only give beam responses at the specific frequencies in its file;
+    /// the analytic beam is defined at any frequency, but is evaluated on the
+    /// coarse-channel grid for the same reason.
     fn find_closest_freq(&self, desired_freq_hz: f64) -> f64;
 
     /// If this [`Beam`] supports it, empty the coefficient cache.
@@ -496,6 +533,11 @@ impl BeamGpu for NoBeamGpu {
     }
 }
 
+/// Create a beam object given the beam type (if not supplied, fall back to a
+/// default). This function _should not_ be used generally; setting up beam
+/// objects with this function cannot use dipole amps, and the FEE beam will
+/// always be set up with the `MWA_BEAM_FILE` environment variable, which the
+/// user may not have set.
 pub fn create_beam_object(
     beam_type: Option<&str>,
     num_tiles: usize,
@@ -518,10 +560,6 @@ pub fn create_beam_object(
 
         BeamType::FEE => {
             debug!("Setting up a FEE beam object");
-
-            // Check that the delays are sensible.
-            validate_delays(&dipole_delays, num_tiles)?;
-
             // Set up the FEE beam struct from the `MWA_BEAM_FILE` environment
             // variable.
             Ok(Box::new(FEEBeam::new_from_env(
@@ -534,6 +572,51 @@ pub fn create_beam_object(
         // EveryBeam needs a measurement set; see `create_everybeam_object`.
         #[cfg(feature = "everybeam")]
         BeamType::EveryBeam => Err(BeamError::NeedsBeamMs),
+
+        BeamType::AnalyticMwaPb | BeamType::AnalyticRts => {
+            let at = beam_type
+                .analytic_type()
+                .expect("only the analytic beam types reach this arm");
+            debug!("Setting up a {at:?} analytic beam object");
+            Ok(Box::new(AnalyticBeam::new(
+                at,
+                num_tiles,
+                dipole_delays,
+                None,
+            )?))
+        }
+    }
+}
+
+/// The dipole gains used when a beam response is requested without a tile
+/// index: all dipoles are assumed to be alive.
+const UNITY_GAINS: [f64; 32] = [1.0; 32];
+
+/// Select the dipole delays and gains to use for a beam calculation. With a
+/// tile index, these are that tile's rows of `delays` and `gains`; without
+/// one, they are the ideal delays with unity gains.
+fn tile_delays_and_gains<'a>(
+    delays: &'a Array2<u32>,
+    gains: &'a Array2<f64>,
+    ideal_delays: &'a [u32; 16],
+    tile_index: Option<usize>,
+) -> Result<(&'a [u32], &'a [f64]), BeamError> {
+    match tile_index {
+        Some(tile_index) => {
+            let num_tiles = delays.len_of(Axis(0));
+            if tile_index >= num_tiles {
+                return Err(BeamError::BadTileIndex {
+                    got: tile_index,
+                    num_tiles,
+                });
+            }
+            let contiguous = "rows of a standard-layout array are contiguous";
+            Ok((
+                delays.row(tile_index).to_slice().expect(contiguous),
+                gains.row(tile_index).to_slice().expect(contiguous),
+            ))
+        }
+        None => Ok((ideal_delays, &UNITY_GAINS)),
     }
 }
 
@@ -561,7 +644,7 @@ fn partial_to_full(delays: Vec<u32>, num_tiles: usize) -> Array2<u32> {
     out
 }
 
-fn validate_delays(delays: &Delays, num_tiles: usize) -> Result<(), BeamError> {
+pub(crate) fn validate_delays(delays: &Delays, num_tiles: usize) -> Result<(), BeamError> {
     match delays {
         Delays::Partial(v) => {
             if v.len() != 16 || v.iter().any(|&v| v > 32) {
@@ -584,6 +667,7 @@ fn validate_delays(delays: &Delays, num_tiles: usize) -> Result<(), BeamError> {
 
     Ok(())
 }
+
 /// De-duplicate tiles based on their MWA dipole delays and gains. See
 /// [`Beam::get_unique_tiles`].
 fn dedup_tiles_by_dipoles(

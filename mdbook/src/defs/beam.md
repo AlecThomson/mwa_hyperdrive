@@ -16,6 +16,21 @@ In addition, the FEE beam code needs an HDF5 file to function. See the
 [post-installation instructions](../installation/post.md) for information on
 getting that set up.
 
+It is possible to use the "analytic" MWA beam, and this does not require an
+additional file (but the FEE beam is the default selection). There are two
+"flavours": `mwa_pb` and `RTS`, and these can be used by specifying `--beam-type
+analytic-mwa_pb` (alias `mwa_pb`) and `--beam-type analytic-rts` (alias `rts`),
+respectively (beam type names are case-insensitive). The differences
+between the flavours is not huge, but I (CHJ) suggest the `RTS` flavour if in
+doubt, as it seems to look a little better.
+
+When modelling visibilities, the analytic beams are evaluated at the nearest
+multiple of 1.28 MHz (the MWA coarse-channel width) to each fine channel's
+frequency, which is the same frequency resolution as the FEE beam file. The
+beam changes slowly enough with frequency that this makes no meaningful
+difference, and it keeps the number of beam responses to calculate and store
+proportional to the number of coarse channels rather than fine channels.
+
 ## Errors
 
 Beam code usually does not error, but if it does it's likely because:
@@ -24,6 +39,7 @@ Beam code usually does not error, but if it does it's likely because:
 2. There aren't exactly 16 or 32 dipole gains per tile; or
 3. There's something wrong with the FEE HDF5 file. The official file is well
    tested.
+
 ## EveryBeam
 
 If `hyperdrive` was compiled with the `everybeam` feature (see [Installing with
@@ -39,11 +55,13 @@ pointing) from a measurement set:
 The number of stations in the measurement set must match the number of tiles
 in the input data, and the station order is assumed to be the same.
 
-~~~admonish warning title="Measurement sets written by hyperdrive"
-Measurement sets written by `hyperdrive` (e.g. by `vis-subtract` or
-`solutions-apply`) don't describe non-MWA telescopes, so EveryBeam can't load
-the telescope from them. When processing such outputs, point `--beam-ms` at the
-original measurement set.
+~~~admonish warning title="Files written by hyperdrive"
+When `hyperdrive` writes a measurement set (e.g. with `vis-subtract` or
+`solutions-apply`) from one with a `PHASED_ARRAY` table (e.g. SKA-Low or
+OSKAR data), it copies that table and the telescope name, so EveryBeam can use
+the output directly. Other telescope descriptions (e.g. LOFAR's) aren't copied,
+and uvfits files can't hold one; when processing such outputs, point
+`--beam-ms` at the original measurement set.
 ~~~
 
 ```shell

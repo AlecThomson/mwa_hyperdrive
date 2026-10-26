@@ -164,8 +164,9 @@ pub(crate) struct InputVisArgs {
     /// The fine channels to be flagged in each coarse channel. e.g. 0 1 16 30
     /// 31 are typical for 40 kHz data. If this is not specified, it defaults
     /// to flagging 80 kHz for raw data (or as close to this as possible) at the
-    /// edges, as well as the centre channel for non-MWAX data. Other visibility
-    /// file formats do not use this by default.
+    /// edges, as well as the centre channel for non-MWAX data. The edges of
+    /// oversampled coarse channels are not flagged. Other visibility file
+    /// formats do not use this by default.
     #[arg(long, num_args(1..), help_heading = "INPUT DATA (FLAGGING)")]
     pub(crate) fine_chan_flags_per_coarse_chan: Option<Vec<u16>>,
 
@@ -990,7 +991,9 @@ impl InputVisArgs {
             // We can't do anything without the number of fine channels per
             // coarse channel.
             (_, None) => {
-                "Flags per coarse channel were specified, but no information on how many fine channels per coarse channel is available; flags are being ignored.".warn();
+                if !fine_chan_flags_per_coarse_chan.is_empty() {
+                    "Flags per coarse channel were specified, but no information on how many fine channels per coarse channel is available; flags are being ignored.".warn();
+                }
             }
 
             // If we don't have MWA coarse channel numbers but we do have
@@ -1071,8 +1074,13 @@ impl InputVisArgs {
         };
 
         // Set up the chanblocks.
+        let fine_chan_freqs_f64: Vec<f64> = obs_context
+            .fine_chan_freqs
+            .iter()
+            .map(|&f| f as f64)
+            .collect();
         let mut spws = channels_to_chanblocks(
-            &obs_context.fine_chan_freqs,
+            &fine_chan_freqs_f64,
             freq_res,
             freq_average_factor,
             &flagged_fine_chans,

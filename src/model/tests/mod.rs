@@ -244,6 +244,8 @@ struct ObsParams {
     lst: f64,
     xyzs: Vec<XyzGeodetic>,
     uvws: Vec<UVW>,
+    /// Per-tile UVWs, for the factorised CPU kernels.
+    tile_uvws: Vec<UVW>,
     beam: Box<dyn Beam>,
     flagged_tiles: HashSet<usize>,
     array_longitude_rad: f64,
@@ -274,6 +276,10 @@ impl ObsParams {
             },
         ];
         let uvws = xyzs_to_cross_uvws(&xyzs, phase_centre.to_hadec(lst));
+        let tile_uvws = xyzs
+            .iter()
+            .map(|xyz| UVW::from_xyz(*xyz, phase_centre.to_hadec(lst)))
+            .collect();
         let beam = create_beam_object(
             Some(if no_beam { "none" } else { "fee" }),
             xyzs.len(),
@@ -290,11 +296,22 @@ impl ObsParams {
             lst,
             xyzs,
             uvws,
+            tile_uvws,
             beam,
             flagged_tiles,
             array_longitude_rad,
             array_latitude_rad,
         }
+    }
+
+    /// The same as [`ObsParams::new`], but with a caller-supplied beam. The
+    /// beam must be set up for [`ObsParams::xyzs`]'s number of tiles.
+    #[cfg(any(feature = "cuda", feature = "hip"))]
+    fn new_with_beam(beam: Box<dyn Beam>) -> ObsParams {
+        let mut obs = ObsParams::new(true);
+        assert_eq!(beam.get_num_tiles(), obs.xyzs.len());
+        obs.beam = beam;
+        obs
     }
 
     fn get_cpu_modeller(&self, srclist: &SourceList) -> SkyModellerCpu<'_> {

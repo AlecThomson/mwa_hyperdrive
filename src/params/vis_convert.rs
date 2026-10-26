@@ -186,6 +186,8 @@ impl VisConvertParams {
                         output_vis_params.output_freq_average_factor,
                         input_vis_params.vis_reader.get_marlu_mwa_info().as_ref(),
                         output_vis_params.write_smallest_contiguous_band,
+                        true,
+                        input_vis_params.vis_reader.get_ms_path(),
                         rx_data,
                         &error,
                         Some(write_progress),

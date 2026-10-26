@@ -10,7 +10,10 @@ use log::debug;
 use marlu::{AzEl, Jones};
 use ndarray::prelude::*;
 
-use super::{partial_to_full, validate_delays, Beam, BeamError, BeamTime, BeamType, Delays};
+use super::{
+    partial_to_full, tile_delays_and_gains, validate_delays, Beam, BeamError, BeamTime, BeamType,
+    Delays,
+};
 
 #[cfg(any(feature = "cuda", feature = "hip"))]
 use super::{BeamGpu, DevicePointer, GpuFloat};
@@ -33,6 +36,7 @@ impl FEEBeam {
         gains: Option<Array2<f64>>,
         file: Option<&Path>,
     ) -> Result<FEEBeam, BeamError> {
+        // Check that the delays are sensible.
         validate_delays(&delays, num_tiles)?;
 
         let ideal_delays = delays.get_ideal_delays();
@@ -115,25 +119,6 @@ impl FEEBeam {
         )
     }
 
-    fn calc_jones_array(
-        &self,
-        azels: &[AzEl],
-        freq_hz: f64,
-        delays: &[u32],
-        amps: &[f64],
-        latitude_rad: f64,
-    ) -> Result<Vec<Jones<f64>>, mwa_hyperbeam::fee::FEEBeamError> {
-        self.hyperbeam_object.calc_jones_array(
-            azels,
-            freq_hz as _,
-            delays,
-            amps,
-            true,
-            Some(latitude_rad),
-            false,
-        )
-    }
-
     fn calc_jones_array_inner(
         &self,
         azels: &[AzEl],
@@ -195,27 +180,9 @@ impl Beam for FEEBeam {
         // frequency and use that for the hash.
         let beam_freq = self.find_closest_freq(freq_hz);
 
-        let jones = if let Some(tile_index) = tile_index {
-            if tile_index > self.delays.len_of(Axis(0)) {
-                return Err(BeamError::BadTileIndex {
-                    got: tile_index,
-                    max: self.delays.len_of(Axis(0)),
-                });
-            }
-            let delays = self.delays.slice(s![tile_index, ..]);
-            let amps = self.gains.slice(s![tile_index, ..]);
-            self.calc_jones_inner(
-                azel,
-                beam_freq,
-                delays.as_slice().unwrap(),
-                amps.as_slice().unwrap(),
-                latitude_rad,
-            )?
-        } else {
-            let delays = &self.ideal_delays;
-            let amps = [1.0; 32];
-            self.calc_jones_inner(azel, beam_freq, delays, &amps, latitude_rad)?
-        };
+        let (delays, amps) =
+            tile_delays_and_gains(&self.delays, &self.gains, &self.ideal_delays, tile_index)?;
+        let jones = self.calc_jones_inner(azel, beam_freq, delays, amps, latitude_rad)?;
         Ok(jones)
     }
 
@@ -225,35 +192,18 @@ impl Beam for FEEBeam {
         freq_hz: f64,
         tile_index: Option<usize>,
         latitude_rad: f64,
-        _time: Option<BeamTime>,
+        time: Option<BeamTime>,
     ) -> Result<Vec<Jones<f64>>, BeamError> {
-        // The FEE beam is defined only at specific frequencies. For this
-        // reason, rather than making a unique hash for every single different
-        // frequency, round specified frequency (`freq_hz`) to the nearest beam
-        // frequency and use that for the hash.
-        let beam_freq = self.find_closest_freq(freq_hz);
-
-        let jones = if let Some(tile_index) = tile_index {
-            if tile_index > self.delays.len_of(Axis(0)) {
-                return Err(BeamError::BadTileIndex {
-                    got: tile_index,
-                    max: self.delays.len_of(Axis(0)),
-                });
-            }
-            let delays = self.delays.slice(s![tile_index, ..]);
-            let amps = self.gains.slice(s![tile_index, ..]);
-            self.calc_jones_array(
-                azels,
-                beam_freq,
-                delays.as_slice().unwrap(),
-                amps.as_slice().unwrap(),
-                latitude_rad,
-            )?
-        } else {
-            let delays = &self.ideal_delays;
-            let amps = [1.0; 32];
-            self.calc_jones_array(azels, beam_freq, delays, &amps, latitude_rad)?
-        };
+        let mut jones = vec![Jones::default(); azels.len()];
+        Beam::calc_jones_array_inner(
+            self,
+            azels,
+            freq_hz,
+            tile_index,
+            latitude_rad,
+            time,
+            &mut jones,
+        )?;
         Ok(jones)
     }
 
@@ -272,28 +222,9 @@ impl Beam for FEEBeam {
         // frequency and use that for the hash.
         let beam_freq = self.find_closest_freq(freq_hz);
 
-        if let Some(tile_index) = tile_index {
-            if tile_index > self.delays.len_of(Axis(0)) {
-                return Err(BeamError::BadTileIndex {
-                    got: tile_index,
-                    max: self.delays.len_of(Axis(0)),
-                });
-            }
-            let delays = self.delays.slice(s![tile_index, ..]);
-            let amps = self.gains.slice(s![tile_index, ..]);
-            self.calc_jones_array_inner(
-                azels,
-                beam_freq,
-                delays.as_slice().unwrap(),
-                amps.as_slice().unwrap(),
-                latitude_rad,
-                results,
-            )?;
-        } else {
-            let delays = &self.ideal_delays;
-            let amps = [1.0; 32];
-            self.calc_jones_array_inner(azels, beam_freq, delays, &amps, latitude_rad, results)?;
-        }
+        let (delays, amps) =
+            tile_delays_and_gains(&self.delays, &self.gains, &self.ideal_delays, tile_index)?;
+        self.calc_jones_array_inner(azels, beam_freq, delays, amps, latitude_rad, results)?;
         Ok(())
     }
 

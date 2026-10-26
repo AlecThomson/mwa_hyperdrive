@@ -12,9 +12,7 @@ usage is described
 Run `bin/hyperdrive`. The libraries it needs are in `lib/`, and casacore's
 measures data are in `share/casacore/data` (these are used automatically,
 unless casacore's measures data are configured elsewhere, e.g. in `~/.casarc`).
-These binaries should work on any x86-64 Linux with glibc 2.28 or newer. They
-can plot calibration solutions (`hyperdrive solutions-plot`), which needs some
-fonts to be installed (most systems have them).
+These binaries should work on any x86-64 Linux with glibc 2.28 or newer.
 
 The MWA FEE beam also works, but needs the MWA FEE beam HDF5 file:
 

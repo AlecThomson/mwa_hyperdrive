@@ -92,6 +92,51 @@ fn test_calibrate_trivial() {
     assert_abs_diff_eq!(di_jones, expected, epsilon = 1e-14);
 }
 
+/// The data and model are multiplied by the data weights before calibrating,
+/// and only the weights' relative values matter, so tiny weights must give the
+/// same solutions (not identity, as an absolute "data equals model" check did).
+#[test]
+fn test_calibrate_is_independent_of_weight_scale() {
+    let num_tiles = 5;
+    let num_baselines = num_tiles * (num_tiles - 1) / 2;
+    let vis_shape = (1, 1, num_baselines);
+    for scale in [1.0, 1e-9, 1e-15] {
+        let vis_data = Array3::from_elem(vis_shape, Jones::<f32>::identity() * 4.0 * scale);
+        let vis_model = Array3::from_elem(vis_shape, Jones::<f32>::identity() * scale);
+        let mut di_jones = Array1::from_elem(num_tiles, Jones::<f64>::identity());
+        let result = calibrate(
+            vis_data.view(),
+            vis_model.view(),
+            di_jones.view_mut(),
+            20,
+            1e-8,
+            1e-5,
+            Polarisations::default(),
+        );
+        assert!(result.converged, "scale {scale}");
+        assert_eq!(result.num_failed, 0, "scale {scale}");
+        let expected = Array1::from_elem(num_tiles, Jones::identity() * 2.0);
+        assert_abs_diff_eq!(di_jones, expected, epsilon = 1e-6);
+
+        // Data that already match the model still stop straight away, at
+        // identity.
+        let mut di_jones = Array1::from_elem(num_tiles, Jones::<f64>::identity());
+        let result = calibrate(
+            vis_model.view(),
+            vis_model.view(),
+            di_jones.view_mut(),
+            20,
+            1e-8,
+            1e-5,
+            Polarisations::default(),
+        );
+        assert!(result.converged, "scale {scale}");
+        assert_eq!(result.num_iterations, 1, "scale {scale}");
+        let expected = Array1::from_elem(num_tiles, Jones::identity());
+        assert_abs_diff_eq!(di_jones, expected, epsilon = 1e-14);
+    }
+}
+
 /// As above, but make one Jones matrix much "bigger" than the rest. This should
 /// make the calibration solutions not match what we expected, but when it's
 /// flagged via the weights, things go back to normal.
@@ -677,7 +722,7 @@ fn test_multiple_timeblocks_behave() {
         None,
     );
     let spws = channels_to_chanblocks(
-        &[150000000],
+        &[150000000.0],
         40e3,
         NonZeroUsize::new(1).unwrap(),
         &HashSet::new(),
@@ -713,7 +758,7 @@ fn test_chanblocks_without_data_have_nan_solutions() {
     let num_timesteps = timestamps.len();
     let num_tiles = 5;
     let num_baselines = num_tiles * (num_tiles - 1) / 2;
-    let freqs = [150000000];
+    let freqs = [150000000.0];
     let num_chanblocks = freqs.len();
 
     let vis_shape = (num_timesteps, num_chanblocks, num_baselines);
@@ -771,7 +816,7 @@ fn test_recalibrating_failed_chanblocks() {
     let num_timesteps = timestamps.len();
     let num_tiles = 5;
     let num_baselines = num_tiles * (num_tiles - 1) / 2;
-    let freqs = [150000000, 150040000, 150080000];
+    let freqs = [150000000.0, 150040000.0, 150080000.0];
     let num_chanblocks = freqs.len();
 
     let vis_shape = (num_timesteps, num_chanblocks, num_baselines);
@@ -784,12 +829,8 @@ fn test_recalibrating_failed_chanblocks() {
         NonZeroUsize::new(1).unwrap(),
         None,
     );
-    let fences = channels_to_chanblocks(
-        &freqs,
-        40000.0,
-        NonZeroUsize::new(1).unwrap(),
-        &HashSet::new(),
-    );
+    let fences =
+        channels_to_chanblocks(&freqs, 40e3, NonZeroUsize::new(1).unwrap(), &HashSet::new());
 
     // Unlike `calibrate_timeblocks`, `calibrate_timeblock` takes in calibration
     // solutions. These are initially set to identity by `calibrate_timeblocks`;

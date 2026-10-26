@@ -389,7 +389,7 @@ impl EveryBeamInner {
         if let Some(&s) = stations.iter().find(|&&s| s >= self.num_stations) {
             return Err(BeamError::BadTileIndex {
                 got: s,
-                max: self.num_stations - 1,
+                num_tiles: self.num_stations,
             });
         }
         if radecs.is_empty() || freqs_hz.is_empty() || stations.is_empty() {

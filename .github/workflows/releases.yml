@@ -53,9 +53,6 @@ jobs:
             git \
             lcov \
             libhdf5-dev \
-            libfreetype-dev \
-            libexpat1-dev \
-            libfontconfig-dev \
             ;
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -113,20 +110,19 @@ jobs:
             export CXXFLAGS="-march=x86-64-v${ARCH}"
             export RUSTFLAGS="-C target-cpu=x86-64-v${ARCH}"
 
-            # Use --no-default-features to disable plotting; it's too hard to make this portable.
-            cargo build --profile production --locked --no-default-features --features=hdf5-static
+            cargo build --profile production --locked --features=hdf5-static
             mv target/production/hyperdrive .
             tar -acvf mwa_hyperdrive-$(git describe --tags)-Linux-x86-64-v${ARCH}.tar.gz \
             LICENSE COPYING-hdf5 LICENSE-erfa LICENSE-cfitsio README.md \
             hyperdrive
 
-            cargo build --profile production --locked --no-default-features --features=hdf5-static,cuda
+            cargo build --profile production --locked --features=hdf5-static,cuda
             mv target/production/hyperdrive .
             tar -acvf mwa_hyperdrive-$(git describe --tags)-Linux-x86-64-v${ARCH}-CUDA-double.tar.gz \
             LICENSE COPYING-hdf5 LICENSE-erfa LICENSE-cfitsio LICENSE-NVIDIA README.md \
             hyperdrive
 
-            cargo build --profile production --locked --no-default-features --features=hdf5-static,cuda,gpu-single
+            cargo build --profile production --locked --features=hdf5-static,cuda,gpu-single
             mv target/production/hyperdrive .
             tar -acvf mwa_hyperdrive-$(git describe --tags)-Linux-x86-64-v${ARCH}-CUDA-single.tar.gz \
             LICENSE COPYING-hdf5 LICENSE-erfa LICENSE-cfitsio LICENSE-NVIDIA README.md \
@@ -165,7 +161,7 @@ jobs:
             gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-gcc-gfortran \
             cmake make perl patchelf flex bison curl git tar gzip autoconf automake libtool \
             boost-devel hdf5-devel fftw-devel gsl-devel blas-devel lapack-devel \
-            freetype-devel fontconfig-devel expat-devel \
+            expat-devel \
             ;
           echo "/opt/rh/gcc-toolset-13/root/usr/bin" >> "$GITHUB_PATH"
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
@@ -197,11 +193,10 @@ jobs:
             export CXXFLAGS="-march=x86-64-v${ARCH}"
             export RUSTFLAGS="-C target-cpu=x86-64-v${ARCH}"
 
-            # Shared libraries (e.g. HDF5, whose C++ library EveryBeam needs,
-            # and freetype/fontconfig for plotting) come from the system and
-            # are bundled by bundle_libs.sh.
+            # Shared libraries (e.g. HDF5, whose C++ library EveryBeam needs)
+            # come from the system and are bundled by bundle_libs.sh.
             cargo build --profile production --locked \
-              --features=plotting,everybeam-vendored,cfitsio-static
+              --features=everybeam-vendored,cfitsio-static
 
             DIR="mwa_hyperdrive-${VERSION}-Linux-x86-64-v${ARCH}-everybeam"
             rm -rf "$DIR"
@@ -244,11 +239,10 @@ jobs:
           TARBALL=$(ls *-x86-64-v2-everybeam.tar.gz)
           docker run --rm -v "$PWD:/work" -w /work ubuntu:20.04 bash -c "
             set -ex
-            # Fonts (but not fontconfig/freetype themselves) are needed to plot.
             apt-get update -qq
             # gdb is only used to get a backtrace if hyperdrive crashes.
             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-              fontconfig-config fonts-dejavu-core gdb
+              gdb
             tar -xf $TARBALL
             HYP=\$(ls -d *-everybeam)/bin/hyperdrive
             \$HYP --version
@@ -320,9 +314,6 @@ jobs:
             git \
             lcov \
             libhdf5-dev \
-            libfreetype-dev \
-            libexpat1-dev \
-            libfontconfig-dev \
             ;
         env:
           DEBIAN_FRONTEND: noninteractive

@@ -6,10 +6,13 @@
 
 use std::{fs::File, path::Path};
 
-use log::{debug, trace};
+use log::{debug, trace, warn};
 
-use super::{error::ReadSourceListError, SourceList, SourceListType};
-use crate::srclist::{ao, dp3, fits, hyperdrive, rts, woden};
+use super::{error::ReadSourceListError, FluxDensityType, SourceList, SourceListType};
+use crate::{
+    constants::DEFAULT_SPEC_INDEX,
+    srclist::{ao, dp3, fits, hyperdrive, rts, woden},
+};
 
 /// Given the path to a sky-model source list file (and optionally its type,
 /// e.g. "RTS style"), return a [SourceList] object. The [SourceListType] is
@@ -88,6 +91,11 @@ pub(crate) fn read_source_list_file<P: AsRef<Path>>(
                 }
             }
 
+            Some(SourceListType::Dp3) => {
+                let mut f = std::io::BufReader::new(File::open(path)?);
+                dp3::parse_source_list(&mut f).map(|sl| (sl, SourceListType::Dp3))
+            }
+
             Some(SourceListType::Woden) => {
                 let mut f = std::io::BufReader::new(File::open(path)?);
                 match woden::parse_source_list(&mut f) {
@@ -96,12 +104,17 @@ pub(crate) fn read_source_list_file<P: AsRef<Path>>(
                 }
             }
 
-            Some(SourceListType::Dp3) => {
-                let mut f = std::io::BufReader::new(File::open(path)?);
-                dp3::parse_source_list(&mut f).map(|sl| (sl, SourceListType::Dp3))
-            }
-
             None => {
+                // DP3/BBS sky models (usually with a .skymodel or .txt
+                // extension) are identified by their format line; if there is
+                // one, then any error reading the file is the interesting one.
+                if dp3::looks_like_dp3(path) {
+                    debug!("Read as a DP3/BBS sky model");
+                    let mut f = std::io::BufReader::new(File::open(path)?);
+                    return dp3::parse_source_list(&mut f).map(|sl| (sl, SourceListType::Dp3));
+                }
+                trace!("Source list does not look like a DP3/BBS sky model (no format line)");
+
                 // Try all kinds.
                 match fits::parse_source_list(path) {
                     Ok(sl) => return Ok((sl, SourceListType::Fits)),
@@ -122,13 +135,6 @@ pub(crate) fn read_source_list_file<P: AsRef<Path>>(
                     Ok(sl) => return Ok((sl, SourceListType::AO)),
                     Err(_) => {
                         trace!("Failed to read source list as ao-style");
-                        f = std::io::BufReader::new(File::open(path)?);
-                    }
-                }
-                match dp3::parse_source_list(&mut f) {
-                    Ok(sl) => return Ok((sl, SourceListType::Dp3)),
-                    Err(_) => {
-                        trace!("Failed to read source list as dp3-style");
                         f = std::io::BufReader::new(File::open(path)?);
                     }
                 }
@@ -156,5 +162,81 @@ pub(crate) fn read_source_list_file<P: AsRef<Path>>(
             }
         }
     }
-    inner(path.as_ref(), sl_type)
+    let (source_list, source_list_type) = inner(path.as_ref(), sl_type)?;
+    let n = count_single_entry_flux_lists(&source_list);
+    if n > 0 {
+        warn!(
+            "{n} source-list component{} {} a flux-density list with a single entry; \
+             such components are extrapolated with a spectral index of {DEFAULT_SPEC_INDEX} \
+             (write a power law with a spectral index of 0 for a flat spectrum)",
+            if n == 1 { "" } else { "s" },
+            if n == 1 { "has" } else { "have" }
+        );
+    }
+    Ok((source_list, source_list_type))
+}
+
+/// The number of components whose flux density is a list with one entry.
+/// Those can't be interpolated, so hyperdrive extrapolates them with
+/// [`DEFAULT_SPEC_INDEX`], which is easy to miss.
+fn count_single_entry_flux_lists(source_list: &SourceList) -> usize {
+    source_list
+        .values()
+        .flat_map(|source| source.components.iter())
+        .filter(|comp| matches!(&comp.flux_type, FluxDensityType::List(fds) if fds.len() == 1))
+        .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use marlu::RADec;
+    use vec1::vec1;
+
+    use super::*;
+    use crate::srclist::{ComponentType, FluxDensity, Source, SourceComponent};
+
+    fn comp(flux_type: FluxDensityType) -> SourceComponent {
+        SourceComponent {
+            radec: RADec::from_degrees(0.0, -27.0),
+            comp_type: ComponentType::Point,
+            flux_type,
+        }
+    }
+
+    fn fd(freq: f64) -> FluxDensity {
+        FluxDensity {
+            freq,
+            i: 1.0,
+            q: 0.0,
+            u: 0.0,
+            v: 0.0,
+        }
+    }
+
+    #[test]
+    fn single_entry_flux_lists_are_counted() {
+        let mut sl = SourceList::new();
+        sl.insert(
+            "one".to_string(),
+            Source {
+                components: vec![
+                    comp(FluxDensityType::List(vec1![fd(150e6)])),
+                    comp(FluxDensityType::List(vec1![fd(150e6), fd(180e6)])),
+                    comp(FluxDensityType::PowerLaw {
+                        si: 0.0,
+                        fd: fd(150e6),
+                    }),
+                ]
+                .into_boxed_slice(),
+            },
+        );
+        sl.insert(
+            "two".to_string(),
+            Source {
+                components: vec![comp(FluxDensityType::List(vec1![fd(150e6)]))].into_boxed_slice(),
+            },
+        );
+        assert_eq!(count_single_entry_flux_lists(&sl), 2);
+        assert_eq!(count_single_entry_flux_lists(&SourceList::new()), 0);
+    }
 }

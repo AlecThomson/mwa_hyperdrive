@@ -1,0 +1,507 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+//! Code for analytic beam calculations.
+
+use std::f64::consts::FRAC_PI_2;
+
+use log::debug;
+use marlu::{AzEl, Jones};
+use mwa_hyperbeam::analytic::AnalyticType;
+use ndarray::prelude::*;
+
+use super::{
+    partial_to_full, tile_delays_and_gains, validate_delays, Beam, BeamError, BeamTime, BeamType,
+    Delays,
+};
+
+#[cfg(any(feature = "cuda", feature = "hip"))]
+use super::{BeamGpu, DevicePointer, GpuFloat};
+
+/// The frequency resolution at which the analytic beams are evaluated by the
+/// sky modellers \[Hz\]. This is the MWA coarse-channel width, and also the
+/// resolution of the FEE beam file.
+///
+/// The analytic beam is defined at any frequency, but it varies slowly enough
+/// in frequency that evaluating it on this grid loses nothing of note, and it
+/// keeps the number of unique beam frequencies (and so the size of the beam
+/// response arrays the modellers allocate) proportional to the number of
+/// coarse channels rather than the number of fine channels.
+pub(crate) const ANALYTIC_BEAM_FREQ_RES_HZ: f64 = 1.28e6;
+
+/// A wrapper of the `AnalyticBeam` struct in hyperbeam that implements the
+/// [`Beam`] trait.
+pub(crate) struct AnalyticBeam {
+    hyperbeam_object: mwa_hyperbeam::analytic::AnalyticBeam,
+    analytic_type: AnalyticType,
+    delays: Array2<u32>,
+    gains: Array2<f64>,
+    ideal_delays: [u32; 16],
+}
+
+impl AnalyticBeam {
+    pub(crate) fn new(
+        at: AnalyticType,
+        num_tiles: usize,
+        delays: Delays,
+        gains: Option<Array2<f64>>,
+    ) -> Result<AnalyticBeam, BeamError> {
+        // Check that the delays are sensible.
+        validate_delays(&delays, num_tiles)?;
+
+        let ideal_delays = delays.get_ideal_delays();
+        debug!("Ideal dipole delays: {:?}", ideal_delays);
+
+        let delays = match delays {
+            Delays::Full(d) => d,
+            Delays::Partial(d) => partial_to_full(d, num_tiles),
+        };
+
+        // If no gains were provided, assume all are alive.
+        let gains = match gains {
+            Some(g) => {
+                debug!("Using supplied dipole gains");
+                g
+            }
+            None => {
+                debug!("No dipole gains supplied; setting all to 1");
+                Array2::ones((delays.len_of(Axis(0)), 32))
+            }
+        };
+
+        // Complain if the dimensions of delays and gains don't match.
+        if delays.dim().0 != gains.dim().0 {
+            return Err(BeamError::DelayGainsDimensionMismatch {
+                delays: delays.dim().0,
+                gains: gains.dim().0,
+            });
+        }
+
+        // Wrap the `AnalyticBeam` out of hyperbeam with our own `AnalyticBeam`.
+        let hyperbeam_object = mwa_hyperbeam::analytic::AnalyticBeam::new_custom(
+            at,
+            at.get_default_dipole_height(),
+            4,
+        );
+        Ok(AnalyticBeam {
+            hyperbeam_object,
+            analytic_type: at,
+            delays,
+            gains,
+            ideal_delays,
+        })
+    }
+
+    fn calc_jones_inner(
+        &self,
+        azel: AzEl,
+        freq_hz: f64,
+        delays: &[u32],
+        amps: &[f64],
+        latitude_rad: f64,
+    ) -> Result<Jones<f64>, mwa_hyperbeam::analytic::AnalyticBeamError> {
+        // hyperbeam refuses to evaluate the analytic beam below the horizon,
+        // whereas the FEE beam has no such check. The sky modellers do not
+        // filter directions by elevation (sources are only vetoed at one LST),
+        // so a component that sets during an observation would otherwise abort
+        // the whole model. A zero response is the physically sensible answer
+        // for a direction the ground plane blocks, and it is what the GPU
+        // code is expected to produce too.
+        if azel.za() > FRAC_PI_2 {
+            return Ok(Jones::default());
+        }
+        self.hyperbeam_object.calc_jones_pair(
+            azel.az,
+            azel.za(),
+            freq_hz as _,
+            delays,
+            amps,
+            latitude_rad,
+            true,
+        )
+    }
+
+    fn calc_jones_array_inner(
+        &self,
+        azels: &[AzEl],
+        freq_hz: f64,
+        delays: &[u32],
+        amps: &[f64],
+        latitude_rad: f64,
+        results: &mut [Jones<f64>],
+    ) -> Result<(), mwa_hyperbeam::analytic::AnalyticBeamError> {
+        // See `calc_jones_inner` for why below-horizon directions get a zero
+        // response rather than an error. The common case has every direction
+        // above the horizon, so only pay for the filtering when necessary.
+        if azels.iter().all(|azel| azel.za() <= FRAC_PI_2) {
+            return self.hyperbeam_object.calc_jones_array_inner(
+                azels,
+                freq_hz as _,
+                delays,
+                amps,
+                latitude_rad,
+                true,
+                results,
+            );
+        }
+
+        let above_horizon: Vec<AzEl> = azels
+            .iter()
+            .copied()
+            .filter(|azel| azel.za() <= FRAC_PI_2)
+            .collect();
+        let mut above_horizon_results = vec![Jones::default(); above_horizon.len()];
+        self.hyperbeam_object.calc_jones_array_inner(
+            &above_horizon,
+            freq_hz as _,
+            delays,
+            amps,
+            latitude_rad,
+            true,
+            &mut above_horizon_results,
+        )?;
+        let mut above_horizon_results = above_horizon_results.into_iter();
+        for (azel, result) in azels.iter().zip(results.iter_mut()) {
+            *result = if azel.za() > FRAC_PI_2 {
+                Jones::default()
+            } else {
+                above_horizon_results
+                    .next()
+                    .expect("one result per above-horizon direction")
+            };
+        }
+        Ok(())
+    }
+}
+
+impl Beam for AnalyticBeam {
+    fn get_beam_type(&self) -> BeamType {
+        BeamType::from(self.analytic_type)
+    }
+
+    fn get_num_tiles(&self) -> usize {
+        self.delays.len_of(Axis(0))
+    }
+
+    fn get_ideal_dipole_delays(&self) -> Option<[u32; 16]> {
+        Some(self.ideal_delays)
+    }
+
+    fn get_dipole_delays(&self) -> Option<ArcArray<u32, Dim<[usize; 2]>>> {
+        Some(self.delays.to_shared())
+    }
+
+    fn get_dipole_gains(&self) -> Option<ArcArray<f64, Dim<[usize; 2]>>> {
+        Some(self.gains.to_shared())
+    }
+
+    fn get_beam_file(&self) -> Option<&std::path::Path> {
+        None
+    }
+
+    fn calc_jones(
+        &self,
+        azel: marlu::AzEl,
+        freq_hz: f64,
+        tile_index: Option<usize>,
+        latitude_rad: f64,
+        _time: Option<BeamTime>,
+    ) -> Result<Jones<f64>, BeamError> {
+        let (delays, amps) =
+            tile_delays_and_gains(&self.delays, &self.gains, &self.ideal_delays, tile_index)?;
+        let jones = self.calc_jones_inner(azel, freq_hz, delays, amps, latitude_rad)?;
+        Ok(jones)
+    }
+
+    fn calc_jones_array(
+        &self,
+        azels: &[AzEl],
+        freq_hz: f64,
+        tile_index: Option<usize>,
+        latitude_rad: f64,
+        time: Option<BeamTime>,
+    ) -> Result<Vec<marlu::Jones<f64>>, BeamError> {
+        let mut jones = vec![Jones::default(); azels.len()];
+        Beam::calc_jones_array_inner(
+            self,
+            azels,
+            freq_hz,
+            tile_index,
+            latitude_rad,
+            time,
+            &mut jones,
+        )?;
+        Ok(jones)
+    }
+
+    fn calc_jones_array_inner(
+        &self,
+        azels: &[marlu::AzEl],
+        freq_hz: f64,
+        tile_index: Option<usize>,
+        latitude_rad: f64,
+        _time: Option<BeamTime>,
+        results: &mut [marlu::Jones<f64>],
+    ) -> Result<(), BeamError> {
+        let (delays, amps) =
+            tile_delays_and_gains(&self.delays, &self.gains, &self.ideal_delays, tile_index)?;
+        self.calc_jones_array_inner(azels, freq_hz, delays, amps, latitude_rad, results)?;
+        Ok(())
+    }
+
+    fn find_closest_freq(&self, desired_freq_hz: f64) -> f64 {
+        (desired_freq_hz / ANALYTIC_BEAM_FREQ_RES_HZ).round() * ANALYTIC_BEAM_FREQ_RES_HZ
+    }
+
+    fn empty_coeff_cache(&self) {}
+
+    #[cfg(any(feature = "cuda", feature = "hip"))]
+    fn prepare_gpu_beam(&self, freqs_hz: &[u32]) -> Result<Box<dyn BeamGpu>, BeamError> {
+        let gpu_beam = unsafe {
+            self.hyperbeam_object
+                .gpu_prepare(self.delays.view(), self.gains.view())?
+        };
+        // Evaluate on the same coarse-channel grid as the CPU modeller (see
+        // `find_closest_freq`), so that the fine channels within a coarse
+        // channel share one beam response. This mirrors the frequency
+        // de-duplication done by hyperbeam's FEE `gpu_prepare`: the unique
+        // grid frequencies are kept in first-seen order, and `freq_map` takes
+        // each supplied frequency to its grid frequency's index.
+        let mut unique_freqs: Vec<u32> = vec![];
+        let mut freq_map: Vec<i32> = Vec::with_capacity(freqs_hz.len());
+        for &freq in freqs_hz {
+            let beam_freq = self.find_closest_freq(f64::from(freq)) as u32;
+            let index = match unique_freqs.iter().position(|&f| f == beam_freq) {
+                Some(index) => index,
+                None => {
+                    unique_freqs.push(beam_freq);
+                    unique_freqs.len() - 1
+                }
+            };
+            freq_map.push(index.try_into().expect("smaller than i32::MAX"));
+        }
+        let d_freqs_hz = DevicePointer::copy_to_device(&unique_freqs)?;
+        let d_freq_map = DevicePointer::copy_to_device(&freq_map)?;
+        Ok(Box::new(AnalyticBeamGpu {
+            hyperbeam_object: gpu_beam,
+            beam_type: self.get_beam_type(),
+            d_freqs_hz,
+            d_freq_map,
+        }))
+    }
+}
+
+#[cfg(any(feature = "cuda", feature = "hip"))]
+struct AnalyticBeamGpu {
+    hyperbeam_object: mwa_hyperbeam::analytic::AnalyticBeamGpu,
+    beam_type: BeamType,
+    d_freqs_hz: DevicePointer<u32>,
+    d_freq_map: DevicePointer<i32>,
+}
+
+#[cfg(any(feature = "cuda", feature = "hip"))]
+impl BeamGpu for AnalyticBeamGpu {
+    unsafe fn calc_jones_pair(
+        &self,
+        az_rad: &[GpuFloat],
+        za_rad: &[GpuFloat],
+        latitude_rad: f64,
+        _time: Option<BeamTime>,
+        d_jones: *mut std::ffi::c_void,
+    ) -> Result<(), BeamError> {
+        let d_az_rad = DevicePointer::copy_to_device(az_rad)?;
+        let d_za_rad = DevicePointer::copy_to_device(za_rad)?;
+        let num_directions = az_rad.len().try_into().expect("not bigger than i32::MAX");
+        self.hyperbeam_object.calc_jones_device_pair_inner(
+            d_az_rad.get(),
+            d_za_rad.get(),
+            num_directions,
+            self.d_freqs_hz.get(),
+            self.get_num_unique_freqs(),
+            latitude_rad as GpuFloat,
+            true,
+            d_jones,
+        )?;
+        // hyperbeam (>= 0.11.1) writes a zero response for directions below the
+        // horizon, matching `calc_jones_inner`.
+        Ok(())
+    }
+
+    fn get_beam_type(&self) -> BeamType {
+        self.beam_type
+    }
+
+    fn get_tile_map(&self) -> *const i32 {
+        self.hyperbeam_object.get_device_tile_map()
+    }
+
+    fn get_freq_map(&self) -> *const i32 {
+        self.d_freq_map.get()
+    }
+
+    fn get_num_unique_tiles(&self) -> i32 {
+        self.hyperbeam_object.get_num_unique_tiles()
+    }
+
+    fn get_num_unique_freqs(&self) -> i32 {
+        self.d_freqs_hz
+            .get_num_elements()
+            .try_into()
+            .expect("not bigger than i32::MAX")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use approx::assert_abs_diff_eq;
+    use marlu::{constants::MWA_LAT_RAD, AzEl};
+
+    use super::*;
+
+    #[test]
+    fn calc_jones_array_helper_and_getters() {
+        let delays = Delays::Partial(vec![0, 2, 4, 6, 0, 2, 4, 6, 0, 2, 4, 6, 0, 2, 4, 6]);
+        let beam = AnalyticBeam::new(AnalyticType::MwaPb, 2, delays, None).unwrap();
+        assert_eq!(beam.get_beam_type(), BeamType::AnalyticMwaPb);
+        assert_eq!(beam.get_num_tiles(), 2);
+        assert_eq!(
+            beam.get_ideal_dipole_delays(),
+            Some([0, 2, 4, 6, 0, 2, 4, 6, 0, 2, 4, 6, 0, 2, 4, 6])
+        );
+        assert!(beam.get_dipole_delays().is_some());
+        assert!(beam.get_dipole_gains().is_some());
+        assert!(beam.get_beam_file().is_none());
+        beam.empty_coeff_cache();
+
+        let azels = [AzEl { az: 0.0, el: 1.2 }];
+        let jones = beam
+            .calc_jones_array(&azels, 150e6, None, MWA_LAT_RAD, None)
+            .unwrap();
+        assert_eq!(jones.len(), 1);
+        assert!(jones[0][0].norm().is_finite());
+    }
+
+    #[test]
+    fn rts_beam_and_error_paths() {
+        let beam =
+            AnalyticBeam::new(AnalyticType::Rts, 1, Delays::Partial(vec![0; 16]), None).unwrap();
+        assert_eq!(beam.get_beam_type(), BeamType::AnalyticRts);
+
+        let azel = AzEl { az: 0.1, el: 1.0 };
+        beam.calc_jones(azel, 180e6, None, MWA_LAT_RAD, None)
+            .unwrap();
+        beam.calc_jones(azel, 180e6, Some(0), MWA_LAT_RAD, None)
+            .unwrap();
+        assert!(matches!(
+            beam.calc_jones(azel, 180e6, Some(1), MWA_LAT_RAD, None),
+            Err(BeamError::BadTileIndex {
+                got: 1,
+                num_tiles: 1
+            })
+        ));
+        assert!(matches!(
+            beam.calc_jones(azel, 180e6, Some(2), MWA_LAT_RAD, None),
+            Err(BeamError::BadTileIndex {
+                got: 2,
+                num_tiles: 1
+            })
+        ));
+
+        let azels = [azel, AzEl { az: -0.2, el: 0.8 }];
+        let array = beam
+            .calc_jones_array(&azels, 180e6, Some(0), MWA_LAT_RAD, None)
+            .unwrap();
+        assert_eq!(array.len(), 2);
+        assert!(matches!(
+            beam.calc_jones_array(&azels, 180e6, Some(3), MWA_LAT_RAD, None),
+            Err(BeamError::BadTileIndex { .. })
+        ));
+
+        let full = Delays::Full(Array2::zeros((2, 16)));
+        let gains = Array2::ones((1, 32));
+        assert!(matches!(
+            AnalyticBeam::new(AnalyticType::MwaPb, 2, full, Some(gains)),
+            Err(BeamError::DelayGainsDimensionMismatch {
+                delays: 2,
+                gains: 1
+            })
+        ));
+
+        assert!(matches!(
+            AnalyticBeam::new(AnalyticType::MwaPb, 1, Delays::Partial(vec![0; 3]), None),
+            Err(BeamError::BadDelays)
+        ));
+        assert!(matches!(
+            AnalyticBeam::new(
+                AnalyticType::Rts,
+                1,
+                Delays::Full(Array2::zeros((2, 16))),
+                None
+            ),
+            Err(BeamError::InconsistentDelays {
+                num_rows: 2,
+                num_tiles: 1
+            })
+        ));
+
+        let supplied = Array2::ones((1, 32));
+        AnalyticBeam::new(
+            AnalyticType::MwaPb,
+            1,
+            Delays::Partial(vec![0; 16]),
+            Some(supplied),
+        )
+        .unwrap();
+    }
+
+    /// The modellers evaluate the analytic beam on the coarse-channel grid.
+    #[test]
+    fn closest_freq_is_on_the_coarse_channel_grid() {
+        let beam =
+            AnalyticBeam::new(AnalyticType::MwaPb, 1, Delays::Partial(vec![0; 16]), None).unwrap();
+        assert_abs_diff_eq!(beam.find_closest_freq(122.88e6), 122.88e6);
+        assert_abs_diff_eq!(beam.find_closest_freq(123e6), 122.88e6);
+        assert_abs_diff_eq!(beam.find_closest_freq(123.6e6), 124.16e6);
+        assert_abs_diff_eq!(beam.find_closest_freq(150e6), 149.76e6);
+        // The 40 kHz fine channels of a coarse channel all map to its centre.
+        let centre = 167.68e6;
+        for i in -16..16 {
+            assert_abs_diff_eq!(beam.find_closest_freq(centre + 40e3 * f64::from(i)), centre);
+        }
+    }
+
+    /// Directions below the horizon get a zero response, not an error, and
+    /// they don't disturb the responses of the other directions.
+    #[test]
+    fn below_horizon_is_zero() {
+        let beam =
+            AnalyticBeam::new(AnalyticType::Rts, 2, Delays::Partial(vec![0; 16]), None).unwrap();
+        let below = AzEl { az: 0.5, el: -0.1 };
+        let above = [AzEl { az: 0.1, el: 1.0 }, AzEl { az: -0.2, el: 0.8 }];
+
+        for tile_index in [None, Some(1)] {
+            let j = beam
+                .calc_jones(below, 180e6, tile_index, MWA_LAT_RAD, None)
+                .unwrap();
+            assert_eq!(j, Jones::default());
+
+            let expected = beam
+                .calc_jones_array(&above, 180e6, tile_index, MWA_LAT_RAD, None)
+                .unwrap();
+            assert!(expected
+                .iter()
+                .all(|j| j[0].norm() > 0.0 || j[1].norm() > 0.0));
+
+            let mixed = [above[0], below, above[1], below];
+            let got = beam
+                .calc_jones_array(&mixed, 180e6, tile_index, MWA_LAT_RAD, None)
+                .unwrap();
+            assert_eq!(got.len(), 4);
+            assert_eq!(got[0], expected[0]);
+            assert_eq!(got[1], Jones::default());
+            assert_eq!(got[2], expected[1]);
+            assert_eq!(got[3], Jones::default());
+        }
+    }
+}

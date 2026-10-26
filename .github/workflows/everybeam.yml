@@ -40,9 +40,7 @@ jobs:
             libblas-dev \
             liblapack-dev \
             libcfitsio-dev \
-            libfreetype-dev \
             libexpat1-dev \
-            libfontconfig-dev \
             ;
         env:
           DEBIAN_FRONTEND: noninteractive
