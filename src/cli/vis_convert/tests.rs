@@ -516,6 +516,8 @@ fn test_ms_output_keeps_phased_array_table() {
         "--data", input,
         "--outputs", &output_string,
     ];
+    // Write twice; the second write must replace the first's PHASED_ARRAY.
+    VisConvertArgs::parse_from(args.clone()).run(false).unwrap();
     VisConvertArgs::parse_from(args).run(false).unwrap();
 
     let open = |ms: &Path, table: &str| Table::open(ms.join(table), TableOpenMode::Read).unwrap();

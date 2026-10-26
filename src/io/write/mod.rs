@@ -566,6 +566,13 @@ fn copy_beam_metadata(source: &Path, dest: &Path) -> Result<(), String> {
     }
 
     let dest_table_path = dest.join(PHASED_ARRAY);
+    // Writing over an existing measurement set leaves sub-tables the writer
+    // doesn't know about; a PHASED_ARRAY left by an earlier run would stop the
+    // copy.
+    if dest_table_path.exists() {
+        std::fs::remove_dir_all(&dest_table_path)
+            .map_err(|e| format!("{}: {e}", dest_table_path.display()))?;
+    }
     let mut source_table = Table::open(&source_table_path, TableOpenMode::Read)
         .map_err(|e| format!("{}: {e}", source_table_path.display()))?;
     source_table
