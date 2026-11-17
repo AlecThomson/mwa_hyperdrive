@@ -227,10 +227,9 @@ instructions on <a href="installation/from_source.html#gpu">the next page</a>.</
 </div>
 <div>
 <p>The pre-compiled binaries are made by GitHub actions using:</p>
-<pre><code class="language-shell">cargo build --release --locked --no-default-features --features=hdf5-static,cfitsio-static
+<pre><code class="language-shell">cargo build --profile production --locked --features=hdf5-static
 </code></pre>
-<p>This means they cannot plot calibration solutions.
-"CUDA-double" binaries have the <code>cuda</code> feature and "CUDA-single" binaries have
+<p>"CUDA-double" binaries have the <code>cuda</code> feature and "CUDA-single" binaries have
 the <code>cuda</code> and <code>gpu-single</code> features. CUDA cannot legally be statically linked
 so a local installation of CUDA is required.</p>
 </div>
@@ -284,23 +283,6 @@ so a local installation of CUDA is required.</p>
 </div>
 </div>
 <h3 id="optional-dependencies"><a class="header" href="#optional-dependencies">Optional dependencies</a></h3>
-<div id="admonition-freetype2-for-calibration-solutions-plotting" class="admonition admonish-tip">
-<div class="admonition-title">
-<p>freetype2 (for calibration solutions plotting)</p>
-<p><a class="admonition-anchor-link" href="installation/from_source.html#admonition-freetype2-for-calibration-solutions-plotting"></a></p>
-</div>
-<div>
-<ul>
-<li>Only required if the <code>plotting</code> feature is enabled (which it is by default)</li>
-<li>Version must be <code>&gt;=2.11.1</code></li>
-<li>Arch: <code>pkg-config</code> <code>make</code> <code>cmake</code> <code>freetype2</code></li>
-<li>Ubuntu: <code>libfreetype-dev</code> <code>libexpat1-dev</code></li>
-<li>Installation may be eased by using the <code>fontconfig-dlopen</code> feature. This means
-that <code>libfontconfig</code> is used at runtime, and not found and linked at link
-time.</li>
-</ul>
-</div>
-</div>
 <div id="admonition-cuda-for-accelerated-sky-modelling-with-nvidia-gpus" class="admonition admonish-tip">
 <div class="admonition-title">
 <p>CUDA (for accelerated sky modelling with NVIDIA GPUs)</p>
@@ -597,7 +579,7 @@ models) are embedded in the binary, and are used automatically.</p>
 <pre><code class="language-shell">conda create -n hyperdrive-eb -c conda-forge \
     c-compiler cxx-compiler fortran-compiler cmake make pkg-config flex bison \
     libboost-devel "hdf5=1.14" fftw gsl libblas liblapack cfitsio \
-    freetype fontconfig expat git curl
+    expat git curl
 conda activate hyperdrive-eb
 
 # Use conda's compilers and libraries (the compiler packages don't always set
@@ -610,7 +592,7 @@ export HDF5_DIR=$CONDA_PREFIX PKG_CONFIG_PATH=$CONDA_PREFIX/lib/pkgconfig
 # Find conda's libraries at runtime without LD_LIBRARY_PATH.
 export RUSTFLAGS="-C link-arg=-Wl,-rpath,$CONDA_PREFIX/lib"
 
-cargo install --path . --locked --features plotting,everybeam-vendored
+cargo install --path . --locked --features everybeam-vendored
 </code></pre>
 <p>HDF5 is pinned to 1.14 because the HDF5 bindings used by <code>hyperdrive</code> don't yet
 support HDF5 2. Rust itself can be installed without root with
@@ -734,6 +716,8 @@ HDF5 file can be obtained with:</p>
 <code>MWA_BEAM_FILE</code> environment variable:</p>
 <pre><code class="language-shell">export MWA_BEAM_FILE=/path/to/mwa_full_embedded_element_pattern.h5
 </code></pre>
+<p>It is possible to use the analytic beam instead of the FEE beam, meaning you
+don't need the HDF5 file, but the FEE beam is probably better.</p>
 <p>See the README for <a href="https://github.com/MWATelescope/mwa_hyperbeam"><code>hyperbeam</code></a>
 for more info.</p>
 </div>
@@ -786,7 +770,7 @@ hyperdrive --help
 hyperdrive solutions-plot --help
 </code></pre>
 <pre><code class="language-plaintext">hyperdrive-solutions-plot 0.2.0-alpha.11
-Plot calibration solutions. Only available if compiled with the "plotting" feature.
+Plot calibration solutions.
 
 USAGE:
     hyperdrive solutions-plot [OPTIONS] [SOLUTIONS_FILES]...
@@ -1321,27 +1305,15 @@ flowchart TD
 </div>
 <p>Generally the syntax is the same as <a href="user/solutions_apply/../di_cal/simple.html"><code>di-calibrate</code></a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="plot-solutions"><a class="header" href="#plot-solutions">Plot solutions</a></h1>
-<div id="admonition-availability" class="admonition admonish-danger">
-<div class="admonition-title">
-<p>Availability</p>
-<p><a class="admonition-anchor-link" href="user/plotting.html#admonition-availability"></a></p>
-</div>
-<div>
-<p>Plotting calibration solutions is <em>not</em> available for GitHub-built releases of
-<code>hyperdrive</code>, except the <code>-everybeam</code> releases. <code>hyperdrive</code> must be built with the <code>plotting</code> <code>cargo</code> feature;
-see the <a href="user/../installation/from_source.html">installation from source instructions
-here</a>.</p>
-</div>
-</div>
 <p><code>hyperdrive</code> is capable of producing plots of calibration solutions for any of
 its <a href="user/../defs/cal_sols.html">supported file formats</a>. Note that only
 <code>hyperdrive</code>-formatted calibration solutions can contain tile names; when tile
 names are unavailable, they won't be on the plots <em>unless</em> a corresponding
 metafits file is provided. With or without tile names, an index is provided.</p>
 <p>Calibration solutions are stored as corrections, i.e. the Jones matrices that
-take the data to the model. By default, <code>solutions-plot</code> plots their inverses,
-which are the instrumental gains. To plot the stored corrections instead, use
-<code>--corrections</code> (the plot filenames then have a <code>_corrections</code> suffix).</p>
+take the data to the model, and these are what <code>solutions-plot</code> plots. To plot
+their inverses, which are the instrumental gains, use <code>--gains</code> (the plot
+filenames then have a <code>_gains</code> suffix).</p>
 <p>By default, a reference tile is selected and reported at the top left of the
 plot. (By default, the last tile that isn't comprised of only NaNs is selected,
 but this can be manually chosen.) It is also possible to neglect using any
@@ -1640,10 +1612,16 @@ responses on the GPU, vastly decreasing the time taken.</p>
 <div>
 <pre><code class="language-python">#!/usr/bin/env python3
 
+import sys
+
 import numpy as np
 import matplotlib.pyplot as plt
 
-data = np.genfromtxt(fname="beam_responses.tsv", delimiter="\t", skip_header=0)
+if len(sys.argv) == 1:
+    file = "beam_responses.tsv"
+else:
+    file = sys.argv[1]
+data = np.genfromtxt(fname=file, delimiter="\t", skip_header=0)
 
 fig, ax = plt.subplots(1, 2, subplot_kw=dict(projection="polar"))
 p = ax[0].scatter(data[:, 0], data[:, 1], c=data[:, 2])
@@ -2118,8 +2096,8 @@ types.</p>
 <li><a href="defs/source_list_hyperdrive.html"><code>hyperdrive</code> format</a></li>
 <li><a href="defs/source_list_ao.html">André Offringa (<code>ao</code>) format</a></li>
 <li><a href="defs/source_list_rts.html"><code>RTS</code> format</a></li>
-<li><a href="defs/source_list_dp3.html">DP3 (makesourcedb/BBS) format</a> (reading only)</li>
 <li><a href="defs/source_list_fits.html">Jack, Gleam or LoBES style fits</a></li>
+<li><a href="defs/source_list_dp3.html">DP3/BBS (<code>dp3</code>) text sky models</a> (reading only)</li>
 </ul>
 </div>
 </div>
@@ -2212,6 +2190,11 @@ all 0 (this is typical), but Stokes \( \text{I} \) is 1.45351 Jy at 80 MHz,
 estimate flux densities within the defined frequencies (\( 80 &lt;=
 \nu_{\text{MHz}} &lt;= 120 \); interpolation) or outside the range (\(
 \nu_{\text{MHz}} &lt; 80 \) or \( \nu_{\text{MHz}} &gt; 120 \); extrapolation).</p>
+<p>A list with a <em>single</em> entry cannot be interpolated; <code>hyperdrive</code> extrapolates
+it with a spectral index of -0.8 (the convention inherited from RTS source
+lists, which is typical of MWA sources) and warns when it reads such a
+list. A single flux density is therefore <em>not</em> a flat spectrum: to describe a
+flat spectrum, use a power law with a spectral index of 0.</p>
 </div>
 </div>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="the-hyperdrive-source-list-format"><a class="header" href="#the-hyperdrive-source-list-format">The <code>hyperdrive</code> source list format</a></h1>
@@ -2499,45 +2482,6 @@ ENDSOURCE
 </code></pre>
 </div>
 </div>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="the-dp3-makesourcedbbbs-source-list-format"><a class="header" href="#the-dp3-makesourcedbbbs-source-list-format">The DP3 (makesourcedb/BBS) source list format</a></h1>
-<p>This is the comma-separated text format used by DP3, makesourcedb and BBS, and
-written by e.g. WSClean (<code>-save-source-list</code>). <code>hyperdrive</code> can read it (it is
-detected automatically, or use the <code>dp3</code> type), but not write it; use
-<code>srclist-convert</code> to convert it to another format.</p>
-<p>The first line describes the columns, e.g.</p>
-<pre><code class="language-plaintext">format = Name, Type, Patch, Ra, Dec, I, SpectralIndex, LogarithmicSI, ReferenceFrequency='183984261.97', MajorAxis, MinorAxis, Orientation
-J131139-221640,POINT,,13:11:39.3334008,-22.16.41.315016,43.94590718123622,[],true,183984261.97,,,
-,,cluster,13:00:00.0,-25.00.00.0
-cluster_g,GAUSSIAN,cluster,13:00:00.0,-25.00.00.0,2.5,[-0.8,0.05],true,,120.0,60.0,30.0
-</code></pre>
-<ul>
-<li>Column names are case insensitive, and can be in any order. The
-<code># (Name, Type, ...) = format</code> form of the first line is also accepted.</li>
-<li>A value in quotes after a column name (e.g. <code>ReferenceFrequency='150e6'</code>) is
-that column's default, used when a line's value is empty or missing.</li>
-<li>Used columns: <code>Name</code>, <code>Type</code> (<code>POINT</code> or <code>GAUSSIAN</code>), <code>Ra</code>, <code>Dec</code>, <code>I</code>, <code>Q</code>,
-<code>U</code>, <code>V</code> (0 if absent), <code>ReferenceFrequency</code> [Hz], <code>SpectralIndex</code>,
-<code>LogarithmicSI</code> (default <code>true</code>), <code>MajorAxis</code> and <code>MinorAxis</code> (FWHM, arcsec),
-<code>Orientation</code> (degrees) and <code>Patch</code>. Other columns are ignored.</li>
-<li><code>Ra</code> is <code>hh:mm:ss.s</code> (or <code>XXhYYmZZs</code>); <code>Dec</code> is <code>dd.mm.ss.s</code> or <code>dd:mm:ss.s</code>
-(or <code>XXdYYmZZs</code>). Either can instead be a number with a <code>deg</code> or <code>rad</code> unit.</li>
-<li>Lines with an empty name and type define patches. Components with the same
-<code>Patch</code> become one <code>hyperdrive</code> source, named after the patch; components
-without a patch are each their own source.</li>
-</ul>
-<h2 id="spectra"><a class="header" href="#spectra">Spectra</a></h2>
-<p>DP3's spectral shape is applied to all Stokes parameters.</p>
-<div class="table-wrapper"><table><thead><tr><th>DP3 spectrum</th><th><code>hyperdrive</code> <a href="defs/fd_types.html">flux-density type</a></th></tr></thead><tbody>
-<tr><td><code>SpectralIndex</code> <code>[]</code></td><td>power law with a spectral index of 0</td></tr>
-<tr><td><code>LogarithmicSI=true</code>, <code>[a]</code></td><td>power law, \( \alpha = a \)</td></tr>
-<tr><td><code>LogarithmicSI=true</code>, <code>[a, b]</code></td><td>curved power law, \( \alpha = a \), \( q = b / \ln 10 \)</td></tr>
-<tr><td>more terms, or <code>LogarithmicSI=false</code></td><td>list, sampled between 50 and 350 MHz (a warning is printed)</td></tr>
-</tbody></table>
-</div>
-<p>With <code>LogarithmicSI=true</code>, DP3's spectrum is
-\( \log_{10} S = \log_{10} S_0 + \sum_i c_i \left[\log_{10}(\nu/\nu_0)\right]^{i+1} \);
-with <code>LogarithmicSI=false</code>, it is
-\( S = S_0 + \sum_i c_i (\nu/\nu_0 - 1)^{i+1} \).</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="fits-source-list-formats"><a class="header" href="#fits-source-list-formats">FITS source list formats</a></h1>
 <p>There are three supported fits file formats:</p>
 <ul>
@@ -2739,6 +2683,142 @@ shape-pl:
         freq: 200000000.0
         i: 2.0
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="the-dp3bbs-dp3-source-list-format"><a class="header" href="#the-dp3bbs-dp3-source-list-format">The DP3/BBS (<code>dp3</code>) source list format</a></h1>
+<p>This is the text sky-model format read by
+<a href="https://dp3.readthedocs.io/en/latest/steps/Predict.html">DP3</a> (and BBS, via
+LOFAR's <code>makesourcedb</code>), and written by WSClean (<code>-save-source-list</code>). Files
+usually have a <code>.skymodel</code> or <code>.txt</code> extension. <code>hyperdrive</code> can read these
+(<code>-i dp3</code>, or the aliases <code>skymodel</code> and <code>bbs</code>) and write them (<code>-o dp3</code>, e.g.
+<code>hyperdrive srclist-by-beam ... -o dp3 out.skymodel</code>; see
+<a href="defs/source_list_dp3.html#writing">Writing</a> below). A file is recognised automatically if its first
+non-comment line is a format line.</p>
+<p><code>hyperdrive</code> mirrors DP3's reader (<code>sky_model/ReadSkyModel.cc</code>) and spectral
+model (<code>base/PointSource.cc</code>).</p>
+<div id="admonition-example" class="admonition admonish-example">
+<div class="admonition-title">
+<p>Example</p>
+<p><a class="admonition-anchor-link" href="defs/source_list_dp3.html#admonition-example"></a></p>
+</div>
+<div>
+<pre><code class="language-plaintext">Format = Name, Type, Patch, Ra, Dec, I, Q, U, V, ReferenceFrequency, SpectralIndex, LogarithmicSI, MajorAxis, MinorAxis, Orientation
+
+# A patch definition: empty name and type.
+ , , FornaxA, 03:21:29.7, -37.08.37.1
+FornaxA_0, GAUSSIAN, FornaxA, 03:21:29.74400, -37.08.37.07600, 198.59297, 0, 0, 0, 1.8879e+08, [-0.8], true, 822.529, 822.529, 0
+FornaxA_1, POINT, FornaxA, 03:24:00.42500, -37.16.31.93900, 97.526513, 0, 0, 0, 1.8879e+08, [-0.8, 0.3], true, , ,
+# A component without a patch is a source of its own.
+J002549-260211, POINT, , 00:25:49.2, -26.02.13, 16.77, 0, 0, 0, 1e+08, [-0.83], true, , ,
+</code></pre>
+</div>
+</div>
+<h2 id="format-line"><a class="header" href="#format-line">Format line</a></h2>
+<p>The first non-comment line should be <code>Format = ...</code> (case insensitive), or the
+file should start with comments including the older <code># (...) = format</code>. It
+names the comma-separated fields on each line; names are case insensitive and
+may be in any order, and any subset may be used (but a position is required). A
+field may carry a default value in quotes, used when a line leaves the field
+empty, e.g. WSClean writes</p>
+<pre><code class="language-plaintext">Format = Name, Type, Ra, Dec, I, SpectralIndex, LogarithmicSI, ReferenceFrequency='150000000.0', MajorAxis, MinorAxis, Orientation
+</code></pre>
+<p><code>Name=fixed'value'</code> gives a value that is always used. Unknown fields are
+ignored. Values may be quoted, and lists (<code>[...]</code>) may contain commas. Lines
+starting with <code>#</code> are comments (as is anything after a <code>#</code> outside of quotes),
+and blank lines are ignored.</p>
+<p>If no format line is found before the first data line, then, like DP3, the
+default format</p>
+<pre><code class="language-plaintext">Name, Type, Ra, Dec, I, Q, U, V, MajorAxis, MinorAxis, Orientation
+</code></pre>
+<p>is used and a warning is printed. This only happens when the source list type
+is given explicitly (<code>-i dp3</code>); automatic detection of the file type requires a
+format line, so that other kinds of files aren't mistaken for DP3 sky models.</p>
+<h2 id="sources-and-patches"><a class="header" href="#sources-and-patches">Sources and patches</a></h2>
+<p>A line with an empty <code>Name</code> (and <code>Type</code>) defines a patch, e.g.
+<code> , , PatchName, 03:21:29.7, -37.08.37.1</code>. Each patch becomes one <code>hyperdrive</code>
+source named after the patch, containing all components that name the patch
+in their <code>Patch</code> column (a patch must be defined before it is used; patches
+without components are ignored). Components without a patch become a source of
+their own, named after the component's <code>Name</code>.</p>
+<h2 id="components"><a class="header" href="#components">Components</a></h2>
+<p><code>Type</code> is <code>POINT</code> (the default when empty) or <code>GAUSSIAN</code>. DP3's <code>DISK</code> and
+<code>SHAPELET</code> types are not supported, and cause an error. For Gaussians,
+<code>MajorAxis</code> and <code>MinorAxis</code> are FWHM in arcseconds, and <code>Orientation</code> is the
+position angle in degrees (east of north); these are the same as <code>hyperdrive</code>'s
+own format. DP3 by default (<code>OrientationIsAbsolute=false</code>) evaluates Gaussians
+in the phase-centre frame, as <code>hyperdrive</code> does; if <code>OrientationIsAbsolute=true</code>
+is given, a warning is printed and the orientation is used as is.</p>
+<p>Only J2000 positions (<code>RefType</code> empty or <code>J2000</code>) are supported. Rotation
+measures (<code>RotationMeasure</code>, <code>PolarizedFraction</code>, <code>PolarizationAngle</code>,
+<code>ReferenceWavelength</code>) are not supported, and cause an error.</p>
+<h2 id="positions"><a class="header" href="#positions">Positions</a></h2>
+<p><code>Ra</code> and <code>Dec</code> are read like casacore's <code>MVAngle</code> (as DP3 does). The accepted
+forms (<code>+</code> is an optional sign; separator letters are case insensitive) are:</p>
+<div class="table-wrapper"><table><thead><tr><th>Form</th><th>Example</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>+h:m:s</code> or <code>+h:m</code></td><td><code>03:21:29.744</code></td><td>hours, minutes, seconds</td></tr>
+<tr><td><code>+hHmMsS</code></td><td><code>03h21m29.744s</code></td><td>hours, minutes, seconds</td></tr>
+<tr><td><code>+d.m.s</code></td><td><code>-37.08.37.076</code></td><td>degrees, arcminutes, arcseconds</td></tr>
+<tr><td><code>+dDmMsS</code></td><td><code>-37d08m37.076s</code>, <code>10d</code></td><td>degrees, arcminutes, arcseconds</td></tr>
+<tr><td>number with a unit</td><td><code>50.37deg</code>, <code>0.879rad</code>, <code>30arcmin</code></td><td><code>deg</code>, <code>rad</code>, <code>arcmin</code>, <code>arcsec</code>, <code>mas</code>, <code>'</code>, <code>"</code>, <code>h</code>, <code>min</code>, <code>s</code></td></tr>
+</tbody></table>
+</div>
+<p>Note that, as in casacore, a number without a unit is in <strong>radians</strong>, and an
+RA written as <code>d.m.s</code> is in degrees. Colons are not allowed in declinations.
+Unlike casacore, trailing characters that are not part of these forms are an
+error. The older separate fields <code>rah</code>/<code>rad</code>, <code>ram</code>, <code>ras</code> and
+<code>dech</code>/<code>decd</code>, <code>decm</code>, <code>decs</code> are also supported.</p>
+<h2 id="flux-densities"><a class="header" href="#flux-densities">Flux densities</a></h2>
+<p><code>I</code>, <code>Q</code>, <code>U</code> and <code>V</code> are in Jy (empty <code>I</code> means 1 Jy, as in DP3; empty <code>Q</code>,
+<code>U</code>, <code>V</code> are 0). <code>ReferenceFrequency</code> is in Hz. <code>SpectralIndex</code> is a list of
+spectral terms <code>[c0, c1, ...]</code> (or a single value), and <code>LogarithmicSI</code>
+(default <code>true</code>) selects how they are applied to Stokes I. With
+<code>LogarithmicSI=true</code>,</p>
+<p>\[ S_\nu = I \left(\frac{\nu}{\nu_0}\right)^{c_0 + c_1 \log_{10}(\nu/\nu_0) + c_2 \log_{10}^2(\nu/\nu_0) + \dots}. \]</p>
+<ul>
+<li>No terms is a flat spectrum (what DP3 predicts); it becomes a power law with
+spectral index 0.</li>
+<li>One term is a <a href="defs/fd_types.html">power law</a> with spectral index \( c_0 \).</li>
+<li>Two terms are a <a href="defs/fd_types.html">curved power law</a> with spectral index
+\( c_0 \) and \( q = c_1 / \ln 10 \) (exact, because
+\( (\nu/\nu_0)^{c_1 \log_{10}(\nu/\nu_0)} = e^{(c_1 / \ln 10) \ln^2(\nu/\nu_0)} \)).</li>
+<li>More terms (after dropping trailing zeros) can't be represented exactly; the
+spectrum is evaluated at 16 log-spaced frequencies between 70 and 300 MHz
+into a <a href="defs/fd_types.html">list</a>, and a warning is printed.</li>
+</ul>
+<p>With <code>LogarithmicSI=false</code> (WSClean's "ordinary polynomial" output),
+\( S_\nu = I + c_0 x + c_1 x^2 + \dots \) with \( x = \nu/\nu_0 - 1 \); this
+is also evaluated into a list (with a warning).</p>
+<p>DP3 only applies spectral terms to Stokes I, but <code>hyperdrive</code>'s power laws
+scale all Stokes parameters; a warning is printed if components have both
+non-zero Q, U or V and spectral terms.</p>
+<h2 id="writing"><a class="header" href="#writing">Writing</a></h2>
+<p><code>-o dp3</code> writes the inverse of the above, so that <code>hyperdrive</code>, DP3 and
+<code>lsmtool</code> all read the result the same way:</p>
+<pre><code class="language-plaintext">FORMAT = Name, Type, Patch, Ra, Dec, I, Q, U, V, SpectralIndex, LogarithmicSI, ReferenceFrequency, MajorAxis, MinorAxis, Orientation
+ , , J002549-260211, 6.454782deg, -26.0365deg
+J002549-260211_0, POINT, J002549-260211, 6.454782deg, -26.0365deg, 17.12, 0, 0, 0, [0.0496], true, 200000000, , ,
+</code></pre>
+<ul>
+<li>Each source becomes a patch named after the source, at the Stokes I weighted
+centroid of its components, and its components are named <code>&lt;patch&gt;_0</code>,
+<code>&lt;patch&gt;_1</code>, .... Commas, whitespace, brackets and quotes in source names
+(which DP3's parser would misread) are replaced by <code>_</code>, and repeated names
+get a <code>_2</code>, <code>_3</code>, ... suffix.</li>
+<li>Positions are written in degrees with an explicit <code>deg</code> unit (a bare number
+would be radians, and DP3 reads a colon in a declination as hours).</li>
+<li>Gaussian axes are written in arcseconds and orientations in degrees.</li>
+<li>Power laws are written as <code>SpectralIndex=[si]</code> and curved power laws as
+<code>[si, q ln 10]</code>, both with <code>LogarithmicSI=true</code>; DP3 evaluates these exactly
+as <code>hyperdrive</code> does (for Stokes I; Q, U and V are constant in DP3, and a
+warning is printed if any are non-zero).</li>
+<li>DP3 has no <a href="defs/fd_types.html">list</a> type. A list with one entry is written as the
+power law <code>hyperdrive</code> extrapolates it with (spectral index -0.8) and one with
+two entries as the power law through both, which are exact. Longer lists are
+written as the least-squares curved power law in
+\( \log_{10} S \) vs \( \log_{10} \nu \), with a warning giving the
+largest relative error at the listed frequencies. Sources with a list
+containing a non-positive Stokes I are not written (with a warning).</li>
+<li>Shapelets are not supported by DP3; sources containing them are not written
+(with a warning).</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="calibration-solutions-file-formats"><a class="header" href="#calibration-solutions-file-formats">Calibration solutions file formats</a></h1>
 <p>Calibration solutions are Jones matrices that, when applied to raw data,
 "calibrate" the visibilities.</p>
@@ -2786,8 +2866,10 @@ metres. Any UVWs below or above these thresholds have baseline weights of 0
 during calibration (meaning they effectively aren't used in calibration).
 <code>UVW_MIN_L</code> and <code>UVW_MAX_L</code> correspond to <code>UVW_MIN</code> and <code>UVW_MAX</code>, but are in
 wavelength units (the <code>L</code> stands for lambda).</p>
-<p>Some MWA beam codes require a file for their calculations. <code>BEAMFILE</code> is the
-path to this file.</p>
+<p><code>BEAMTYPE</code> is the <a href="defs/beam.html">beam model</a> used to generate the sky model that
+the data was calibrated against (e.g. "fee", "analytic-rts" or "none"). Some
+MWA beam codes require a file for their calculations. <code>BEAMFILE</code> is the path
+to this file.</p>
 <h3 id="raw-mwa-data-corrections"><a class="header" href="#raw-mwa-data-corrections">Raw MWA data corrections</a></h3>
 <p><code>PFB</code> describes the <a href="defs/mwa/corrections.html#pfb-gains">PFB gains flavour</a> applied to
 the raw MWA data. At the time of writing, this flavour is described as "jake",
@@ -3001,6 +3083,43 @@ or, if <code>hyperdrive</code> was compiled with the <code>everybeam</code> feat
 <p>In addition, the FEE beam code needs an HDF5 file to function. See the
 <a href="defs/../installation/post.html">post-installation instructions</a> for information on
 getting that set up.</p>
+<p>It is possible to use the "analytic" MWA beam, and this does not require an
+additional file (but the FEE beam is the default selection). There are two
+"flavours": <code>mwa_pb</code> and <code>RTS</code>, and these can be used by specifying <code>--beam-type analytic-mwa_pb</code> (alias <code>mwa_pb</code>) and <code>--beam-type analytic-rts</code> (alias <code>rts</code>),
+respectively (beam type names are case-insensitive). The differences
+between the flavours is not huge, but I (CHJ) suggest the <code>RTS</code> flavour if in
+doubt, as it seems to look a little better.</p>
+<h2 id="frequency-resolution"><a class="header" href="#frequency-resolution">Frequency resolution</a></h2>
+<p>The FEE beam's coefficients are only defined at multiples of 1.28 MHz (the MWA
+coarse-channel width, i.e. at coarse-channel centres). When modelling
+visibilities, FEE beam responses are computed at the file frequencies spanning
+the fine channels (from the one at or below the lowest channel to the one at or
+above the highest), and each fine channel's response is interpolated from them
+with a not-a-knot cubic spline through the real and imaginary parts of each
+Jones element. This is the same interpolation scheme used to make the 10 kHz
+FEE file <code>MWA_embedded_element_pattern_rev2_interp_167_197MHz.h5</code> (a not-a-knot
+cubic spline through each spherical-wave coefficient, with knots spanning the
+band). The two are not identical, though: hyperdrive splines the
+zenith-normalised responses, whereas the dense file normalises after splining
+the coefficients, and the normalisation is not linear in frequency. The
+difference is about 1e-6 near zenith and 1e-4 at 25° elevation, and both
+suppress the coarse-channel harmonics equally.</p>
+<p>The analytic beams are defined at any frequency, but they are splined the same
+way from knots on the 1.28 MHz grid (with two extra knots beyond each end of
+the band), because the modellers' beam-response arrays scale with the number
+of knots; evaluating at every fine channel would need 32 times the memory for
+40 kHz channels. The beam is smooth enough that the spline is within ~1e-6 of
+the beam evaluated at each channel. Likewise, if a beam file sampled more
+finely than 1.28 MHz is used, knots at least 1.28 MHz apart are chosen from it.</p>
+<p>Fine channels outside the beam file's frequency range use the beam at the
+file's first or last frequency (a warning is logged); the beam is not
+extrapolated.</p>
+<p>(Previously, every fine channel used the beam response at the nearest multiple
+of 1.28 MHz, for both beam types, so the beam, and with it the sky model and
+calibration solutions, was constant within each coarse channel and stepped at
+every coarse-channel edge. Those 1.28 MHz-periodic steps put power at
+multiples of 781.25 ns in delay space.)</p>
+<p><img src="defs/beam_interp_model.png" alt="Sky model with nearest-frequency vs interpolated beam responses" /></p>
 <h2 id="errors-1"><a class="header" href="#errors-1">Errors</a></h2>
 <p>Beam code usually does not error, but if it does it's likely because:</p>
 <ol>
@@ -3022,16 +3141,18 @@ pointing) from a measurement set:</p>
 </ul>
 <p>The number of stations in the measurement set must match the number of tiles
 in the input data, and the station order is assumed to be the same.</p>
-<div id="admonition-measurement-sets-written-by-hyperdrive" class="admonition admonish-warning">
+<div id="admonition-files-written-by-hyperdrive" class="admonition admonish-warning">
 <div class="admonition-title">
-<p>Measurement sets written by hyperdrive</p>
-<p><a class="admonition-anchor-link" href="defs/beam.html#admonition-measurement-sets-written-by-hyperdrive"></a></p>
+<p>Files written by hyperdrive</p>
+<p><a class="admonition-anchor-link" href="defs/beam.html#admonition-files-written-by-hyperdrive"></a></p>
 </div>
 <div>
-<p>Measurement sets written by <code>hyperdrive</code> (e.g. by <code>vis-subtract</code> or
-<code>solutions-apply</code>) don't describe non-MWA telescopes, so EveryBeam can't load
-the telescope from them. When processing such outputs, point <code>--beam-ms</code> at the
-original measurement set.</p>
+<p>When <code>hyperdrive</code> writes a measurement set (e.g. with <code>vis-subtract</code> or
+<code>solutions-apply</code>) from one with a <code>PHASED_ARRAY</code> table (e.g. SKA-Low or
+OSKAR data), it copies that table and the telescope name, so EveryBeam can use
+the output directly. Other telescope descriptions (e.g. LOFAR's) aren't copied,
+and uvfits files can't hold one; when processing such outputs, point
+<code>--beam-ms</code> at the original measurement set.</p>
 </div>
 </div>
 <pre><code class="language-shell">hyperdrive di-calibrate -d obs.ms -s srclist.yaml --beam-type everybeam
