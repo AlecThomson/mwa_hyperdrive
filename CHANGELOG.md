@@ -6,25 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [Unreleased]
 
 ### Added
-- Support for the "mwa_pb" and "RTS" analytic beams.
-- hyperdrive calibration solutions record the beam model used (`BEAMTYPE`), so
-  that solutions made with an analytic beam, the FEE beam or no beam can be
-  told apart.
-- Reading DP3/BBS ("makesourcedb") text sky models, as used by DP3 and
-  written by WSClean (`.skymodel`/`.txt`; source list type `dp3`, aliases
-  `skymodel` and `bbs`), on every subcommand that reads a source list. They
-  are recognised automatically by their format line. Each patch becomes a
-  source; point and Gaussian components are supported; logarithmic spectral
-  terms map exactly onto power laws (one term) and curved power laws (two
-  terms, `q = c1 / ln 10`), and other spectral models are evaluated into
-  flux-density lists with a warning. See the new "DP3/BBS (dp3) format" book
-  page. Writing this format is not supported.
+
+- DP3/BBS (`makesourcedb`) text sky models can now be written (`-o dp3`, or a
+  `.skymodel` file read as DP3), e.g. by `srclist-by-beam` and
+  `srclist-convert`. Power laws and curved power laws are written exactly; see
+  the DP3 source list page of the docs for lists and names.
 - `solutions-plot --gains` plots the instrumental gains, i.e. the inverses of
   the stored solutions (which are corrections), with a `_gains` filename
-  suffix.
+  suffix. The default is unchanged. (From Alec Thomson's fork.)
+
 - Optional EveryBeam support, enabling beam models for telescopes other than
   the MWA (e.g. SKA-Low, LOFAR). Use it with `--beam-type everybeam`; the
   telescope is described by the input measurement set or `--beam-ms`, and the
@@ -45,6 +38,69 @@ Versioning](https://semver.org/spec/v2.0.0.html).
     unaffected.
 
 ### Changed
+
+- Beam responses used for sky modelling (CPU and GPU) no longer step every
+  coarse channel. Previously each fine channel used the beam at the nearest
+  multiple of 1.28 MHz, which put power at multiples of 781.25 ns in delay
+  space. The FEE beam (whose coefficients are only defined per coarse channel)
+  is now interpolated from the file frequencies spanning the fine channels with
+  a not-a-knot cubic spline (as in the 10 kHz
+  `MWA_embedded_element_pattern_rev2_interp_167_197MHz.h5` file), and the
+  analytic beams are splined the same way from knots on the 1.28 MHz grid
+  (rather than rounded to it). Sky models, calibration solutions and peeled
+  visibilities therefore differ slightly from previous versions wherever fine
+  channels are not at coarse-channel centres (e.g. `vis-simulate` output used
+  as a reference elsewhere will change).
+- Reading measurement sets is much faster, and averaging input data uses much
+  less memory. Results are unchanged. (From Alec Thomson's fork.)
+  - Only the needed columns are read (previously every column of each row was
+    read, e.g. SIGMA_SPECTRUM).
+  - Rows are read in batches and converted in parallel, and the table stays
+    open between timesteps.
+  - When averaging over time, timesteps are averaged as they're read (while
+    the next one is read), rather than all being held in memory first.
+
+- Measurement sets with baselines stored as ANTENNA1 > ANTENNA2 are now read;
+  previously these baselines were silently skipped.
+- Beam calculations can now be given the time (`BeamTime`), which is needed by
+  EveryBeam.
+- Tile de-duplication for beam calculations is now decided by the beam code
+  (`Beam::get_unique_tiles`), rather than always using MWA dipole delays and
+  gains.
+
+### Fixed
+
+- `di-calibrate` no longer returns identity solutions (or fails every
+  chanblock) when the data weights are very small, e.g. a uniform
+  `WEIGHT_SPECTRUM` of 1e-9. Its first-iteration "the data already match the
+  model" check compared against an absolute threshold, but data and model are
+  scaled by the weights, and only the weights' relative values matter.
+- A measurement set with a 1D `WEIGHT` column and no `WEIGHT_SPECTRUM` (e.g.
+  ASKAP data split by CASA) is read as one weight per polarisation for all
+  channels, as the MS definition has it. It was read as one weight per
+  channel, so all but the first four channels got zero weight and calibration
+  failed.
+
+## [0.9.0] - 2026-10-30
+
+### Added
+
+- Support for the "mwa_pb" and "RTS" analytic beams.
+- hyperdrive calibration solutions record the beam model used (`BEAMTYPE`), so
+  that solutions made with an analytic beam, the FEE beam or no beam can be
+  told apart.
+- Reading DP3/BBS ("makesourcedb") text sky models, as used by DP3 and
+  written by WSClean (`.skymodel`/`.txt`; source list type `dp3`, aliases
+  `skymodel` and `bbs`), on every subcommand that reads a source list. They
+  are recognised automatically by their format line. Each patch becomes a
+  source; point and Gaussian components are supported; logarithmic spectral
+  terms map exactly onto power laws (one term) and curved power laws (two
+  terms, `q = c1 / ln 10`), and other spectral models are evaluated into
+  flux-density lists with a warning. See the new "DP3/BBS (dp3) format" book
+  page. Writing this format is not supported.
+
+### Changed
+
 - Reading a source list now warns when components have a flux-density list
   with a single entry, because such components are extrapolated with a
   spectral index of -0.8 rather than being flat. This was only logged at the
@@ -84,28 +140,12 @@ Versioning](https://semver.org/spec/v2.0.0.html).
   which keeps the memory needed for beam responses the same as for the FEE
   beam. The `beam` subcommand evaluates at exactly the requested frequency on
   the CPU, and at the nearest grid frequency on the GPU (`--gpu`).
-- Reading measurement sets is much faster, and averaging input data uses much
-  less memory. Results are unchanged.
-  - Only the needed columns are read (previously every column of each row was
-    read, e.g. SIGMA_SPECTRUM).
-  - Rows are read in batches and converted in parallel, and the table stays
-    open between timesteps.
-  - When averaging over time, timesteps are averaged as they're read (while
-    the next one is read), rather than all being held in memory first.
-- Measurement sets with baselines stored as ANTENNA1 > ANTENNA2 are now read;
-  previously these baselines were silently skipped.
-- Beam calculations can now be given the time (`BeamTime`), which is needed by
-  EveryBeam.
-- Tile de-duplication for beam calculations is now decided by the beam code
-  (`Beam::get_unique_tiles`), rather than always using MWA dipole delays and
-  gains.
 
 ### Fixed
-- `di-calibrate` no longer returns identity solutions (or fails every
-  chanblock) when the data weights are very small, e.g. a uniform
-  `WEIGHT_SPECTRUM` of 1e-9. Its first-iteration "the data already match the
-  model" check compared against an absolute threshold, but data and model are
-  scaled by the weights, and only the weights' relative values matter.
+
+- HIP builds with ROCm 7: the HIP code no longer clashes with ROCm 7's
+  `__syncwarp` builtin, and includes `string.h` for the host `memcpy`.
+  hyperbeam is updated to 0.13.1, which has the matching ROCm 7 fix.
 - Raw MWAX data with oversampled coarse channels (`OVERSAMP = 1`, e.g. Phase
   III) no longer has 80 kHz flagged at each coarse-channel edge by default; its
   passband is flat right to the edges.
