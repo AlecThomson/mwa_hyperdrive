@@ -609,6 +609,23 @@ mod vendored {
             );
             fs::write(&options_cc, patched).unwrap();
         }
+
+        // libc++ (macOS) lacks the C++17 special math functions; EveryBeam
+        // already uses Boost's version elsewhere.
+        if cfg!(target_os = "macos") {
+            let vp_cc = cpp.join("circularsymmetric/voltagepattern.cc");
+            let vp = fs::read_to_string(&vp_cc).unwrap();
+            if vp.contains("std::cyl_bessel_j") {
+                let patched = vp
+                    .replace("std::cyl_bessel_j", "boost::math::cyl_bessel_j")
+                    .replacen(
+                        "#include <cmath>",
+                        "#include <cmath>\n#include <boost/math/special_functions/bessel.hpp>",
+                        1,
+                    );
+                fs::write(&vp_cc, patched).unwrap();
+            }
+        }
     }
 
     /// Generate Rust code embedding EveryBeam's data files.
@@ -723,7 +740,10 @@ mod vendored {
             // defaults to a newer, incompatible API.
             .define("H5_USE_110_API", None)
             .flag_if_supported("-fopenmp")
-            .flag_if_supported("-w");
+            .flag_if_supported("-w")
+            // aocommon's MC2x2Base converting constructor narrows double to
+            // float; GCC only warns, clang errors.
+            .flag_if_supported("-Wno-c++11-narrowing");
         for dir in &include_dirs {
             eb.include(dir);
         }
