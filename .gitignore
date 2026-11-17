@@ -11,3 +11,4 @@ GGSM_updated.fits
 *.uvfits
 *.profraw
 .vscode/
+.claude/settings.json
