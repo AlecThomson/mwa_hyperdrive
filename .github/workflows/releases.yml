@@ -212,7 +212,15 @@ jobs:
             cp -r measures "$DIR/share/casacore/data"
 
             # Licenses. EveryBeam (GPL-3.0) makes this binary a GPL-3.0 work.
-            SRC=$(ls -d target/production/build/everybeam-sys-*/out/src | head -1)
+            # Cargo >= 1.100 puts build-script output in
+            # build/<crate>/<hash>/out rather than build/<crate>-<hash>/out,
+            # so search for either layout.
+            SRC=$(find target/production/build -type d -path '*/everybeam-sys*/out/src' \
+              -exec test -f '{}/everybeam-0.9.0/LICENSE' \; -print -quit)
+            if [ -z "$SRC" ]; then
+              echo "Couldn't find the vendored EveryBeam sources under target/production/build" >&2
+              exit 1
+            fi
             cp LICENSE "$DIR/LICENSE-hyperdrive"
             cp "$SRC/everybeam-0.9.0/LICENSE" "$DIR/LICENSE-EveryBeam"
             cp "$SRC/casacore-3.8.2/COPYING" "$DIR/LICENSE-casacore"
