@@ -169,3 +169,63 @@ fn test_ska_low_needs_telescope_ms() {
         .ok();
     assert!(cmd.is_ok(), "{:?}", get_cmd_output(cmd));
 }
+
+/// Model the test measurement set's sky with the SKA-Low beam on the CPU
+/// and on the GPU, and check that they agree. Station 2 has flagged X (but
+/// not Y) elements, which takes a separate path on the GPU.
+#[cfg(any(feature = "cuda", feature = "hip"))]
+#[test]
+fn test_ska_low_cpu_gpu_match() {
+    use marlu::{
+        c32,
+        rubbl_casatables::{Table, TableOpenMode},
+    };
+
+    let tmp_dir = TempDir::new().unwrap();
+    let srclist = std::fs::read_to_string(SRCLIST).unwrap();
+    // "Subtracting" a negated sky model from the (zero) visibilities gives
+    // the sky model.
+    let neg_srclist = tmp_dir.path().join("negated.yaml");
+    std::fs::write(&neg_srclist, srclist.replace("        i: ", "        i: -")).unwrap();
+    let model = |name: &str, cpu: bool| -> Vec<c32> {
+        let out = tmp_dir.path().join(name);
+        let mut cmd = hyperdrive();
+        cmd.args(["vis-subtract", "--data", MS, "--source-list"])
+            .arg(&neg_srclist)
+            .args(["--beam-type", BEAM])
+            .arg("--outputs")
+            .arg(&out)
+            .arg("--no-progress-bars");
+        if cpu {
+            cmd.arg("--cpu");
+        }
+        let result = cmd.ok();
+        assert!(result.is_ok(), "{:?}", get_cmd_output(result));
+        let mut t = Table::open(&out, TableOpenMode::Read).unwrap();
+        let mut vis = vec![];
+        for row in 0..t.n_rows() {
+            vis.extend(t.get_cell_as_vec::<c32>("DATA", row).unwrap());
+        }
+        vis
+    };
+    let cpu = model("cpu.ms", true);
+    let gpu = model("gpu.ms", false);
+    assert_eq!(cpu.len(), gpu.len());
+    let max = cpu.iter().map(|v| v.norm()).fold(0.0, f32::max);
+    assert!(max > 0.0);
+    let max_diff = cpu
+        .iter()
+        .zip(&gpu)
+        .map(|(c, g)| (c - g).norm())
+        .fold(0.0, f32::max);
+    // The visibilities are written in single precision.
+    #[cfg(not(feature = "gpu-single"))]
+    let tolerance = 1e-5;
+    #[cfg(feature = "gpu-single")]
+    let tolerance = 1e-3;
+    eprintln!(
+        "SKA-Low CPU vs GPU: max |diff| / max |vis| = {:e}",
+        max_diff / max
+    );
+    assert!(max_diff / max < tolerance, "{max_diff} vs max {max}");
+}
