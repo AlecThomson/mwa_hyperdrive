@@ -136,7 +136,7 @@ harness = false
 
 [patch.crates-io]
 # hyperbeam with the SKA-Low beam models (not yet in a hyperbeam release).
-mwa_hyperbeam = { git = "https://github.com/AlecThomson/mwa_hyperbeam", rev = "8234115" }
+mwa_hyperbeam = { git = "https://github.com/AlecThomson/mwa_hyperbeam", branch = "ska-port" }
 # Temp soft links here while testing
 #birli = { git = "https://github.com/MWATelescope/Birli", branch = "issue-190" }
 #mwa_hyperbeam = { git = "https://github.com/MWATelescope/mwa_hyperbeam", branch = "mwalib2" }
