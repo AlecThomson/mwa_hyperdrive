@@ -508,6 +508,9 @@ impl From<BeamError> for HyperdriveError {
             | BeamError::HyperbeamFee(_)
             | BeamError::HyperbeamInitFee(_)
             | BeamError::HyperbeamAnalytic(_)
+            | BeamError::HyperbeamSka(_)
+            | BeamError::HyperbeamInitSka(_)
+            | BeamError::SkaLowMs(_)
             | BeamError::EveryBeam(_)
             | BeamError::NeedsBeamMs
             | BeamError::NeedsTime

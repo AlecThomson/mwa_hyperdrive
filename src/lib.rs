@@ -53,7 +53,7 @@ lazy_static::lazy_static! {
 
 // Re-exports.
 pub use averaging::{Chanblock, Timeblock};
-pub use beam::{create_beam_object, Delays};
+pub use beam::{create_beam_object, create_ska_low_object, BeamType, Delays};
 #[cfg(feature = "everybeam")]
 pub use beam::{create_everybeam_object, use_bundled_casacore_data, EveryBeamOptions};
 #[doc(hidden)]

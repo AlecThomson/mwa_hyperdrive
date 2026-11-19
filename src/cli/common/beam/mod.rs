@@ -22,7 +22,7 @@ use crate::beam::{EveryBeam, EveryBeamOptions};
 use crate::{
     beam::{
         validate_delays, AnalyticBeam, Beam, BeamError, BeamType, Delays, FEEBeam, NoBeam,
-        BEAM_TYPES_COMMA_SEPARATED,
+        SkaLowBeam, BEAM_TYPES_COMMA_SEPARATED,
     },
     io::read::VisInputType,
 };
@@ -35,7 +35,7 @@ lazy_static::lazy_static! {
         format!("Don't apply a beam response when generating a sky model. The default is to use the {} beam.", BeamType::default());
 
     static ref BEAM_FILE_HELP: String =
-        "The path to the HDF5 MWA FEE beam file. Only useful if the beam type is 'fee'. If not specified, this must be provided by the MWA_BEAM_FILE environment variable.".to_string();
+        "The path to the beam model's data. For 'fee', the HDF5 MWA FEE beam file (if not specified, this must be provided by the MWA_BEAM_FILE environment variable). For 'ska-low-eep-grid', the HDF5 EEP grid file, and for 'ska-low-eep-sph', the directory of FEKO coefficient files (if not specified, these are found with the SKA_LOW_EEP_GRID_FILE or SKA_LOW_EEP_SPH_PATH environment variables, or EveryBeam's EVERYBEAM_DATADIR).".to_string();
 }
 
 /// Options for the EveryBeam beam. These are only available if hyperdrive was
@@ -43,12 +43,6 @@ lazy_static::lazy_static! {
 #[cfg(feature = "everybeam")]
 #[derive(Parser, Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct EveryBeamArgs {
-    /// The measurement set describing the telescope for the EveryBeam beam.
-    /// Only useful if the beam type is 'everybeam'. If not specified, the input
-    /// data is used (which must be a measurement set).
-    #[clap(long, help_heading = "BEAM (EVERYBEAM)")]
-    pub(crate) beam_ms: Option<PathBuf>,
-
     /// The EveryBeam element response model, e.g. default, hamaker, lobes,
     /// oskar_dipole, oskar_dipole_cos, skala40_wave, skalow_feko. The default
     /// depends on the telescope; for SKA-Low/OSKAR, it is oskar_dipole_cos.
@@ -103,7 +97,6 @@ pub(crate) struct EveryBeamArgs {
 impl EveryBeamArgs {
     fn merge(self, other: Self) -> Self {
         Self {
-            beam_ms: self.beam_ms.or(other.beam_ms),
             everybeam_element_model: self
                 .everybeam_element_model
                 .or(other.everybeam_element_model),
@@ -121,9 +114,8 @@ impl EveryBeamArgs {
         }
     }
 
-    fn into_options(self) -> (Option<PathBuf>, EveryBeamOptions) {
+    fn into_options(self) -> EveryBeamOptions {
         let Self {
-            beam_ms,
             everybeam_element_model,
             everybeam_mode,
             everybeam_normalisation,
@@ -133,21 +125,18 @@ impl EveryBeamArgs {
             everybeam_subband_frequency,
             everybeam_frequency_interpolation,
         } = self;
-        (
-            beam_ms,
-            EveryBeamOptions {
-                element_response_model: everybeam_element_model,
-                beam_mode: everybeam_mode,
-                beam_normalisation_mode: Some(
-                    everybeam_normalisation.unwrap_or_else(|| "none".to_string()),
-                ),
-                coeff_path: everybeam_coeff_path,
-                data_column_name: everybeam_data_column,
-                field_id: everybeam_field_id.unwrap_or(0),
-                use_subband_frequency: everybeam_subband_frequency,
-                frequency_interpolation: everybeam_frequency_interpolation,
-            },
-        )
+        EveryBeamOptions {
+            element_response_model: everybeam_element_model,
+            beam_mode: everybeam_mode,
+            beam_normalisation_mode: Some(
+                everybeam_normalisation.unwrap_or_else(|| "none".to_string()),
+            ),
+            coeff_path: everybeam_coeff_path,
+            data_column_name: everybeam_data_column,
+            field_id: everybeam_field_id.unwrap_or(0),
+            use_subband_frequency: everybeam_subband_frequency,
+            frequency_interpolation: everybeam_frequency_interpolation,
+        }
     }
 }
 
@@ -176,6 +165,12 @@ pub(crate) struct BeamArgs {
     #[arg(long, help_heading = "BEAM", help = BEAM_FILE_HELP.as_str())]
     pub(crate) beam_file: Option<PathBuf>,
 
+    /// The measurement set describing the telescope, for the SKA-Low and
+    /// EveryBeam beams (stations are read from its PHASED_ARRAY table). If not
+    /// specified, the input data is used (which must be a measurement set).
+    #[arg(long, help_heading = "BEAM")]
+    pub(crate) beam_ms: Option<PathBuf>,
+
     #[cfg(feature = "everybeam")]
     #[clap(flatten)]
     #[serde(flatten)]
@@ -190,6 +185,7 @@ impl BeamArgs {
             delays: self.delays.or(other.delays),
             unity_dipole_gains: self.unity_dipole_gains || other.unity_dipole_gains,
             beam_file: self.beam_file.or(other.beam_file),
+            beam_ms: self.beam_ms.or(other.beam_ms),
             #[cfg(feature = "everybeam")]
             everybeam: self.everybeam.merge(other.everybeam),
         }
@@ -209,11 +205,13 @@ impl BeamArgs {
             delays: user_dipole_delays,
             unity_dipole_gains,
             beam_file,
+            beam_ms,
             #[cfg(feature = "everybeam")]
             everybeam,
         } = self;
-        #[cfg(not(feature = "everybeam"))]
-        let _ = input_ms;
+        // The measurement set describing the telescope (for the beams that
+        // need one).
+        let telescope_ms = beam_ms.as_deref().or(input_ms);
 
         let mut printer = InfoPrinter::new("Beam info".into());
         debug!("Beam file: {beam_file:?}");
@@ -270,12 +268,8 @@ impl BeamArgs {
             BeamType::EveryBeam => {
                 debug!("Setting up an EveryBeam object");
                 printer.push_line("Type: EveryBeam".into());
-                let (beam_ms, options) = everybeam.into_options();
-                let ms = match (beam_ms.as_deref(), input_ms) {
-                    (Some(ms), _) => ms,
-                    (None, Some(ms)) => ms,
-                    (None, None) => return Err(BeamError::NeedsBeamMs),
-                };
+                let options = everybeam.into_options();
+                let ms = telescope_ms.ok_or(BeamError::NeedsBeamMs)?;
                 printer.push_line(format!("Telescope measurement set: {}", ms.display()).into());
                 let describe = |name: &str, v: Option<&str>| -> String {
                     format!("{name}: {}", v.unwrap_or("default"))
@@ -289,6 +283,26 @@ impl BeamArgs {
                     printer.push_line(format!("Coefficients: {}", p.display()).into());
                 }
                 let beam = EveryBeam::new(ms, Some(total_num_tiles), options)?;
+                printer.push_line(format!("Stations: {}", beam.get_num_tiles()).into());
+                Box::new(beam)
+            }
+
+            BeamType::SkaLowAnalytic | BeamType::SkaLowEepGrid | BeamType::SkaLowEepSph => {
+                debug!("Setting up an SKA-Low ({beam_type}) beam object");
+                printer.push_line(format!("Type: {beam_type} (hyperbeam)").into());
+                let ms = telescope_ms.ok_or(BeamError::NeedsBeamMs)?;
+                printer.push_line(format!("Telescope measurement set: {}", ms.display()).into());
+                let data = match (beam_type, beam_file.as_deref()) {
+                    (BeamType::SkaLowAnalytic, Some(_)) => {
+                        "Ignoring the supplied beam file; ska-low-analytic doesn't use one".warn();
+                        None
+                    }
+                    (_, f) => f,
+                };
+                if let Some(f) = data {
+                    printer.push_line(format!("Model data: {}", f.display()).into());
+                }
+                let beam = SkaLowBeam::new(beam_type, ms, data, Some(total_num_tiles))?;
                 printer.push_line(format!("Stations: {}", beam.get_num_tiles()).into());
                 Box::new(beam)
             }

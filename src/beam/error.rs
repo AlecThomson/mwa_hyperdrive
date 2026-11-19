@@ -44,10 +44,19 @@ pub enum BeamError {
     #[error("hyperbeam analytic error: {0}")]
     HyperbeamAnalytic(#[from] mwa_hyperbeam::analytic::AnalyticBeamError),
 
+    #[error("hyperbeam SKA-Low error: {0}")]
+    HyperbeamSka(#[from] mwa_hyperbeam::ska::SkaBeamError),
+
+    #[error("hyperbeam init SKA-Low error: {0}")]
+    HyperbeamInitSka(#[from] mwa_hyperbeam::ska::InitSkaBeamError),
+
+    #[error("Couldn't read the SKA-Low station layout: {0}")]
+    SkaLowMs(String),
+
     #[error("EveryBeam error: {0}")]
     EveryBeam(String),
 
-    #[error("The EveryBeam beam requires a measurement set to describe the telescope, but the input data isn't a measurement set; please supply one with --beam-ms")]
+    #[error("This beam (EveryBeam or SKA-Low) requires a measurement set to describe the telescope, but the input data isn't a measurement set; please supply one with --beam-ms")]
     NeedsBeamMs,
 
     #[error("This beam requires the time of the beam-response calculation, but it wasn't supplied; this is a hyperdrive bug or an unsupported beam for this feature")]

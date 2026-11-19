@@ -13,6 +13,7 @@ mod di_calibrate;
 mod everybeam;
 mod no_stderr;
 mod peel;
+mod ska_low;
 mod solutions_apply;
 mod solutions_plot;
 mod solutions_qa;

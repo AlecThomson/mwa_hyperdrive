@@ -17,6 +17,7 @@ mod error;
 #[cfg(feature = "everybeam")]
 mod everybeam;
 mod fee;
+mod ska_low;
 pub(crate) mod spline;
 #[cfg(test)]
 mod tests;
@@ -28,6 +29,7 @@ pub(crate) use everybeam::EveryBeam;
 #[cfg(feature = "everybeam")]
 pub use everybeam::{use_bundled_casacore_data, EveryBeamOptions};
 pub(crate) use fee::FEEBeam;
+pub(crate) use ska_low::SkaLowBeam;
 pub(crate) use spline::BeamFreqSpline;
 
 use std::{
@@ -94,6 +96,24 @@ pub enum BeamType {
     #[strum(serialize = "none")]
     None,
 
+    /// SKA-Low stations of analytic dipoles (hyperbeam's
+    /// `ska-low-analytic`, EveryBeam's `oskar_dipole_cos`), using a
+    /// measurement set to describe the stations.
+    #[strum(serialize = "ska-low-analytic")]
+    SkaLowAnalytic,
+
+    /// SKA-Low stations with a gridded average embedded element pattern
+    /// (hyperbeam's `ska-low-eep-grid`, EveryBeam's `gridded_eep`), using a
+    /// measurement set to describe the stations.
+    #[strum(serialize = "ska-low-eep-grid")]
+    SkaLowEepGrid,
+
+    /// SKA-Low stations with per-element spherical-wave embedded element
+    /// patterns (hyperbeam's `ska-low-eep-sph`, EveryBeam's `skalow_feko`),
+    /// using a measurement set to describe the stations.
+    #[strum(serialize = "ska-low-eep-sph")]
+    SkaLowEepSph,
+
     /// Any beam supported by EveryBeam (e.g. SKA-Low, LOFAR), using a
     /// measurement set to describe the telescope.
     #[cfg(feature = "everybeam")]
@@ -107,10 +127,24 @@ impl BeamType {
         match self {
             BeamType::AnalyticMwaPb => Some(AnalyticType::MwaPb),
             BeamType::AnalyticRts => Some(AnalyticType::Rts),
-            BeamType::FEE | BeamType::None => None,
+            BeamType::FEE
+            | BeamType::None
+            | BeamType::SkaLowAnalytic
+            | BeamType::SkaLowEepGrid
+            | BeamType::SkaLowEepSph => None,
             #[cfg(feature = "everybeam")]
             BeamType::EveryBeam => None,
         }
+    }
+}
+
+impl BeamType {
+    /// Is this one of the SKA-Low beams (which need a measurement set)?
+    pub(crate) fn is_ska_low(self) -> bool {
+        matches!(
+            self,
+            BeamType::SkaLowAnalytic | BeamType::SkaLowEepGrid | BeamType::SkaLowEepSph
+        )
     }
 }
 
@@ -611,6 +645,12 @@ pub fn create_beam_object(
             )?))
         }
 
+        // The SKA-Low beams need a measurement set; see
+        // `create_ska_low_object`.
+        BeamType::SkaLowAnalytic | BeamType::SkaLowEepGrid | BeamType::SkaLowEepSph => {
+            Err(BeamError::NeedsBeamMs)
+        }
+
         // EveryBeam needs a measurement set; see `create_everybeam_object`.
         #[cfg(feature = "everybeam")]
         BeamType::EveryBeam => Err(BeamError::NeedsBeamMs),
@@ -660,6 +700,26 @@ fn tile_delays_and_gains<'a>(
         }
         None => Ok((ideal_delays, &UNITY_GAINS)),
     }
+}
+
+/// Create an SKA-Low beam object (`beam_type` must be one of the SKA-Low
+/// beam types) from a measurement set describing the stations. `data_path` is
+/// the element model's data, if it needs any (see [`SkaLowBeam::new`]). If
+/// `num_tiles` is supplied, it must match the number of stations in the
+/// measurement set.
+pub fn create_ska_low_object(
+    beam_type: BeamType,
+    ms: &Path,
+    data_path: Option<&Path>,
+    num_tiles: Option<usize>,
+) -> Result<Box<dyn Beam>, BeamError> {
+    if !beam_type.is_ska_low() {
+        return Err(BeamError::Unrecognised(beam_type.to_string()));
+    }
+    debug!("Setting up an SKA-Low ({beam_type}) beam object");
+    Ok(Box::new(SkaLowBeam::new(
+        beam_type, ms, data_path, num_tiles,
+    )?))
 }
 
 /// Create an EveryBeam beam object from a measurement set describing the

@@ -622,6 +622,7 @@ fn sparse_timeblocks_with_averaging() {
             delays: None,
             unity_dipole_gains: true,
             beam_file: None,
+            beam_ms: None,
             #[cfg(feature = "everybeam")]
             everybeam: Default::default(),
         },
