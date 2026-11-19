@@ -67,7 +67,7 @@ jobs:
           # is using such a CPU...
           # https://stackoverflow.com/questions/52858556/most-recent-processor-without-support-of-ssse3-instructions
           # Disabling curl just means you cannot fits_open() using a URL.
-          CFLAGS="-O3" ./configure --prefix=/usr/local --enable-reentrant --enable-sse2 --enable-ssse3 --disable-curl
+          CFLAGS="-O3 -std=gnu17" ./configure --prefix=/usr/local --enable-reentrant --enable-sse2 --enable-ssse3 --disable-curl
 
           if [[ "$OSTYPE" == "linux-gnu"* ]]; then
               make -j
@@ -359,7 +359,7 @@ jobs:
           # is using such a CPU...
           # https://stackoverflow.com/questions/52858556/most-recent-processor-without-support-of-ssse3-instructions
           # Disabling curl just means you cannot fits_open() using a URL.
-          CFLAGS="-O3" ./configure --prefix=/usr/local --enable-reentrant --enable-sse2 --enable-ssse3 --disable-curl
+          CFLAGS="-O3 -std=gnu17" ./configure --prefix=/usr/local --enable-reentrant --enable-sse2 --enable-ssse3 --disable-curl
 
           make -j
           sudo make install

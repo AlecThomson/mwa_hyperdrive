@@ -73,6 +73,11 @@ fn fee_beam_values_are_sensible() {
         })
         .collect();
 
+    // hyperbeam's Jones comes from its own Marlu; compare as plain arrays.
+    let hyperbeam_values: Vec<Jones<f64>> = hyperbeam_values
+        .into_iter()
+        .map(|j| Jones::from(*j))
+        .collect();
     assert_abs_diff_eq!(&hyperdrive_values[..], &hyperbeam_values[..]);
 
     // Exercise the array path (rewritten to call calc_jones_array_inner).
@@ -141,6 +146,8 @@ fn fee_gpu_beam_values_are_sensible() {
 
     let hyperdrive_values =
         Array3::from_shape_vec(hyperbeam_values.dim(), hyperdrive_values).unwrap();
+    // hyperbeam's Jones comes from its own Marlu; compare as plain arrays.
+    let hyperbeam_values = hyperbeam_values.mapv(|j| Jones::from(*j));
     assert_abs_diff_eq!(hyperdrive_values, hyperbeam_values);
 }
 
