@@ -205,6 +205,14 @@ jobs:
             cargo build --profile production --locked \
               --features=everybeam-vendored,cfitsio-static
 
+            # casacore and EveryBeam must be linked statically; a dynamic
+            # libcasa_*/libeverybeam dependency means an installed copy was
+            # picked up instead of the vendored one.
+            if readelf -d target/production/hyperdrive | grep NEEDED | grep -Ei 'libcasa_|everybeam'; then
+              echo "hyperdrive is dynamically linked against casacore/EveryBeam" >&2
+              exit 1
+            fi
+
             DIR="mwa_hyperdrive-${VERSION}-Linux-x86-64-v${ARCH}-everybeam"
             rm -rf "$DIR"
             .github/workflows/bundle_libs.sh target/production/hyperdrive "$DIR"
