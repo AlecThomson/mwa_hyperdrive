@@ -262,10 +262,11 @@ jobs:
           TARBALL=$(ls *-x86-64-v2-everybeam.tar.gz)
           docker run --rm -v "$PWD:/work" -w /work ubuntu:20.04 bash -c "
             set -ex
-            apt-get update -qq
-            # gdb is only used to get a backtrace if hyperdrive crashes.
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-              gdb
+            # gdb is only used to get a backtrace if hyperdrive crashes, so
+            # an Ubuntu mirror outage mustn't fail the smoke test.
+            { apt-get -o Acquire::Retries=5 update -qq &&
+              DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=5 install -y -qq \
+                --no-install-recommends gdb; } || echo 'Could not install gdb; continuing without it'
             tar -xf $TARBALL
             HYP=\$(ls -d *-everybeam)/bin/hyperdrive
             \$HYP --version
@@ -277,7 +278,9 @@ jobs:
               --beam-type everybeam --everybeam-element-model skala40_wave
               --beam-ms test_files/everybeam/mini.ms -o sols.fits'
             \$HYP \$CAL_ARGS || {
-              gdb -q -batch -ex run -ex 'thread apply all bt 25' --args \$HYP \$CAL_ARGS
+              if command -v gdb >/dev/null; then
+                gdb -q -batch -ex run -ex 'thread apply all bt 25' --args \$HYP \$CAL_ARGS
+              fi
               exit 1
             }
             \$HYP solutions-plot sols.fits
