@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic
 Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Native SKA-Low station beams, calculated with hyperbeam on the CPU or GPU:
+  `--beam-type ska-low-analytic`, `ska-low-eep-grid` and `ska-low-eep-sph`
+  (EveryBeam's `oskar_dipole_cos`, `gridded_eep` and `skalow_feko`). Stations
+  (element layouts, X/Y element flags and rigid rotations) are read from the
+  measurement set's `PHASED_ARRAY` table (`--beam-ms`, or the input
+  measurement set), and each station's response is calculated in its own
+  local frame. `--beam-file` gives the EEP grid file or FEKO coefficient
+  directory. These don't need the `everybeam` feature.
+
+### Changed
+
+- `--beam-ms` is no longer specific to the `everybeam` feature.
+- hyperbeam is taken from the `ska-port` branch of
+  AlecThomson/mwa_hyperbeam (MWATelescope/mwa_hyperbeam#41) until the SKA-Low
+  models are in a hyperbeam release.
+
 ## [0.10.0] - 2026-11-18
 
 ### Added

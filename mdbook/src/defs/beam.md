@@ -1,9 +1,9 @@
 # Beam responses
 
 Beam responses are given by
-[`mwa_hyperbeam`](https://github.com/MWATelescope/mwa_hyperbeam) (the default)
-or, if `hyperdrive` was compiled with the `everybeam` feature,
-[EveryBeam](#everybeam).
+[`mwa_hyperbeam`](https://github.com/MWATelescope/mwa_hyperbeam) (the default,
+including [SKA-Low](#ska-low) station beams) or, if `hyperdrive` was compiled with the
+`everybeam` feature, [EveryBeam](#everybeam).
 
 To function, MWA beam code needs a few things:
 
@@ -70,6 +70,40 @@ Beam code usually does not error, but if it does it's likely because:
 2. There aren't exactly 16 or 32 dipole gains per tile; or
 3. There's something wrong with the FEE HDF5 file. The official file is well
    tested.
+
+## SKA-Low
+
+`--beam-type ska-low-analytic`, `ska-low-eep-grid` and `ska-low-eep-sph` use
+[hyperbeam](https://github.com/MWATelescope/mwa_hyperbeam)'s SKA-Low models,
+on the CPU or GPU (no `everybeam` feature is needed). They are equivalent to
+EveryBeam's SKA-Low element models:
+
+| `--beam-type`      | EveryBeam `element_response_model` | Data (`--beam-file`)                 |
+|--------------------|------------------------------------|--------------------------------------|
+| `ska-low-analytic` | `oskar_dipole_cos`                 | none                                 |
+| `ska-low-eep-grid` | `gridded_eep`                      | the HDF5 EEP grid file               |
+| `ska-low-eep-sph`  | `skalow_feko`                      | the directory of FEKO coefficients   |
+
+Without `--beam-file`, the data are found with the `SKA_LOW_EEP_GRID_FILE` or
+`SKA_LOW_EEP_SPH_PATH` environment variables, or in `$EVERYBEAM_DATADIR`.
+
+As for EveryBeam, the stations are described by a measurement set: the input
+data if it is a measurement set, otherwise `--beam-ms`. Each station's element
+positions, element flags (separately for X and Y) and rigid rotation (from
+`COORDINATE_AXES`) are read from the `PHASED_ARRAY` table, and the stations are
+pointed at the `DELAY_DIR` of the first `FIELD`. Each station's response is
+calculated in its own local frame, so stations far from the array centre have
+their own horizon.
+
+The responses are in the same convention as the MWA FEE beam (and the
+EveryBeam beam with its default `none` normalisation): the columns are the
+sky's (East, North) components and the rows each station's own X and Y feeds.
+They are unnormalised (the EEP models are in their data's units); a copy
+normalised by the element response at the zenith is used to veto sources.
+Compared with EveryBeam for the test measurement set, the responses agree to
+about 3e-4 apart from a rotation of the sky's polarisation basis of about the
+precession of the celestial pole since J2000 (0.13° in 2023), which comes from
+hyperdrive's J2000-precessed horizon frame (as used for all beams).
 
 ## EveryBeam
 
