@@ -232,46 +232,38 @@ pub(crate) fn read_layout(ms: &Path) -> Result<SkaLowLayout, BeamError> {
     for row in 0..num_stations {
         let position: Vec<f64> = get_vec(ms, &mut pa, "PHASED_ARRAY", "POSITION", row)?;
         let axes: Vec<f64> = get_vec(ms, &mut pa, "PHASED_ARRAY", "COORDINATE_AXES", row)?;
-        let offsets: Vec<f64> = get_vec(ms, &mut pa, "PHASED_ARRAY", "ELEMENT_OFFSET", row)?;
-        if position.len() != 3
-            || axes.len() != 9
-            || !offsets.len().is_multiple_of(3)
-            || offsets.is_empty()
-        {
+        if position.len() != 3 || axes.len() != 9 {
             return Err(ms_err(
                 ms,
-                format!("PHASED_ARRAY row {row} has unexpected POSITION, COORDINATE_AXES or ELEMENT_OFFSET shapes"),
+                format!("PHASED_ARRAY row {row} has unexpected POSITION or COORDINATE_AXES shapes"),
             ));
         }
-        let num_elements = offsets.len() / 3;
-        let flags: Vec<bool> = match pa.get_cell_as_vec::<bool>("ELEMENT_FLAG", row) {
-            Ok(f) if f.len() == 2 * num_elements => f,
-            Ok(f) => {
-                return Err(ms_err(
-                    ms,
-                    format!(
-                    "PHASED_ARRAY row {row} has {} ELEMENT_FLAG values for {num_elements} elements",
-                    f.len()
-                ),
-                ))
-            }
-            Err(_) => vec![false; 2 * num_elements],
-        };
-
-        // casacore arrays are column major, so the flattened COORDINATE_AXES
-        // are the p, q and r axes in turn (each in ITRF), the element offsets
-        // are (x, y, z) per element, and the flags are (X, Y) per element.
-        let p = [axes[0], axes[1], axes[2]];
-        let r = [axes[6], axes[7], axes[8]];
-        let station_enu = if norm(r) > 0.5 {
-            enu_from_up(r)
+        // COORDINATE_AXES are the station's p, q and r axes in ITRF, with r
+        // the station's vertical. casacore arrays are column major, so the
+        // flattened cell is normally p, q, r in turn, but accept the
+        // transpose too: whichever arrangement has an r close to the
+        // geodetic vertical at the station.
+        let geodetic = geodetic_enu(XyzGeocentric {
+            x: position[0],
+            y: position[1],
+            z: position[2],
+        });
+        let rows = |i: usize| [axes[3 * i], axes[3 * i + 1], axes[3 * i + 2]];
+        let cols = |i: usize| [axes[i], axes[i + 3], axes[i + 6]];
+        let vertical = |r: V3| norm(r) > 0.5 && dot(normalise(r), geodetic[2]) > 0.999;
+        let (p, r) = if vertical(rows(2)) {
+            (rows(0), rows(2))
+        } else if vertical(cols(2)) {
+            (cols(0), cols(2))
         } else {
-            geodetic_enu(XyzGeocentric {
-                x: position[0],
-                y: position[1],
-                z: position[2],
-            })
+            return Err(ms_err(
+                ms,
+                format!(
+                    "PHASED_ARRAY row {row}'s COORDINATE_AXES don't include the station's vertical (in ITRF): {axes:?}"
+                ),
+            ));
         };
+        let station_enu = enu_from_up(r);
         let to_station = |v: V3| {
             [
                 dot(v, station_enu[0]),
@@ -279,17 +271,77 @@ pub(crate) fn read_layout(ms: &Path) -> Result<SkaLowLayout, BeamError> {
                 dot(v, station_enu[2]),
             ]
         };
-        let positions_enu = offsets
-            .as_chunks::<3>()
-            .0
-            .iter()
-            .map(|&o| to_station(o))
+        // Element offsets are (x, y, z) in ITRF for each element. Their cells
+        // are N x 3 as written by OSKAR (and read by EveryBeam), i.e.
+        // flattened as (x, y, z) per element, but some writers use 3 x N,
+        // i.e. all the x, then all the y, then all the z. (rubbl doesn't give
+        // the shapes of these cells.) SKA-Low stations are flat, so only one
+        // of these makes the offsets horizontal; the element flags (N x 2 or
+        // 2 x N) are assumed to be laid out like the offsets.
+        let offsets: Vec<f64> = get_vec(ms, &mut pa, "PHASED_ARRAY", "ELEMENT_OFFSET", row)?;
+        if offsets.is_empty() || !offsets.len().is_multiple_of(3) {
+            return Err(ms_err(
+                ms,
+                format!(
+                    "PHASED_ARRAY row {row} has {} ELEMENT_OFFSET values; expected 3 per element",
+                    offsets.len()
+                ),
+            ));
+        }
+        let num_elements = offsets.len() / 3;
+        let element_major: Vec<[f64; 3]> = (0..num_elements)
+            .map(|e| to_station([offsets[3 * e], offsets[3 * e + 1], offsets[3 * e + 2]]))
             .collect();
-        let (weights_x, weights_y) = flags
-            .as_chunks::<2>()
-            .0
-            .iter()
-            .map(|f| (if f[0] { 0.0 } else { 1.0 }, if f[1] { 0.0 } else { 1.0 }))
+        let component_major: Vec<[f64; 3]> = (0..num_elements)
+            .map(|e| {
+                to_station([
+                    offsets[e],
+                    offsets[num_elements + e],
+                    offsets[2 * num_elements + e],
+                ])
+            })
+            .collect();
+        // The largest distance of an element from the station's plane.
+        let max_height = |p: &[[f64; 3]]| p.iter().map(|p| p[2].abs()).fold(0.0, f64::max);
+        const MAX_HEIGHT_M: f64 = 1.0;
+        let (positions_enu, element_major_layout) = if max_height(&element_major) <= MAX_HEIGHT_M {
+            (element_major, true)
+        } else if max_height(&component_major) <= MAX_HEIGHT_M {
+            debug!("PHASED_ARRAY row {row}: ELEMENT_OFFSET is 3 x N");
+            (component_major, false)
+        } else {
+            return Err(ms_err(
+                ms,
+                format!(
+                    "PHASED_ARRAY row {row}'s elements aren't in the station's plane (to within {MAX_HEIGHT_M} m) however ELEMENT_OFFSET is read; it should be ITRF offsets"
+                ),
+            ));
+        };
+        let flags: Vec<bool> = match pa.get_cell_as_vec::<bool>("ELEMENT_FLAG", row) {
+            Ok(f) if f.len() == 2 * num_elements => f,
+            Ok(f) => return Err(ms_err(
+                ms,
+                format!(
+                    "PHASED_ARRAY row {row} has {} ELEMENT_FLAG values for {num_elements} elements",
+                    f.len()
+                ),
+            )),
+            Err(_) => vec![false; 2 * num_elements],
+        };
+        let flag = |e: usize, pol: usize| {
+            if element_major_layout {
+                flags[2 * e + pol]
+            } else {
+                flags[pol * num_elements + e]
+            }
+        };
+        let (weights_x, weights_y) = (0..num_elements)
+            .map(|e| {
+                (
+                    if flag(e, 0) { 0.0 } else { 1.0 },
+                    if flag(e, 1) { 0.0 } else { 1.0 },
+                )
+            })
             .unzip();
         let mut local_frame = [[0.0; 3]; 3];
         for (i, s) in station_enu.iter().enumerate() {

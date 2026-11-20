@@ -158,3 +158,65 @@ fn analytic_matches_everybeam() {
     assert!(max_diff < 3e-3, "max diff {max_diff:e}");
     assert!(max_norm_diff < 1e-3, "max row-norm diff {max_norm_diff:e}");
 }
+
+fn copy_dir(src: &Path, dst: &Path) {
+    std::fs::create_dir_all(dst).unwrap();
+    for entry in std::fs::read_dir(src).unwrap() {
+        let entry = entry.unwrap();
+        let to = dst.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &to);
+        } else {
+            std::fs::copy(entry.path(), &to).unwrap();
+        }
+    }
+}
+
+/// Some measurement sets store ELEMENT_OFFSET as 3 x N (and ELEMENT_FLAG as
+/// 2 x N) rather than N x 3 (and N x 2); both must give the same stations.
+#[test]
+fn transposed_phased_array_cells() {
+    use ndarray::Array2;
+
+    let dir = tempfile::tempdir().unwrap();
+    let ms = dir.path().join("transposed.ms");
+    copy_dir(Path::new(MS), &ms);
+    {
+        let mut pa = Table::open(ms.join("PHASED_ARRAY"), TableOpenMode::ReadWrite).unwrap();
+        for row in 0..pa.n_rows() {
+            let offsets: Vec<f64> = pa.get_cell_as_vec("ELEMENT_OFFSET", row).unwrap();
+            let offsets = Array2::from_shape_vec((16, 3), offsets).unwrap();
+            pa.put_cell(
+                "ELEMENT_OFFSET",
+                row,
+                &offsets.reversed_axes().as_standard_layout().into_owned(),
+            )
+            .unwrap();
+            let flags: Vec<bool> = pa.get_cell_as_vec("ELEMENT_FLAG", row).unwrap();
+            let flags = Array2::from_shape_vec((16, 2), flags).unwrap();
+            pa.put_cell(
+                "ELEMENT_FLAG",
+                row,
+                &flags.reversed_axes().as_standard_layout().into_owned(),
+            )
+            .unwrap();
+        }
+        // The cells really are transposed now.
+        let offsets: Vec<f64> = pa.get_cell_as_vec("ELEMENT_OFFSET", 0).unwrap();
+        let normal: Vec<f64> = Table::open(Path::new(MS).join("PHASED_ARRAY"), TableOpenMode::Read)
+            .unwrap()
+            .get_cell_as_vec("ELEMENT_OFFSET", 0)
+            .unwrap();
+        assert_eq!(offsets[1], normal[3]);
+    }
+    let normal = read_layout(Path::new(MS)).unwrap();
+    let transposed = read_layout(&ms).unwrap();
+    for (a, b) in normal.stations.iter().zip(&transposed.stations) {
+        assert_eq!(a.positions_enu, b.positions_enu);
+        assert_eq!(a.weights_x, b.weights_x);
+        assert_eq!(a.weights_y, b.weights_y);
+        assert_eq!(a.rotation_rad, b.rotation_rad);
+    }
+    // Station 2's flagged X elements survive the transpose.
+    assert_eq!(transposed.stations[2].weights_x[5], 0.0);
+}
