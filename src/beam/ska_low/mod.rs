@@ -319,13 +319,15 @@ pub(crate) fn read_layout(ms: &Path) -> Result<SkaLowLayout, BeamError> {
         };
         let flags: Vec<bool> = match pa.get_cell_as_vec::<bool>("ELEMENT_FLAG", row) {
             Ok(f) if f.len() == 2 * num_elements => f,
-            Ok(f) => return Err(ms_err(
-                ms,
-                format!(
+            Ok(f) => {
+                return Err(ms_err(
+                    ms,
+                    format!(
                     "PHASED_ARRAY row {row} has {} ELEMENT_FLAG values for {num_elements} elements",
                     f.len()
                 ),
-            )),
+                ))
+            }
             Err(_) => vec![false; 2 * num_elements],
         };
         let flag = |e: usize, pol: usize| {

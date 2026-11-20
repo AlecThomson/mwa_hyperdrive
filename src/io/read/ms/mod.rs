@@ -1314,6 +1314,10 @@ impl MsReader {
                 };
                 let num_weight_chans = num_weights.min(flags.len() / NUM_POLS).min(num_chans);
                 let flags = &flags[..num_weight_chans * NUM_POLS];
+                // Non-finite weights (some measurement sets have NaN weights
+                // for flagged data) are treated as zero; non-finite
+                // visibilities are flagged below.
+                let finite = |w: f32| if w.is_finite() { w } else { 0.0 };
                 if self.weight_col_is_2d {
                     let weights = &weights[..num_weight_chans * NUM_POLS];
                     staged_weights.extend(
@@ -1323,7 +1327,8 @@ impl MsReader {
                             .iter()
                             .zip(flags.as_chunks::<NUM_POLS>().0)
                             .map(|(weights, flags)| {
-                                let weight = weights.iter().copied().fold(weights[0], f32::min);
+                                let weight =
+                                    finite(weights.iter().copied().fold(weights[0], f32::min));
                                 let flag = flags.iter().fold(false, |acc, &f| acc | f);
                                 if flag {
                                     -weight.abs()
@@ -1333,7 +1338,7 @@ impl MsReader {
                             }),
                     );
                 } else {
-                    let weight = weights.iter().copied().fold(weights[0], f32::min);
+                    let weight = finite(weights.iter().copied().fold(weights[0], f32::min));
                     staged_weights.extend(flags.as_chunks::<NUM_POLS>().0.iter().map(|flags| {
                         let flag = flags.iter().fold(false, |acc, &f| acc | f);
                         if flag {
@@ -1374,8 +1379,18 @@ impl MsReader {
                             out_vis_fb.outer_iter_mut(),
                             out_weights_fb.outer_iter_mut()
                         ) {
+                            // Whether the visibility is non-finite (some
+                            // measurement sets have NaN visibilities where
+                            // the data are flagged); if so, it's zeroed and
+                            // flagged, so that it can't poison averages or
+                            // calibration (even a zero weight times NaN is
+                            // NaN).
+                            let mut non_finite = false;
                             if i_chan < num_data_chans {
                                 let ms_data = &data[i_chan * NUM_POLS..(i_chan + 1) * NUM_POLS];
+                                non_finite = ms_data
+                                    .iter()
+                                    .any(|v| !(v.re.is_finite() && v.im.is_finite()));
                                 let mut vis = Jones::default();
                                 if NUM_POLS > 0 {
                                     vis[0] = ms_data[0];
@@ -1403,10 +1418,16 @@ impl MsReader {
                                         ])
                                     };
                                 }
-                                out_vis_b[ms_row.i_out] = pol_transform.apply(vis);
+                                out_vis_b[ms_row.i_out] = if non_finite {
+                                    Jones::default()
+                                } else {
+                                    pol_transform.apply(vis)
+                                };
                             }
                             if i_chan < num_weight_chans {
-                                out_weights_b[ms_row.i_out] = weights[i_chan];
+                                let weight = weights[i_chan];
+                                out_weights_b[ms_row.i_out] =
+                                    if non_finite { -weight.abs() } else { weight };
                             }
                         }
                     }

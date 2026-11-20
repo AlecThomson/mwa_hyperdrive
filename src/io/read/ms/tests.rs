@@ -1362,3 +1362,81 @@ fn test_per_pol_weight_column() {
         assert_abs_diff_eq!(w, 2.0);
     }
 }
+
+/// Some measurement sets (e.g. from SKA-Low) have NaN visibilities and
+/// weights where the data are flagged. These must be read as flagged with
+/// zero visibilities: otherwise, even with a zero weight, they make any
+/// average or calibration sum that they touch NaN.
+#[test]
+#[serial]
+fn test_nan_visibilities_and_weights_are_flagged() {
+    let dir = tempdir().unwrap();
+    let ms = dir.path().join("nan.ms");
+    copy_dir(Path::new(MINI_MS), &ms);
+    {
+        let mut t = Table::open(&ms, TableOpenMode::ReadWrite).unwrap();
+        for row in 0..t.n_rows() {
+            let num_chans = t.get_cell_as_vec::<c32>("DATA", row).unwrap().len() / 4;
+            // Every third channel is flagged with NaN visibilities and
+            // weights (as in SKA-Low data), the next has a NaN visibility but
+            // isn't flagged, and the next is fine.
+            let data = Array2::from_shape_fn((num_chans, 4), |(i_chan, i_pol)| match i_chan % 3 {
+                0 => c32::new(f32::NAN, f32::NAN),
+                1 if i_pol == 3 => c32::new(1.0, f32::NAN),
+                _ => c32::new(1.0 + i_pol as f32, 0.5),
+            });
+            let weights =
+                Array2::from_shape_fn(
+                    (num_chans, 4),
+                    |(i_chan, _)| {
+                        if i_chan == 0 {
+                            f32::NAN
+                        } else {
+                            2.0
+                        }
+                    },
+                );
+            let flags = Array2::from_shape_fn((num_chans, 4), |(i_chan, _)| i_chan % 3 == 0);
+            t.put_cell("DATA", row, &data).unwrap();
+            t.put_cell("WEIGHT_SPECTRUM", row, &weights).unwrap();
+            t.put_cell("FLAG", row, &flags).unwrap();
+        }
+    }
+
+    let reader = MsReader::new(ms, None, None, None).unwrap();
+    let obs_context = reader.get_obs_context();
+    let num_tiles = obs_context.get_total_num_tiles();
+    let num_baselines = (num_tiles * (num_tiles - 1)) / 2;
+    let num_chans = obs_context.fine_chan_freqs.len();
+    let flags = TileBaselineFlags::new(num_tiles, HashSet::new());
+    let mut vis = Array2::zeros((num_chans, num_baselines));
+    let mut weights = Array2::zeros((num_chans, num_baselines));
+    reader
+        .read_crosses(
+            vis.view_mut(),
+            weights.view_mut(),
+            *obs_context.all_timesteps.first(),
+            &flags,
+            &HashSet::new(),
+        )
+        .unwrap();
+
+    assert!(vis
+        .iter()
+        .all(|j: &Jones<f32>| j.iter().all(|c| c.re.is_finite() && c.im.is_finite())));
+    assert!(weights.iter().all(|w: &f32| w.is_finite()));
+    for i_chan in 0..num_chans {
+        for i_bl in 0..num_baselines {
+            let (v, w) = (vis[(i_chan, i_bl)], weights[(i_chan, i_bl)]);
+            match i_chan % 3 {
+                // Flagged, with a NaN weight: zero visibility, not a positive
+                // weight.
+                0 => assert!(v == Jones::default() && w <= 0.0),
+                // A NaN visibility: zeroed and flagged.
+                1 => assert!(v == Jones::default() && w < 0.0),
+                // Fine.
+                _ => assert!(w > 0.0 && v.norm_sqr().iter().all(|n| *n > 0.0)),
+            }
+        }
+    }
+}
