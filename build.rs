@@ -13,6 +13,7 @@ fn main() {
     );
 
     built::write_built_file().expect("Failed to acquire build-time information");
+    rerun_if_git_head_changes();
 
     #[cfg(any(feature = "cuda", feature = "hip"))]
     gpu::build_and_link();
@@ -322,5 +323,31 @@ mod gpu {
             gpu_target.file(f);
         }
         gpu_target.compile("hyperdrive_gpu");
+    }
+}
+
+/// The build-time information includes the git commit, so re-run this script
+/// when it changes (otherwise, the reported commit can be stale). Nothing is
+/// done if this isn't a git checkout.
+fn rerun_if_git_head_changes() {
+    let git_dir = std::path::Path::new(".git");
+    if !git_dir.is_dir() {
+        return;
+    }
+    let head = git_dir.join("HEAD");
+    println!("cargo:rerun-if-changed={}", head.display());
+    // A branch's commit is in its ref file, or packed-refs.
+    if let Some(r) = std::fs::read_to_string(&head)
+        .ok()
+        .and_then(|h| h.strip_prefix("ref: ").map(|r| r.trim().to_string()))
+    {
+        let ref_file = git_dir.join(r);
+        if ref_file.exists() {
+            println!("cargo:rerun-if-changed={}", ref_file.display());
+        }
+    }
+    let packed = git_dir.join("packed-refs");
+    if packed.exists() {
+        println!("cargo:rerun-if-changed={}", packed.display());
     }
 }
