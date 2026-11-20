@@ -161,9 +161,9 @@
                     <main>
                         <h1 id="beam-responses"><a class="header" href="#beam-responses">Beam responses</a></h1>
 <p>Beam responses are given by
-<a href="https://github.com/MWATelescope/mwa_hyperbeam"><code>mwa_hyperbeam</code></a> (the default)
-or, if <code>hyperdrive</code> was compiled with the <code>everybeam</code> feature,
-<a href="#everybeam">EveryBeam</a>.</p>
+<a href="https://github.com/MWATelescope/mwa_hyperbeam"><code>mwa_hyperbeam</code></a> (the default,
+including <a href="#ska-low">SKA-Low</a> station beams) or, if <code>hyperdrive</code> was compiled with the
+<code>everybeam</code> feature, <a href="#everybeam">EveryBeam</a>.</p>
 <p>To function, MWA beam code needs a few things:</p>
 <ul>
 <li>The <a href="mwa/delays.html">dipole delays</a>;</li>
@@ -219,6 +219,35 @@ multiples of 781.25 ns in delay space.)</p>
 <li>There's something wrong with the FEE HDF5 file. The official file is well
 tested.</li>
 </ol>
+<h2 id="ska-low"><a class="header" href="#ska-low">SKA-Low</a></h2>
+<p><code>--beam-type ska-low-analytic</code>, <code>ska-low-eep-grid</code> and <code>ska-low-eep-sph</code> use
+<a href="https://github.com/MWATelescope/mwa_hyperbeam">hyperbeam</a>'s SKA-Low models,
+on the CPU or GPU (no <code>everybeam</code> feature is needed). They are equivalent to
+EveryBeam's SKA-Low element models:</p>
+<div class="table-wrapper"><table><thead><tr><th><code>--beam-type</code></th><th>EveryBeam <code>element_response_model</code></th><th>Data (<code>--beam-file</code>)</th></tr></thead><tbody>
+<tr><td><code>ska-low-analytic</code></td><td><code>oskar_dipole_cos</code></td><td>none</td></tr>
+<tr><td><code>ska-low-eep-grid</code></td><td><code>gridded_eep</code></td><td>the HDF5 EEP grid file</td></tr>
+<tr><td><code>ska-low-eep-sph</code></td><td><code>skalow_feko</code></td><td>the directory of FEKO coefficients</td></tr>
+</tbody></table>
+</div>
+<p>Without <code>--beam-file</code>, the data are found with the <code>SKA_LOW_EEP_GRID_FILE</code> or
+<code>SKA_LOW_EEP_SPH_PATH</code> environment variables, or in <code>$EVERYBEAM_DATADIR</code>.</p>
+<p>As for EveryBeam, the stations are described by a measurement set: the input
+data if it is a measurement set, otherwise <code>--beam-ms</code>. Each station's element
+positions, element flags (separately for X and Y) and rigid rotation (from
+<code>COORDINATE_AXES</code>) are read from the <code>PHASED_ARRAY</code> table, and the stations are
+pointed at the <code>DELAY_DIR</code> of the first <code>FIELD</code>. Each station's response is
+calculated in its own local frame, so stations far from the array centre have
+their own horizon.</p>
+<p>The responses are in the same convention as the MWA FEE beam (and the
+EveryBeam beam with its default <code>none</code> normalisation): the columns are the
+sky's (East, North) components and the rows each station's own X and Y feeds.
+They are unnormalised (the EEP models are in their data's units); a copy
+normalised by the element response at the zenith is used to veto sources.
+Compared with EveryBeam for the test measurement set, the responses agree to
+about 3e-4 apart from a rotation of the sky's polarisation basis of about the
+precession of the celestial pole since J2000 (0.13° in 2023), which comes from
+hyperdrive's J2000-precessed horizon frame (as used for all beams).</p>
 <h2 id="everybeam"><a class="header" href="#everybeam">EveryBeam</a></h2>
 <p>If <code>hyperdrive</code> was compiled with the <code>everybeam</code> feature (see <a href="../installation/everybeam.html">Installing with
 EveryBeam support</a>), <code>--beam-type everybeam</code>
@@ -259,6 +288,7 @@ and uvfits files can't hold one; when processing such outputs, point
 <tr><td><code>--everybeam-data-column</code></td><td>The data column used to check for a pre-applied beam (LOFAR only).</td></tr>
 <tr><td><code>--everybeam-subband-frequency</code></td><td>Use the subband frequency for the station beamformer (LOFAR only).</td></tr>
 <tr><td><code>--everybeam-frequency-interpolation</code></td><td>Interpolate the beam over frequency (MWA only).</td></tr>
+<tr><td><code>--everybeam-knot-spacing</code></td><td>The spacing of the frequencies at which EveryBeam is evaluated (default <code>1.28MHz</code>); responses are splined to the fine channels. <code>0</code> evaluates every fine channel. See below.</td></tr>
 </tbody></table>
 </div>
 <h3 id="polarisation-conventions-and-normalisation"><a class="header" href="#polarisation-conventions-and-normalisation">Polarisation conventions and normalisation</a></h3>
@@ -289,6 +319,16 @@ corrected (e.g. with DP3's <code>applybeam</code>).</li>
 <p>EveryBeam only runs on the CPU. When GPU modelling is used, EveryBeam beam
 responses are calculated on the CPU and copied to the GPU, which is slower than
 the MWA FEE beam's GPU code.</p>
+<p>Responses are calculated in parallel over directions, stations and
+frequencies. As for the analytic beams, EveryBeam is evaluated at frequencies
+1.28 MHz apart (<code>--everybeam-knot-spacing</code>), spanning the band plus two more on
+each side, and the responses are interpolated to each fine channel with a
+not-a-knot cubic spline (see <a href="#frequency-resolution">frequency resolution</a>).
+This is much faster than evaluating every fine channel (by the number of fine
+channels per 1.28 MHz), and for SKA-Low stations (256 elements across 38 m) the
+spline's error is below 2e-6 of the beam's peak at any zenith angle, for
+pointings at and away from the zenith. <code>--everybeam-knot-spacing 0</code> evaluates
+every fine channel instead.</p>
 
                     </main>
 
