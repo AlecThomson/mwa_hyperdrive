@@ -696,12 +696,7 @@ impl Beam for SkaLowBeam {
 #[cfg(any(feature = "cuda", feature = "hip"))]
 struct SkaLowBeamGpu {
     inner: Arc<Inner>,
-    /// The stations with their X element weights.
-    gpu_x: mwa_hyperbeam::ska::SkaLowBeamGpu,
-    /// The stations with their Y element weights, if any differ from the X
-    /// weights.
-    gpu_y: Option<mwa_hyperbeam::ska::SkaLowBeamGpu>,
-    num_freqs: usize,
+    gpu: mwa_hyperbeam::ska::SkaLowBeamGpu,
     tile_map: DevicePointer<i32>,
     freq_map: DevicePointer<i32>,
 }
@@ -734,30 +729,25 @@ impl SkaLowBeamGpu {
         let rotations: Vec<f64> = stations.iter().map(|s| s.rotation_rad).collect();
         let frames: Vec<[[f64; 3]; 3]> = stations.iter().map(|s| s.local_frame).collect();
         let freqs: Vec<f64> = freqs_hz.iter().map(|&f| f as f64).collect();
-        let prepare = |weights: &Array2<f64>| unsafe {
+        // The Y dipoles only need their own weights if any differ.
+        let weights_y = (weights_y != weights_x).then_some(weights_y);
+        let gpu = unsafe {
             inner.model.0.gpu_prepare(
                 &freqs,
                 SkaGpuTiles::Stations {
                     positions_enu: positions.view(),
-                    weights: Some(weights.view()),
+                    weights: Some(weights_x.view()),
+                    weights_y: weights_y.as_ref().map(|w| w.view()),
                     rotations_rad: Some(&rotations),
                     local_frames: Some(&frames),
                 },
-            )
-        };
-        let gpu_x = prepare(&weights_x)?;
-        let gpu_y = if weights_y != weights_x {
-            Some(prepare(&weights_y)?)
-        } else {
-            None
+            )?
         };
         let tile_map: Vec<i32> = (0..num_stations as i32).collect();
         let freq_map: Vec<i32> = (0..freqs.len() as i32).collect();
         Ok(SkaLowBeamGpu {
             inner: Arc::clone(inner),
-            gpu_x,
-            gpu_y,
-            num_freqs: freqs.len(),
+            gpu,
             tile_map: DevicePointer::copy_to_device(&tile_map)?,
             freq_map: DevicePointer::copy_to_device(&freq_map)?,
         })
@@ -774,55 +764,22 @@ impl BeamGpu for SkaLowBeamGpu {
         time: Option<BeamTime>,
         d_jones: *mut std::ffi::c_void,
     ) -> Result<(), BeamError> {
-        #[cfg(feature = "cuda")]
-        use cuda_runtime_sys::{
-            cudaMemcpy2D as gpuMemcpy2D,
-            cudaMemcpyKind::cudaMemcpyDeviceToDevice as gpuMemcpyDeviceToDevice,
-        };
-        #[cfg(feature = "hip")]
-        use hip_sys::hiprt::{
-            hipMemcpy2D as gpuMemcpy2D,
-            hipMemcpyKind::hipMemcpyDeviceToDevice as gpuMemcpyDeviceToDevice,
-        };
-
         let time = time.ok_or(BeamError::NeedsTime)?;
         let pointing = self.inner.pointing(latitude_rad, time);
         let num_directions: i32 = az_rad.len().try_into().expect("not bigger than i32::MAX");
         let d_az = DevicePointer::copy_to_device(az_rad)?;
         let d_za = DevicePointer::copy_to_device(za_rad)?;
         let d_latitude = DevicePointer::copy_to_device(&[latitude_rad as GpuFloat])?;
-        let calc = |gpu: &mwa_hyperbeam::ska::SkaLowBeamGpu, d_out: *mut std::ffi::c_void| {
-            gpu.calc_jones_device_pair_inner(
-                d_az.get(),
-                d_za.get(),
-                num_directions,
-                pointing.az as GpuFloat,
-                pointing.za() as GpuFloat,
-                d_latitude.get(),
-                false,
-                d_out,
-            )
-        };
-        calc(&self.gpu_x, d_jones)?;
-        if let Some(gpu_y) = &self.gpu_y {
-            // Calculate the responses with the Y weights, and copy their Y
-            // rows (the second half of each Jones matrix) into the results.
-            let n = self.inner.stations.len() * self.num_freqs * az_rad.len();
-            let jones_size = std::mem::size_of::<Jones<GpuFloat>>();
-            let mut d_y = DevicePointer::<Jones<GpuFloat>>::malloc(n * jones_size)?;
-            calc(gpu_y, d_y.get_mut().cast())?;
-            let half = jones_size / 2;
-            gpuMemcpy2D(
-                d_jones.cast::<u8>().add(half).cast(),
-                jones_size,
-                d_y.get().cast::<u8>().add(half).cast(),
-                jones_size,
-                half,
-                n,
-                gpuMemcpyDeviceToDevice,
-            );
-            crate::gpu::check_for_errors(crate::gpu::GpuCall::CopyToDevice)?;
-        }
+        self.gpu.calc_jones_device_pair_inner(
+            d_az.get(),
+            d_za.get(),
+            num_directions,
+            pointing.az as GpuFloat,
+            pointing.za() as GpuFloat,
+            d_latitude.get(),
+            false,
+            d_jones,
+        )?;
         Ok(())
     }
 
@@ -843,6 +800,6 @@ impl BeamGpu for SkaLowBeamGpu {
     }
 
     fn get_num_unique_freqs(&self) -> i32 {
-        self.num_freqs as i32
+        self.gpu.get_num_freqs()
     }
 }
