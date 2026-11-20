@@ -103,6 +103,8 @@ fn get_args(
             unity_dipole_gains: false,
             beam_file: None,
             beam_ms: None,
+            #[cfg(feature = "everybeam")]
+            everybeam: Default::default(),
         },
     }
 }
