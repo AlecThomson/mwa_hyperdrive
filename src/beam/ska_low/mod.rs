@@ -730,8 +730,10 @@ impl SkaLowBeamGpu {
     fn new(inner: &Arc<Inner>, freqs_hz: &[u32]) -> Result<SkaLowBeamGpu, BeamError> {
         use mwa_hyperbeam::ska::SkaGpuTiles;
 
+        // (This is called while progress bars are drawn, so it isn't an info
+        // message, which would garble them.)
         if inner.beam_type == BeamType::SkaLowEepSph {
-            log::info!(
+            debug!(
                 "Reading the SKA-Low FEKO coefficients for {} frequencies onto the GPU (this can take a while)",
                 freqs_hz.len()
             );
