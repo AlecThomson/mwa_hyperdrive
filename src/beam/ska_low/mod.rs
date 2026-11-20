@@ -52,7 +52,7 @@ use marlu::{rubbl_casatables, AzEl, Jones, RADec, XyzGeocentric};
 use mwa_hyperbeam::ska::{
     rotation_from_p_axis, SkaBeamError, SkaElementResponse, SkaLowBeam as HbSkaLowBeam, SkaStation,
 };
-use ndarray::prelude::*;
+use ndarray::{parallel::prelude::*, prelude::*};
 use rubbl_casatables::{Table, TableOpenMode};
 
 use super::{beam_knots_from_file_freqs, beam_knots_on_grid, Beam, BeamError, BeamTime, BeamType};
@@ -670,6 +670,44 @@ impl Beam for SkaLowBeam {
             self.normalised,
             results,
         )
+    }
+
+    fn calc_jones_tiles_freqs(
+        &self,
+        azels: &[AzEl],
+        freqs_hz: &[f64],
+        tile_indices: &[usize],
+        latitude_rad: f64,
+        time: Option<BeamTime>,
+        mut results: ArrayViewMut3<Jones<f64>>,
+    ) -> Result<(), BeamError> {
+        assert_eq!(
+            results.dim(),
+            (tile_indices.len(), freqs_hz.len(), azels.len())
+        );
+        // Every (station, frequency) in parallel, as well as the elements
+        // within each (e.g. with few directions, one station at a time
+        // doesn't keep many cores busy).
+        results
+            .outer_iter_mut()
+            .into_par_iter()
+            .zip(tile_indices.par_iter())
+            .try_for_each(|(mut results, &i_tile)| {
+                results
+                    .outer_iter_mut()
+                    .into_par_iter()
+                    .zip(freqs_hz.par_iter())
+                    .try_for_each(|(mut results, &freq)| {
+                        self.calc_jones_array_inner(
+                            azels,
+                            freq,
+                            Some(i_tile),
+                            latitude_rad,
+                            time,
+                            results.as_slice_mut().expect("is contiguous"),
+                        )
+                    })
+            })
     }
 
     fn find_closest_freq(&self, desired_freq_hz: f64) -> f64 {
