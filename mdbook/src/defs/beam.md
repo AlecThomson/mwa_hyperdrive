@@ -146,6 +146,7 @@ hyperdrive di-calibrate -d obs.ms -s srclist.yaml --beam-type everybeam
 | `--everybeam-data-column` | The data column used to check for a pre-applied beam (LOFAR only). |
 | `--everybeam-subband-frequency` | Use the subband frequency for the station beamformer (LOFAR only). |
 | `--everybeam-frequency-interpolation` | Interpolate the beam over frequency (MWA only). |
+| `--everybeam-knot-spacing` | The spacing of the frequencies at which EveryBeam is evaluated (default `1.28MHz`); responses are splined to the fine channels. `0` evaluates every fine channel. See below. |
 
 ### Polarisation conventions and normalisation
 
@@ -177,3 +178,14 @@ telescope's feeds, so that it matches the visibilities.
 EveryBeam only runs on the CPU. When GPU modelling is used, EveryBeam beam
 responses are calculated on the CPU and copied to the GPU, which is slower than
 the MWA FEE beam's GPU code.
+
+Responses are calculated in parallel over directions, stations and
+frequencies. As for the analytic beams, EveryBeam is evaluated at frequencies
+1.28 MHz apart (`--everybeam-knot-spacing`), spanning the band plus two more on
+each side, and the responses are interpolated to each fine channel with a
+not-a-knot cubic spline (see [frequency resolution](#frequency-resolution)).
+This is much faster than evaluating every fine channel (by the number of fine
+channels per 1.28 MHz), and for SKA-Low stations (256 elements across 38 m) the
+spline's error is below 2e-6 of the beam's peak at any zenith angle, for
+pointings at and away from the zenith. `--everybeam-knot-spacing 0` evaluates
+every fine channel instead.

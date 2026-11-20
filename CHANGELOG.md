@@ -21,6 +21,11 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- EveryBeam beam responses are calculated in parallel over stations and
+  frequencies as well as directions (with one source, they were calculated
+  on one thread), and are evaluated at frequencies 1.28 MHz apart and splined
+  to the fine channels, as for the analytic beams, rather than at every fine
+  channel (`--everybeam-knot-spacing`; `0` restores the old behaviour).
 - `--beam-ms` is no longer specific to the `everybeam` feature.
 - hyperbeam is taken from the `ska-port` branch of
   AlecThomson/mwa_hyperbeam (MWATelescope/mwa_hyperbeam#41) until the SKA-Low

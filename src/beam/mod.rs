@@ -15,7 +15,7 @@
 mod analytic;
 mod error;
 #[cfg(feature = "everybeam")]
-mod everybeam;
+pub(crate) mod everybeam;
 mod fee;
 mod ska_low;
 pub(crate) mod spline;
@@ -931,6 +931,17 @@ pub(crate) fn beam_knots_from_file_freqs(beam_freqs_hz: &[f64], freqs_hz: &[f64]
 /// A beam that is defined at any frequency is evaluated at the knots, so all
 /// of them are at least one spacing above zero.
 pub(crate) fn beam_knots_on_grid(freqs_hz: &[f64], num_guard: usize) -> Vec<f64> {
+    beam_knots_on_grid_with_spacing(freqs_hz, num_guard, BEAM_KNOT_SPACING_HZ)
+}
+
+/// Like [`beam_knots_on_grid`], but with knots at the multiples of
+/// `spacing_hz` (which must be positive).
+pub(crate) fn beam_knots_on_grid_with_spacing(
+    freqs_hz: &[f64],
+    num_guard: usize,
+    spacing_hz: f64,
+) -> Vec<f64> {
+    assert!(spacing_hz > 0.0, "the beam knot spacing must be positive");
     let (Some(min), Some(max)) = (
         freqs_hz.iter().copied().reduce(f64::min),
         freqs_hz.iter().copied().reduce(f64::max),
@@ -940,9 +951,7 @@ pub(crate) fn beam_knots_on_grid(freqs_hz: &[f64], num_guard: usize) -> Vec<f64>
     // Work in integer multiples of the spacing so that the knots are exact
     // multiples of it (and the same for any set of channels within the same
     // coarse channels).
-    let i_lo = ((min / BEAM_KNOT_SPACING_HZ).floor() as i64 - num_guard as i64).max(1);
-    let i_hi = ((max / BEAM_KNOT_SPACING_HZ).ceil() as i64 + num_guard as i64).max(i_lo);
-    (i_lo..=i_hi)
-        .map(|i| i as f64 * BEAM_KNOT_SPACING_HZ)
-        .collect()
+    let i_lo = ((min / spacing_hz).floor() as i64 - num_guard as i64).max(1);
+    let i_hi = ((max / spacing_hz).ceil() as i64 + num_guard as i64).max(i_lo);
+    (i_lo..=i_hi).map(|i| i as f64 * spacing_hz).collect()
 }

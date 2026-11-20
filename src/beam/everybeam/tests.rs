@@ -248,8 +248,12 @@ fn test_many_directions_tiles_freqs() {
     let azels: Vec<AzEl> = (0..3 * DIRECTION_CHUNK_SIZE + 7)
         .map(|i| AzEl::from_degrees(i as f64 * 1.7 % 360.0, 30.0 + (i % 60) as f64))
         .collect();
-    let freqs = [100e6, 150e6];
-    let tiles = [2, 0];
+    // More frequencies than a block, and several stations, so that the work
+    // is split into many blocks.
+    let freqs: Vec<f64> = (0..2 * FREQ_CHUNK_SIZE + 3)
+        .map(|i| 100e6 + 1.7e6 * i as f64)
+        .collect();
+    let tiles = [2, 0, 5];
 
     let mut results = Array3::default((tiles.len(), freqs.len(), azels.len()));
     beam.calc_jones_tiles_freqs(
@@ -268,7 +272,9 @@ fn test_many_directions_tiles_freqs() {
                 let expected = beam
                     .calc_jones(azel, freq, Some(tile), latitude_rad, Some(time))
                     .unwrap();
-                assert_abs_diff_eq!(results[(i_tile, i_freq, i_dir)], expected);
+                // The blocks are independent EveryBeam calls, so the results
+                // are identical.
+                assert_eq!(results[(i_tile, i_freq, i_dir)], expected);
             }
         }
     }
@@ -331,4 +337,104 @@ fn test_veto_beam_is_normalised() {
     // Normalised beams are used for vetoing as they are.
     let beam = EveryBeam::new(Path::new(MS), Some(8), options(Some("amplitude"))).unwrap();
     assert!(beam.veto_beam().is_none());
+}
+
+#[test]
+fn test_beam_knots() {
+    let freqs: Vec<f64> = (0..100).map(|i| 150e6 + 40e3 * i as f64).collect();
+    // By default, knots every 1.28 MHz (spanning the channels, plus guard
+    // knots).
+    let beam = get_beam("amplitude");
+    let knots = beam.get_beam_knots(&freqs);
+    assert!(knots.windows(2).all(|w| (w[1] - w[0] - 1.28e6).abs() < 1.0));
+    assert!(knots[0] < freqs[0] - 1.28e6 && *knots.last().unwrap() > freqs[99] + 1.28e6);
+    // A spacing of 0 evaluates every channel.
+    let every = |spacing: f64| {
+        EveryBeam::new(
+            Path::new(MS),
+            Some(8),
+            EveryBeamOptions {
+                beam_normalisation_mode: Some("amplitude".to_string()),
+                knot_spacing_hz: Some(spacing),
+                ..Default::default()
+            },
+        )
+        .unwrap()
+    };
+    assert_eq!(every(0.0).get_beam_knots(&freqs), freqs);
+    let knots = every(500e3).get_beam_knots(&freqs);
+    assert!(knots.windows(2).all(|w| (w[1] - w[0] - 500e3).abs() < 1.0));
+}
+
+/// Splining EveryBeam's responses from the knots reproduces the responses at
+/// every fine channel. (These test stations are small; see
+/// `ska_low_station_knot_spline_error` in the SKA-Low beam's tests for
+/// full-size SKA-Low stations.)
+#[test]
+fn test_spline_from_knots_matches_every_channel() {
+    use crate::beam::BeamFreqSpline;
+
+    let beam = get_beam("amplitude");
+    let time = BeamTime {
+        epoch: ref_epoch(),
+        lst_rad: 1.2,
+    };
+    let latitude_rad = -0.4682;
+    // From the beam centre (the zenith of REF_RADECS[0]) outwards.
+    let centre = ref_radecs()[0];
+    let azels: Vec<AzEl> = [0.0f64, 5.0, 20.0, 45.0, 70.0]
+        .iter()
+        .map(|d| {
+            RADec::from_radians(centre.ra, centre.dec + d.to_radians())
+                .to_hadec(time.lst_rad)
+                .to_azel(latitude_rad)
+        })
+        .collect();
+    let freqs: Vec<f64> = (0..150).map(|i| 100e6 + 40e3 * i as f64).collect();
+    let knots = beam.get_beam_knots(&freqs);
+    let spline = BeamFreqSpline::new(knots.clone(), &freqs);
+    let s = spline.second_derivs.as_ref().unwrap();
+    let tiles = [0, 2];
+    let mut at_knots = Array3::default((tiles.len(), knots.len(), azels.len()));
+    beam.calc_jones_tiles_freqs(
+        &azels,
+        &knots,
+        &tiles,
+        latitude_rad,
+        Some(time),
+        at_knots.view_mut(),
+    )
+    .unwrap();
+    let mut exact = Array3::default((tiles.len(), freqs.len(), azels.len()));
+    beam.calc_jones_tiles_freqs(
+        &azels,
+        &freqs,
+        &tiles,
+        latitude_rad,
+        Some(time),
+        exact.view_mut(),
+    )
+    .unwrap();
+    let mut max_err: f64 = 0.0;
+    for i_tile in 0..tiles.len() {
+        for i_dir in 0..azels.len() {
+            let y = at_knots.slice(s![i_tile, .., i_dir]);
+            let m: Vec<Jones<f64>> = s
+                .outer_iter()
+                .map(|row| {
+                    row.iter()
+                        .zip(y.iter())
+                        .fold(Jones::default(), |acc, (&w, &j)| acc + j * w)
+                })
+                .collect();
+            for (i_freq, &(lo, hi, [a, b, c, d])) in spline.interp.iter().enumerate() {
+                let interp = y[lo] * a + y[hi] * b + m[lo] * c + m[hi] * d;
+                for k in 0..4 {
+                    max_err = max_err.max((interp[k] - exact[(i_tile, i_freq, i_dir)][k]).norm());
+                }
+            }
+        }
+    }
+    // EveryBeam calculates in single precision, so allow for that.
+    assert!(max_err < 1e-5, "max error {max_err:e}");
 }

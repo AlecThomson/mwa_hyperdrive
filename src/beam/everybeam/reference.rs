@@ -6,14 +6,14 @@
 // test_files/everybeam/mini.ms with element model 'default'.
 // Each entry is [re, im] for j00, j01, j10, j11 in EveryBeam's convention
 // (columns are the (North, East) sky basis), indexed [station][freq][direction].
-pub(super) const REF_TIME_MJD_S: f64 = 5184043210.0;
-pub(super) const REF_RADECS: [(f64, f64); 3] = [
+pub(crate) const REF_TIME_MJD_S: f64 = 5184043210.0;
+pub(crate) const REF_RADECS: [(f64, f64); 3] = [
     (1.5991404738472845, -0.465379827739524),
     (1.8991404738472846, -0.465379827739524),
     (1.5991404738472845, -0.665379827739524),
 ];
-pub(super) const REF_FREQS: [f64; 2] = [100000000.0, 120000000.0];
-pub(super) const REF_NONE: [[[[[f64; 2]; 4]; 3]; 2]; 3] = [
+pub(crate) const REF_FREQS: [f64; 2] = [100000000.0, 120000000.0];
+pub(crate) const REF_NONE: [[[[[f64; 2]; 4]; 3]; 2]; 3] = [
     [
         [
             [
@@ -141,7 +141,7 @@ pub(super) const REF_NONE: [[[[[f64; 2]; 4]; 3]; 2]; 3] = [
         ],
     ],
 ];
-pub(super) const REF_AMPLITUDE: [[[[[f64; 2]; 4]; 3]; 2]; 3] = [
+pub(crate) const REF_AMPLITUDE: [[[[[f64; 2]; 4]; 3]; 2]; 3] = [
     [
         [
             [

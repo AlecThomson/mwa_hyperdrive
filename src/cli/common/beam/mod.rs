@@ -91,6 +91,14 @@ pub(crate) struct EveryBeamArgs {
     #[clap(long, help_heading = "BEAM (EVERYBEAM)")]
     #[serde(default)]
     pub(crate) everybeam_frequency_interpolation: bool,
+
+    /// The spacing of the frequencies at which EveryBeam is evaluated when
+    /// modelling, e.g. 1.28MHz or 500kHz (a number without a unit is in Hz).
+    /// Responses are splined in frequency to the fine channels. 0 evaluates
+    /// EveryBeam at every fine channel, which is exact but much slower.
+    /// Default: 1.28MHz
+    #[clap(long, help_heading = "BEAM (EVERYBEAM)")]
+    pub(crate) everybeam_knot_spacing: Option<String>,
 }
 
 #[cfg(feature = "everybeam")]
@@ -111,10 +119,11 @@ impl EveryBeamArgs {
                 || other.everybeam_subband_frequency,
             everybeam_frequency_interpolation: self.everybeam_frequency_interpolation
                 || other.everybeam_frequency_interpolation,
+            everybeam_knot_spacing: self.everybeam_knot_spacing.or(other.everybeam_knot_spacing),
         }
     }
 
-    fn into_options(self) -> EveryBeamOptions {
+    fn into_options(self) -> Result<EveryBeamOptions, BeamError> {
         let Self {
             everybeam_element_model,
             everybeam_mode,
@@ -124,8 +133,27 @@ impl EveryBeamArgs {
             everybeam_data_column,
             everybeam_subband_frequency,
             everybeam_frequency_interpolation,
+            everybeam_knot_spacing,
         } = self;
-        EveryBeamOptions {
+        let knot_spacing_hz = everybeam_knot_spacing
+            .map(|s| -> Result<f64, BeamError> {
+                let (value, unit) = crate::unit_parsing::parse_freq(&s).map_err(|e| {
+                    BeamError::EveryBeam(format!("Couldn't parse --everybeam-knot-spacing: {e}"))
+                })?;
+                let hz = match unit {
+                    None | Some(crate::unit_parsing::FreqFormat::Hz) => value,
+                    Some(crate::unit_parsing::FreqFormat::kHz) => value * 1e3,
+                    Some(crate::unit_parsing::FreqFormat::MHz) => value * 1e6,
+                };
+                if hz < 0.0 || !hz.is_finite() {
+                    return Err(BeamError::EveryBeam(format!(
+                        "--everybeam-knot-spacing must not be negative (got {s})"
+                    )));
+                }
+                Ok(hz)
+            })
+            .transpose()?;
+        Ok(EveryBeamOptions {
             element_response_model: everybeam_element_model,
             beam_mode: everybeam_mode,
             beam_normalisation_mode: Some(
@@ -136,7 +164,8 @@ impl EveryBeamArgs {
             field_id: everybeam_field_id.unwrap_or(0),
             use_subband_frequency: everybeam_subband_frequency,
             frequency_interpolation: everybeam_frequency_interpolation,
-        }
+            knot_spacing_hz,
+        })
     }
 }
 
@@ -268,7 +297,7 @@ impl BeamArgs {
             BeamType::EveryBeam => {
                 debug!("Setting up an EveryBeam object");
                 printer.push_line("Type: EveryBeam".into());
-                let options = everybeam.into_options();
+                let options = everybeam.into_options()?;
                 let ms = telescope_ms.ok_or(BeamError::NeedsBeamMs)?;
                 printer.push_line(format!("Telescope measurement set: {}", ms.display()).into());
                 let describe = |name: &str, v: Option<&str>| -> String {
@@ -282,6 +311,19 @@ impl BeamArgs {
                 if let Some(p) = options.coeff_path.as_ref() {
                     printer.push_line(format!("Coefficients: {}", p.display()).into());
                 }
+                printer.push_line(
+                    match options
+                        .knot_spacing_hz
+                        .unwrap_or(crate::beam::BEAM_KNOT_SPACING_HZ)
+                    {
+                        s if s > 0.0 => format!(
+                            "Evaluated every {} kHz and splined to the fine channels",
+                            s / 1e3
+                        ),
+                        _ => "Evaluated at every fine channel".to_string(),
+                    }
+                    .into(),
+                );
                 let beam = EveryBeam::new(ms, Some(total_num_tiles), options)?;
                 printer.push_line(format!("Stations: {}", beam.get_num_tiles()).into());
                 Box::new(beam)

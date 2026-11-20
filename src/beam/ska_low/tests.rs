@@ -13,9 +13,14 @@ use marlu::{c64, precession::precess_time, AzEl, Jones, RADec, XyzGeocentric};
 
 use super::*;
 
+// EveryBeam's reference responses for the test measurement set. (They
+// don't need EveryBeam itself, so they're also used without it.)
+#[cfg(not(feature = "everybeam"))]
 #[path = "../everybeam/reference.rs"]
 #[allow(dead_code)]
 mod reference;
+#[cfg(feature = "everybeam")]
+use crate::beam::everybeam::reference;
 use reference::*;
 
 const MS: &str = "test_files/everybeam/mini.ms";
@@ -219,4 +224,75 @@ fn transposed_phased_array_cells() {
     }
     // Station 2's flagged X elements survive the transpose.
     assert_eq!(transposed.stations[2].weights_x[5], 0.0);
+}
+
+/// How well does splining from knots on a frequency grid reproduce an SKA-Low
+/// station beam (256 elements across 38 m) evaluated at every fine channel?
+/// The station's sidelobes change with frequency much faster than an MWA
+/// tile's, so this measures the error at increasing angles from the
+/// pointing centre (zenith), for several knot spacings.
+#[test]
+fn ska_low_station_knot_spline_error() {
+    use mwa_hyperbeam::ska::SkaLowAnalytic;
+
+    use crate::beam::{beam_knots_on_grid_with_spacing, BeamFreqSpline};
+
+    // A 256-element Vogel spiral of radius 19 m, like an SKA-Low station.
+    let positions: Vec<[f64; 3]> = (0..256)
+        .map(|i| {
+            let r = 19.0 * ((i as f64 + 0.5) / 256.0).sqrt();
+            let a = i as f64 * 2.399963229728653;
+            [r * a.cos(), r * a.sin(), 0.0]
+        })
+        .collect();
+    let station = SkaStation::new(SkaLowAnalytic::new(), positions, None).unwrap();
+    // 10 kHz fine channels over 20 MHz.
+    let freqs: Vec<f64> = (0..2000).map(|i| 150e6 + 10e3 * i as f64).collect();
+    let lat = -0.4660608448386394;
+    let peak = station
+        .calc_jones_pair(0.0, 0.0, 150e6, 0.0, 0.0, Some(lat), false)
+        .unwrap()
+        .iter()
+        .map(|c| c.norm())
+        .fold(0.0, f64::max);
+    for (paz, pza) in [(0.0, 0.0), (1.0, 0.6)] {
+        let respond = |f: f64, za: f64| {
+            station
+                .calc_jones_pair(paz + 0.3, za, f, paz, pza, Some(lat), false)
+                .unwrap()
+        };
+        for (spacing_hz, max_allowed) in [(1.28e6, 1e-4), (0.64e6, 1e-5), (0.32e6, 1e-6)] {
+            let knots = beam_knots_on_grid_with_spacing(&freqs, 2, spacing_hz);
+            let spline = BeamFreqSpline::new(knots.clone(), &freqs);
+            let s = spline.second_derivs.as_ref().unwrap();
+            let mut worst: f64 = 0.0;
+            let mut line = format!(
+            "pointing za {pza} rad, knots every {} kHz: max |spline - exact| / peak by zenith angle:",
+            spacing_hz / 1e3
+        );
+            for za_deg in [5.0f64, 15.0, 30.0, 45.0, 60.0, 75.0] {
+                let za = za_deg.to_radians();
+                let at_knots: Vec<Jones<f64>> = knots.iter().map(|&f| respond(f, za)).collect();
+                let mut err: f64 = 0.0;
+                for (&f, &(lo, hi, [a, b, c, d])) in freqs.iter().zip(&spline.interp) {
+                    let m = |i: usize| {
+                        let mut j = Jones::default();
+                        for (k, &w) in s.row(i).iter().enumerate() {
+                            j += at_knots[k] * w;
+                        }
+                        j
+                    };
+                    let interp = at_knots[lo] * a + at_knots[hi] * b + m(lo) * c + m(hi) * d;
+                    let exact = respond(f, za);
+                    for k in 0..4 {
+                        err = err.max((interp[k] - exact[k]).norm() / peak);
+                    }
+                }
+                line += &format!(" {za_deg}°: {err:.1e}");
+                worst = worst.max(err);
+            }
+            eprintln!("{line}");
+            assert!(worst < max_allowed, "{line}");
+        }
+    }
 }

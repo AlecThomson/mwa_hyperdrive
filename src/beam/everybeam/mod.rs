@@ -36,7 +36,7 @@
 //!   the phase centre corrected (e.g. by DP3's applybeam).
 
 #[cfg(test)]
-mod reference;
+pub(crate) mod reference;
 #[cfg(test)]
 mod tests;
 
@@ -56,7 +56,9 @@ use serde::{Deserialize, Serialize};
 
 use everybeam_sys as ffi;
 
-use super::{Beam, BeamError, BeamTime, BeamType};
+use super::{
+    beam_knots_on_grid_with_spacing, Beam, BeamError, BeamTime, BeamType, BEAM_KNOT_SPACING_HZ,
+};
 
 #[cfg(any(feature = "cuda", feature = "hip"))]
 use super::{BeamGpu, DevicePointer, GpuFloat};
@@ -64,12 +66,20 @@ use super::{BeamGpu, DevicePointer, GpuFloat};
 /// The size of the buffers used to receive error messages from the shim.
 const ERR_LEN: usize = 1024;
 
-/// The number of directions given to EveryBeam per call. Each call is
-/// independent and is given to a rayon thread.
+/// The number of directions and frequencies given to EveryBeam per call (for
+/// one station). Each call is independent and is given to a rayon thread, and
+/// makes its own point-response object (which takes a lock and converts
+/// coordinates for the time), so calls shouldn't be too small.
 const DIRECTION_CHUNK_SIZE: usize = 64;
+const FREQ_CHUNK_SIZE: usize = 16;
+
+/// The number of beam knots beyond each end of the band (see
+/// [`Beam::get_beam_knots`]), so that the spline's end conditions are applied
+/// away from the channels being modelled.
+const NUM_GUARD_KNOTS: usize = 2;
 
 /// Options for EveryBeam. Any options that aren't set use EveryBeam's defaults.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct EveryBeamOptions {
     /// The element response model, e.g. "default", "hamaker", "lobes",
     /// "oskar_dipole", "oskar_spherical_wave", "skala40_wave", "skalow_feko".
@@ -97,6 +107,13 @@ pub struct EveryBeamOptions {
 
     /// Interpolate the beam over frequency (MWA only).
     pub frequency_interpolation: bool,
+
+    /// The spacing \[Hz\] of the frequencies at which EveryBeam is evaluated
+    /// when modelling; the responses are splined to the fine channels (see
+    /// [`Beam::get_beam_knots`]). `None` means the default
+    /// ([`BEAM_KNOT_SPACING_HZ`]); 0 means every fine channel (no splining).
+    #[serde(default)]
+    pub knot_spacing_hz: Option<f64>,
 }
 
 /// casacore's table system is not thread safe, so telescopes are loaded (and
@@ -414,37 +431,50 @@ impl EveryBeamInner {
                 .cast::<f64>(),
         );
 
-        ras.par_chunks(DIRECTION_CHUNK_SIZE)
-            .zip(decs.par_chunks(DIRECTION_CHUNK_SIZE))
-            .enumerate()
-            .try_for_each(|(i_chunk, (ras, decs))| {
-                let out = &out;
-                let mut err = [0 as c_char; ERR_LEN];
-                let status = unsafe {
-                    ffi::eb_point_responses(
-                        self.telescope.0.as_ptr(),
-                        time_mjd_s,
-                        self.options.field_id,
-                        ras.as_ptr(),
-                        decs.as_ptr(),
-                        ras.len(),
-                        freqs_hz.as_ptr(),
-                        freqs_hz.len(),
-                        stations.as_ptr(),
-                        stations.len(),
-                        out.0.add(8 * i_chunk * DIRECTION_CHUNK_SIZE),
-                        station_stride,
-                        freq_stride,
-                        err.as_mut_ptr(),
-                        ERR_LEN,
-                    )
-                };
-                if status == 0 {
-                    Ok(())
-                } else {
-                    Err(BeamError::EveryBeam(err_to_string(&err)))
-                }
-            })?;
+        // Work is split into blocks of (directions, one station,
+        // frequencies), each given to EveryBeam in one call (which makes its
+        // own point-response object) and run in parallel. Blocks write to
+        // disjoint parts of `results`. (With few directions, e.g. one
+        // source, parallelising over directions alone used one thread.)
+        let num_dir_chunks = num_directions.div_ceil(DIRECTION_CHUNK_SIZE);
+        let num_freq_chunks = freqs_hz.len().div_ceil(FREQ_CHUNK_SIZE);
+        let num_blocks = num_dir_chunks * stations.len() * num_freq_chunks;
+        (0..num_blocks).into_par_iter().try_for_each(|i_block| {
+            let out = &out;
+            let i_dir_chunk = i_block % num_dir_chunks;
+            let i_freq_chunk = (i_block / num_dir_chunks) % num_freq_chunks;
+            let i_station = i_block / (num_dir_chunks * num_freq_chunks);
+            let d0 = i_dir_chunk * DIRECTION_CHUNK_SIZE;
+            let d1 = (d0 + DIRECTION_CHUNK_SIZE).min(num_directions);
+            let f0 = i_freq_chunk * FREQ_CHUNK_SIZE;
+            let f1 = (f0 + FREQ_CHUNK_SIZE).min(freqs_hz.len());
+            let mut err = [0 as c_char; ERR_LEN];
+            let status = unsafe {
+                ffi::eb_point_responses(
+                    self.telescope.0.as_ptr(),
+                    time_mjd_s,
+                    self.options.field_id,
+                    ras[d0..d1].as_ptr(),
+                    decs[d0..d1].as_ptr(),
+                    d1 - d0,
+                    freqs_hz[f0..f1].as_ptr(),
+                    f1 - f0,
+                    stations[i_station..].as_ptr(),
+                    1,
+                    out.0
+                        .add(8 * (i_station * station_stride + f0 * freq_stride + d0)),
+                    station_stride,
+                    freq_stride,
+                    err.as_mut_ptr(),
+                    ERR_LEN,
+                )
+            };
+            if status == 0 {
+                Ok(())
+            } else {
+                Err(BeamError::EveryBeam(err_to_string(&err)))
+            }
+        })?;
 
         results.mapv_inplace(swap_columns);
         Ok(())
@@ -566,6 +596,28 @@ impl Beam for EveryBeam {
 
     fn find_closest_freq(&self, desired_freq_hz: f64) -> f64 {
         desired_freq_hz
+    }
+
+    fn get_beam_knots(&self, freqs_hz: &[f64]) -> Vec<f64> {
+        // EveryBeam is defined at any frequency, but evaluating it at every
+        // fine channel is expensive (and the modellers' beam-response arrays
+        // scale with the number of knots), so evaluate it on a grid and spline
+        // to the fine channels, as for the analytic beams. A spacing of 0
+        // evaluates every fine channel.
+        match self
+            .inner
+            .options
+            .knot_spacing_hz
+            .unwrap_or(BEAM_KNOT_SPACING_HZ)
+        {
+            s if s > 0.0 => beam_knots_on_grid_with_spacing(freqs_hz, NUM_GUARD_KNOTS, s),
+            _ => {
+                let mut knots = freqs_hz.to_vec();
+                knots.sort_unstable_by(f64::total_cmp);
+                knots.dedup();
+                knots
+            }
+        }
     }
 
     fn empty_coeff_cache(&self) {}
