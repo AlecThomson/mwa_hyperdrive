@@ -438,6 +438,39 @@ impl SkaLowBeam {
                 });
             }
         }
+        // Vetoing (and ranking) sources only needs an approximate, normalised
+        // beam, and is done at many frequencies across the band; for the EEP
+        // models (whose data can be tens of gigabytes), use the analytic
+        // model with the same stations.
+        let veto_inner = match beam_type {
+            BeamType::SkaLowAnalytic => None,
+            _ => Some(Inner::new(
+                BeamType::SkaLowAnalytic,
+                HbSkaLowBeam::new_analytic(true),
+                layout.clone(),
+                ms,
+            )?),
+        };
+        let inner = Inner::new(beam_type, model, layout, ms)?;
+        Ok(SkaLowBeam {
+            veto: Some(Box::new(SkaLowBeam {
+                inner: veto_inner.unwrap_or_else(|| Arc::clone(&inner)),
+                normalised: true,
+                veto: None,
+            })),
+            inner,
+            normalised: false,
+        })
+    }
+}
+
+impl Inner {
+    fn new(
+        beam_type: BeamType,
+        model: HbSkaLowBeam,
+        layout: SkaLowLayout,
+        ms: &Path,
+    ) -> Result<Arc<Inner>, BeamError> {
         let model = Model(Arc::new(model));
         let stations = layout
             .stations
@@ -461,23 +494,14 @@ impl SkaLowBeam {
                 Ok(Station { x, y })
             })
             .collect::<Result<Vec<_>, SkaBeamError>>()?;
-        let inner = Arc::new(Inner {
+        Ok(Arc::new(Inner {
             beam_type,
             model,
             layout,
             stations,
             ms: ms.to_path_buf(),
             norms: Mutex::new(HashMap::new()),
-        });
-        Ok(SkaLowBeam {
-            inner: Arc::clone(&inner),
-            normalised: false,
-            veto: Some(Box::new(SkaLowBeam {
-                inner,
-                normalised: true,
-                veto: None,
-            })),
-        })
+        }))
     }
 }
 
@@ -705,6 +729,13 @@ struct SkaLowBeamGpu {
 impl SkaLowBeamGpu {
     fn new(inner: &Arc<Inner>, freqs_hz: &[u32]) -> Result<SkaLowBeamGpu, BeamError> {
         use mwa_hyperbeam::ska::SkaGpuTiles;
+
+        if inner.beam_type == BeamType::SkaLowEepSph {
+            log::info!(
+                "Reading the SKA-Low FEKO coefficients for {} frequencies onto the GPU (this can take a while)",
+                freqs_hz.len()
+            );
+        }
 
         let stations = &inner.layout.stations;
         let num_stations = stations.len();
